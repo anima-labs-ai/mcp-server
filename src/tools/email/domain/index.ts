@@ -1,0 +1,136 @@
+import { z } from "zod";
+import type { ToolRegistrationOptions } from "../../../shared/index.js";
+import {
+	withErrorHandling,
+	toolSuccess,
+	requireMasterKeyGuard,
+} from "../../../shared/index.js";
+
+const domainAddSchema = z.object({
+	domain: z
+		.string()
+		.describe("Domain name to add, such as mail.example.com or example.com."),
+});
+
+const domainIdSchema = z.object({
+	id: z.string().describe("Unique domain ID."),
+});
+
+const emptySchema = z.object({});
+
+export function registerDomainTools(options: ToolRegistrationOptions): void {
+	const { server } = options;
+
+	server.tool(
+		"domain_add",
+		"Add a custom sending domain to the workspace so it can be configured for email traffic. Use this before DNS setup and verification.",
+		domainAddSchema.shape,
+		withErrorHandling(async (args, context) => {
+			requireMasterKeyGuard(context);
+			const result = await context.client.post<unknown>("/domains", args);
+			return toolSuccess(result);
+		}, options.context),
+	);
+
+	server.tool(
+		"domain_verify",
+		"Trigger a verification check for a domain after DNS records are configured. Use this to re-run DNS validation and update verification status.",
+		domainIdSchema.shape,
+		withErrorHandling(async (args, context) => {
+			requireMasterKeyGuard(context);
+			const path = `/domains/${encodeURIComponent(args.id)}/verify`;
+			const result = await context.client.post<unknown>(path, {});
+			return toolSuccess(result);
+		}, options.context),
+	);
+
+	server.tool(
+		"domain_get",
+		"Fetch full details for a single domain, including verification and configuration state. Use this to inspect current domain health.",
+		domainIdSchema.shape,
+		withErrorHandling(async (args, context) => {
+			const path = `/domains/${encodeURIComponent(args.id)}`;
+			const result = await context.client.get<unknown>(path);
+			return toolSuccess(result);
+		}, options.context),
+	);
+
+	server.tool(
+		"domain_list",
+		"List all domains connected to the current workspace. Use this to audit configured sender domains and choose one for follow-up actions.",
+		emptySchema.shape,
+		withErrorHandling(async (_args, context) => {
+			const result = await context.client.get<unknown>("/domains");
+			return toolSuccess(result);
+		}, options.context),
+	);
+
+	server.tool(
+		"domain_delete",
+		"Delete a domain from the workspace when it is no longer needed. Use this to remove old or incorrect domain configurations.",
+		domainIdSchema.shape,
+		withErrorHandling(async (args, context) => {
+			requireMasterKeyGuard(context);
+			const path = `/domains/${encodeURIComponent(args.id)}`;
+			const result = await context.client.delete<unknown>(path);
+			return toolSuccess(result);
+		}, options.context),
+	);
+
+	server.tool(
+		"domain_dns_records",
+		"Get the exact DNS records required to complete domain onboarding. Use this to configure SPF, DKIM, MX, or verification entries at your DNS provider.",
+		domainIdSchema.shape,
+		withErrorHandling(async (args, context) => {
+			const path = `/domains/${encodeURIComponent(args.id)}/dns-records`;
+			const result = await context.client.get<unknown>(path);
+			return toolSuccess(result);
+		}, options.context),
+	);
+
+	const domainUpdateSchema = z.object({
+		id: z.string().describe("Unique domain ID."),
+		catchAll: z
+			.boolean()
+			.optional()
+			.describe("Enable or disable catch-all for this domain."),
+		autoVerify: z
+			.boolean()
+			.optional()
+			.describe("Enable or disable automatic verification."),
+	});
+
+	server.tool(
+		"domain_update",
+		"Update configuration for a domain, such as catch-all behavior or auto-verify settings. Use this to adjust domain behavior after initial setup.",
+		domainUpdateSchema.shape,
+		withErrorHandling(async (args, context) => {
+			const { id, ...payload } = args;
+			const path = `/domains/${encodeURIComponent(id)}`;
+			const result = await context.client.patch<unknown>(path, payload);
+			return toolSuccess(result);
+		}, options.context),
+	);
+
+	server.tool(
+		"domain_deliverability",
+		"Check domain deliverability diagnostics and readiness for outbound email. Use this to troubleshoot sending reputation or setup issues before campaigns.",
+		domainIdSchema.shape,
+		withErrorHandling(async (args, context) => {
+			const path = `/domains/${encodeURIComponent(args.id)}/deliverability`;
+			const result = await context.client.get<unknown>(path);
+			return toolSuccess(result);
+		}, options.context),
+	);
+
+	server.tool(
+		"domain_zone_file",
+		"Get the full DNS zone file for a domain. Use this for complete DNS export or to verify all records are correctly configured.",
+		domainIdSchema.shape,
+		withErrorHandling(async (args, context) => {
+			const path = `/domains/${encodeURIComponent(args.id)}/zone-file`;
+			const result = await context.client.get<unknown>(path);
+			return toolSuccess(result);
+		}, options.context),
+	);
+}
