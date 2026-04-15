@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "bun:test";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { createMcpHttpServer, type HttpTransportServer } from "../http.ts";
+import type { ApiClient } from "../../shared/index.js";
 
 const buildEmptyServer = (name: string) =>
   new McpServer({ name, version: "0.0.0" }, { capabilities: { tools: {} } });
@@ -12,10 +13,17 @@ describe("createMcpHttpServer path routing", () => {
   beforeAll(async () => {
     handle = createMcpHttpServer(
       {
-        "/agent": () => buildEmptyServer("agent"),
-        "/email": () => buildEmptyServer("email"),
+        "/agent": (_ctx) => buildEmptyServer("agent"),
+        "/email": (_ctx) => buildEmptyServer("email"),
       },
-      { port: 0 },
+      {
+        port: 0,
+        authenticate: async () => ({
+          apiKeyId: "test",
+          orgId: "test-org",
+          client: {} as ApiClient,
+        }),
+      },
     );
     await new Promise<void>((res) => handle.httpServer.listen(0, () => res()));
     const addr = handle.httpServer.address();
@@ -52,7 +60,11 @@ describe("createMcpHttpServer path routing", () => {
     };
     const r = await fetch(`${baseUrl}/agent`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream" },
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json, text/event-stream",
+        Authorization: "Bearer test",
+      },
       body: JSON.stringify(init),
     });
     expect(r.status).toBe(200);
@@ -73,7 +85,11 @@ describe("createMcpHttpServer path routing", () => {
     };
     const initRes = await fetch(`${baseUrl}/agent`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream" },
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json, text/event-stream",
+        Authorization: "Bearer test",
+      },
       body: JSON.stringify(init),
     });
     expect(initRes.status).toBe(200);

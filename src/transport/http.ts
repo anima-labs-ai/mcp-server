@@ -4,6 +4,7 @@ import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { randomUUID } from "node:crypto";
+import type { ApiClient } from "../shared/index.js";
 import { createSessionRegistry, type SessionRegistry, type SessionRegistryOptions } from "../shared/session-registry.js";
 import { createMcpRateLimiter, type McpRateLimiter, type McpRateLimiterOptions } from "../shared/rate-limiter.js";
 import { createCircuitBreaker, CircuitOpenError, type CircuitBreaker, type CircuitBreakerOptions } from "../shared/circuit-breaker.js";
@@ -52,6 +53,7 @@ interface McpSession {
 export interface McpAuthContext {
   apiKeyId: string;
   orgId: string;
+  client: ApiClient;
 }
 
 export interface McpAuthError {
@@ -64,7 +66,7 @@ export interface OAuthDiscovery {
   authServerUrl: string;
 }
 
-export type DomainFactories = Record<string, () => McpServer>;
+export type DomainFactories = Record<string, (authContext: McpAuthContext) => McpServer>;
 
 export interface HttpTransportOptions {
   port?: number;
@@ -321,7 +323,11 @@ export function createMcpHttpServer(
         return;
       }
 
-      const mcpServer = factory();
+      if (!authContext) {
+        jsonError(res, 500, "Server misconfigured: factories require authentication");
+        return;
+      }
+      const mcpServer = factory(authContext);
       const transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: () => randomUUID(),
         onsessioninitialized: (sid: string) => {
