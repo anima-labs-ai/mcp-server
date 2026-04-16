@@ -131,12 +131,23 @@ export function createMcpHttpServer(
       return;
     }
 
-    if (url.pathname === "/favicon.ico" || url.pathname === "/icon.png") {
+    // Icon paths. Covers every common convention so clients (Google's
+    // favicon crawler, direct favicon fetchers, Apple touch devices, PWAs)
+    // find the icon regardless of which path they probe.
+    // Cache is 24h rather than 1 week so clients that previously cached a
+    // 000/TLS-error result (before the cert was issued) can recover quickly.
+    if (
+      url.pathname === "/favicon.ico" ||
+      url.pathname === "/favicon.png" ||
+      url.pathname === "/icon.png" ||
+      url.pathname === "/apple-touch-icon.png" ||
+      url.pathname === "/apple-touch-icon-precomposed.png"
+    ) {
       res.writeHead(200, {
         ...CORS_HEADERS,
         "Content-Type": "image/png",
         "Content-Length": ICON_PNG_BUFFER.length,
-        "Cache-Control": "public, max-age=604800",
+        "Cache-Control": "public, max-age=86400",
       });
       res.end(ICON_PNG_BUFFER);
       return;
@@ -150,20 +161,56 @@ export function createMcpHttpServer(
 
     if (url.pathname === "/" && req.method === "GET") {
       const links = domainPaths.map((p) => `<li><code>${p}</code></li>`).join("");
+      // Enriched <link> set so Google's favicon crawler and other icon
+      // resolvers find a size appropriate to their surface. All entries
+      // return the same 96x96 PNG today; larger variants on console.useanima.sh
+      // are advertised for clients that follow absolute URLs.
       const html = `<!DOCTYPE html>
 <html lang="en"><head>
 <meta charset="utf-8">
 <title>Anima MCP</title>
-<link rel="icon" href="/favicon.ico">
+<meta name="description" content="Anima MCP Server — unified identity platform for autonomous agents. Tools for email, phone, SMS, cards, vault, and agent infrastructure.">
+<meta property="og:title" content="Anima MCP Server">
+<meta property="og:description" content="Unified identity platform for autonomous agents.">
+<meta property="og:image" content="https://console.useanima.sh/icon-512.png">
+<meta property="og:url" content="https://mcp.useanima.sh">
+<meta property="og:site_name" content="Anima">
+<link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" type="image/png" sizes="96x96" href="/icon.png">
-<link rel="apple-touch-icon" href="/icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="https://console.useanima.sh/icon-192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="https://console.useanima.sh/icon-512.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="canonical" href="https://mcp.useanima.sh/">
 </head><body>
 <h1>Anima MCP Server</h1>
 <p>This is an MCP (Model Context Protocol) server. Available domains:</p>
 <ul>${links}</ul>
+<p>Learn more at <a href="https://useanima.sh">useanima.sh</a>.</p>
 </body></html>`;
       res.writeHead(200, { ...CORS_HEADERS, "Content-Type": "text/html; charset=utf-8", "Cache-Control": "public, max-age=3600" });
       res.end(html);
+      return;
+    }
+
+    // Web App Manifest — lets Google's favicon crawler discover all icon
+    // sizes in one fetch, and identifies the installable PWA branding.
+    if (url.pathname === "/manifest.webmanifest") {
+      res.writeHead(200, { ...CORS_HEADERS, "Content-Type": "application/manifest+json", "Cache-Control": "public, max-age=86400" });
+      res.end(JSON.stringify({
+        name: "Anima MCP",
+        short_name: "Anima",
+        description: "Unified identity platform for autonomous agents.",
+        start_url: "/",
+        display: "standalone",
+        background_color: "#0b3d2e",
+        theme_color: "#0b3d2e",
+        icons: [
+          { src: "/icon.png", type: "image/png", sizes: "96x96" },
+          { src: "https://console.useanima.sh/icon-192.png", type: "image/png", sizes: "192x192" },
+          { src: "https://console.useanima.sh/icon-512.png", type: "image/png", sizes: "512x512" },
+        ],
+      }));
       return;
     }
 

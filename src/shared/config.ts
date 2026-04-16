@@ -28,15 +28,15 @@ const ANIMA_ICON_DATA_URI = `data:image/png;base64,${ANIMA_ICON_PNG_BASE64}`;
 /** Server metadata (not `as const` — MCP SDK expects mutable icon arrays) */
 export const SERVER_INFO = {
 	name: "anima-mcp",
+	title: "Anima",
 	version: "2.0.0",
 	description:
 		"Manage email, phone, SMS, webhooks, and agent infrastructure for AI agents directly from Claude. Anima is the unified identity platform for autonomous agents.",
+	websiteUrl: "https://useanima.sh",
 	icons: [
-		{
-			src: ANIMA_ICON_DATA_URI,
-			mimeType: "image/png",
-			sizes: ["96x96"],
-		},
+		// Order matters: clients that pick the first workable icon get the
+		// HTTPS URL (lazy-fetched, cached by client) before the inline data
+		// URI fallback. Largest size first — clients downscale as needed.
 		{
 			src: "https://console.useanima.sh/icon-512.png",
 			mimeType: "image/png",
@@ -46,6 +46,18 @@ export const SERVER_INFO = {
 			src: "https://console.useanima.sh/icon-192.png",
 			mimeType: "image/png",
 			sizes: ["192x192"],
+		},
+		{
+			src: "https://mcp.useanima.sh/icon.png",
+			mimeType: "image/png",
+			sizes: ["96x96"],
+		},
+		// Inline data URI as last-resort fallback so the icon is always
+		// available even if the client cannot fetch external URLs.
+		{
+			src: ANIMA_ICON_DATA_URI,
+			mimeType: "image/png",
+			sizes: ["96x96"],
 		},
 	],
 };
