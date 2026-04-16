@@ -9,6 +9,7 @@ import { buildEmailServer } from "./tools/email/factory.js";
 import { buildPhoneServer } from "./tools/phone/factory.js";
 import { buildPlatformServer } from "./tools/platform/factory.js";
 import { buildVaultServer } from "./tools/vault/factory.js";
+import { buildAllToolsServer } from "./tools/all/factory.js";
 
 export type UnifiedServerHandle = HttpTransportServer;
 
@@ -17,6 +18,10 @@ export async function buildUnifiedServer(opts: { port?: number } = {}): Promise<
   const authenticate = makeAuthenticator(config.apiUrl);
 
   const factories: DomainFactories = {
+    // Unified endpoint — all tools across every domain. This is the default
+    // URL for install docs and new user connections.
+    "/mcp":      (ctx) => buildAllToolsServer(ctx.client),
+    // Per-domain endpoints for scoped / tailored connections.
     "/agent":    (ctx) => buildAgentServer(ctx.client),
     "/cards":    (ctx) => buildCardsServer(ctx.client),
     "/email":    (ctx) => buildEmailServer(ctx.client),
@@ -42,7 +47,7 @@ async function main() {
     const addr = handle.httpServer.address();
     const port = typeof addr === "object" && addr ? addr.port : config.httpPort;
     console.error(`Anima MCP server running on http://localhost:${port}`);
-    console.error("Domains: /agent, /cards, /email, /phone, /platform, /vault");
+    console.error("Domains: /mcp (all), /agent, /cards, /email, /phone, /platform, /vault");
   });
 
   const shutdown = async () => { await handle.close(); process.exit(0); };

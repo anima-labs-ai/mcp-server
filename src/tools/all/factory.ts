@@ -1,0 +1,102 @@
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import {
+	SERVER_INFO as CORE_SERVER_INFO,
+	type ApiClient,
+	type ToolRegistrationOptions,
+} from "../../shared/index.js";
+
+// Agent domain
+import { registerAgentTools } from "../agent/agent/index.js";
+import { registerOrganizationTools } from "../agent/organization/index.js";
+import { registerIdentityTools } from "../agent/identity/index.js";
+import { registerRegistryTools } from "../agent/registry/index.js";
+import { registerA2aTools } from "../agent/a2a/index.js";
+
+// Cards domain
+import { registerCardTools } from "../cards/cards/index.js";
+import { registerWalletTools } from "../cards/wallet/index.js";
+import { registerFundingTools } from "../cards/funding/index.js";
+import { registerInvoiceTools } from "../cards/invoice/index.js";
+import { registerBrowserPaymentsTools } from "../cards/browser-payments/index.js";
+import { registerX402Tools } from "../cards/x402/index.js";
+
+// Email domain
+import { registerEmailTools } from "../email/email/index.js";
+import { registerMessageTools } from "../email/message/index.js";
+import { registerDomainTools } from "../email/domain/index.js";
+import { registerAddressTools } from "../email/address/index.js";
+
+// Phone domain
+import { registerPhoneTools } from "../phone/phone/index.js";
+import { registerVoiceTools } from "../phone/voice/index.js";
+
+// Platform domain
+import { registerUtilityTools } from "../platform/utility/index.js";
+import { registerWebhookTools } from "../platform/webhook/index.js";
+import { registerPodTools } from "../platform/pod/index.js";
+
+// Vault domain
+import { registerVaultTools } from "../vault/vault/index.js";
+import { registerSecurityTools } from "../vault/security/index.js";
+import { registerOAuthTools } from "../vault/vault/oauth.js";
+
+const SERVER_INFO = {
+	...CORE_SERVER_INFO,
+	name: "anima-mcp",
+	version: "0.1.0",
+	description:
+		"Anima MCP Server — unified endpoint exposing all Anima tools (agent, cards, email, phone, platform, vault).",
+};
+
+/**
+ * Registers every Anima tool group onto a single McpServer. Used by the
+ * `/mcp` endpoint that clients use for a one-URL install experience.
+ *
+ * For scoped / tailored access, clients can hit per-domain paths instead
+ * (/agent, /cards, /email, /phone, /platform, /vault) — each of those
+ * registers only that domain's tools.
+ */
+export function buildAllToolsServer(client: ApiClient): McpServer {
+	const server = new McpServer(SERVER_INFO, { capabilities: { tools: {} } });
+	const context: ToolRegistrationOptions = {
+		server,
+		context: { client, hasMasterKey: client.hasMasterKey() },
+	};
+
+	// Agent
+	registerAgentTools(context);
+	registerOrganizationTools(context);
+	registerIdentityTools(context);
+	registerRegistryTools(context);
+	registerA2aTools(context);
+
+	// Cards
+	registerCardTools(context);
+	registerWalletTools(context);
+	registerFundingTools(context);
+	registerInvoiceTools(context);
+	registerBrowserPaymentsTools(context);
+	registerX402Tools(context);
+
+	// Email
+	registerEmailTools(context);
+	registerMessageTools(context);
+	registerDomainTools(context);
+	registerAddressTools(context);
+
+	// Phone
+	registerPhoneTools(context);
+	registerVoiceTools(context);
+
+	// Platform
+	registerUtilityTools(context);
+	registerWebhookTools(context);
+	registerPodTools(context);
+
+	// Vault
+	registerVaultTools(context);
+	registerSecurityTools(context);
+	registerOAuthTools(context);
+
+	return server;
+}

@@ -19,15 +19,24 @@ describe("mcp-server e2e", () => {
     await handle.close();
   });
 
-  it("lists all 6 domains on /health", async () => {
+  it("lists /mcp plus all 6 scoped domains on /health", async () => {
     const r = await fetch(`${baseUrl}/health`);
     expect(r.status).toBe(200);
     const body = await r.json() as { domains: string[] };
-    expect(body.domains.slice().sort()).toEqual(["/agent", "/cards", "/email", "/phone", "/platform", "/vault"]);
+    expect(body.domains.slice().sort()).toEqual(["/agent", "/cards", "/email", "/mcp", "/phone", "/platform", "/vault"]);
   });
 
   it("401s unauthenticated initialize on /agent", async () => {
     const r = await fetch(`${baseUrl}/agent`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "t", version: "0" } } }),
+    });
+    expect(r.status).toBe(401);
+  });
+
+  it("401s unauthenticated initialize on /mcp (unified)", async () => {
+    const r = await fetch(`${baseUrl}/mcp`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream" },
       body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "t", version: "0" } } }),
