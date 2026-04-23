@@ -535,4 +535,89 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 			return toolSuccess(result);
 		}, options.context),
 	);
+
+	// -----------------------------------------------------------------------
+	// Zero-knowledge execution primitives (v0.5+)
+	//
+	// These tools match the CLI surface (am vault exec / audit / reload /
+	// unlock / proxy / agent). The contract is ORCHESTRATION-ONLY: the LLM
+	// names which credential goes where, but resolution and substitution
+	// happen in a trusted process (the CLI or daemon). Plaintext is never
+	// returned to the LLM.
+	// -----------------------------------------------------------------------
+
+	const vaultReloadSchema = z.object({
+		agentId: z.string().optional().describe("Agent ID whose snapshot should be reloaded. Optional with an agent API key."),
+	});
+	server.tool(
+		"vault_reload",
+		"Force the server-side vault snapshot to refresh from its backing store. Use after a secret has been rotated at the provider so the next access sees the new value. Atomic swap — last-known-good stays active if the refresh fails.",
+		vaultReloadSchema.shape,
+		withErrorHandling(async (args, context) => {
+			const result = await context.client.post<unknown>("/vault/reload", args);
+			return toolSuccess(result);
+		}, options.context),
+	);
+
+	const vaultPlanExecSchema = z.object({
+		agentId: z.string().optional().describe("Agent ID whose credentials to resolve. Optional with agent API key."),
+		command: z.string().describe("The command to run (e.g. 'node', 'python', './deploy.sh'). Never includes secrets."),
+		args: z.array(z.string()).optional().describe("Arguments to pass to the command. Must NOT contain plaintext secrets — use envBindings instead."),
+		envBindings: z
+			.record(z.string(), z.object({
+				credentialId: z.string(),
+				field: z.string().describe("Dotted path, e.g. 'login.password', 'apiKey.key'."),
+			}))
+			.describe(
+				"Map of env-var-name -> credential ref. The CLI resolves these and injects them into the child process env. The LLM never sees the resolved values.",
+			),
+	});
+	server.tool(
+		"vault_plan_exec",
+		"Plan a credential-injected subprocess run. Returns a plan the CLI (or orchestrator) can apply via `am vault exec` — the LLM describes which credentials go into which env vars, and a trusted local process does the resolution. This tool does NOT itself run anything; it's an orchestration primitive so the LLM can express intent without ever receiving plaintext.",
+		vaultPlanExecSchema.shape,
+		withErrorHandling(async (args, context) => {
+			const result = await context.client.post<unknown>("/vault/plan/exec", args);
+			return toolSuccess(result);
+		}, options.context),
+	);
+
+	const vaultPlanProxySchema = z.object({
+		agentId: z.string().optional().describe("Agent ID. Optional with agent API key."),
+		credentialId: z.string().describe("Credential ID to inject into outbound requests."),
+		field: z.string().default("apiKey.key").describe("Dotted field path to use as the secret value."),
+		allowHosts: z.array(z.string()).min(1).describe("Whitelist of hostnames the proxy may forward to. Required — refusing open proxies."),
+		header: z.string().default("Authorization").describe("Header name to inject (default: Authorization)."),
+		scheme: z.string().default("Bearer ").describe("Prefix for the header value (default: 'Bearer ')."),
+		ttlSeconds: z.number().int().positive().max(86400).default(3600).describe("How long the proxy authorization is valid."),
+	});
+	server.tool(
+		"vault_plan_proxy",
+		"Plan a local HTTPS proxy that injects a vault credential into outbound requests to an allowlist of hosts. Returns a planId the caller can pass to `am vault proxy --plan <id>`. The LLM specifies intent (which credential, which hosts, which header); a trusted local process does the injection. The LLM never receives the secret value.",
+		vaultPlanProxySchema.shape,
+		withErrorHandling(async (args, context) => {
+			const result = await context.client.post<unknown>("/vault/plan/proxy", args);
+			return toolSuccess(result);
+		}, options.context),
+	);
+
+	const vaultAuditQuerySchema = z.object({
+		agentId: z.string().optional().describe("Agent ID whose audit trail to query. Optional with agent API key."),
+		credentialId: z.string().optional().describe("Filter by credential."),
+		action: z
+			.enum(["access", "access_reveal", "create", "update", "delete", "share", "token_create", "token_exchange", "token_revoke"])
+			.optional()
+			.describe("Filter by audit action type."),
+		since: z.string().optional().describe("ISO-8601 timestamp — only return entries on or after this time."),
+		limit: z.number().int().positive().max(200).optional().default(50),
+	});
+	server.tool(
+		"vault_audit_query",
+		"Query the vault audit log for a credential or agent. Use this to surface every access (including plaintext reveals via master key) with timestamps and actor metadata. Safe for LLM consumption — the audit log itself contains no plaintext secrets.",
+		vaultAuditQuerySchema.shape,
+		withErrorHandling(async (args, context) => {
+			const result = await context.client.get<unknown>("/vault/audit", args as Record<string, unknown>);
+			return toolSuccess(result);
+		}, options.context),
+	);
 }
