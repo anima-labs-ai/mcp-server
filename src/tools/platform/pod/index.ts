@@ -15,7 +15,7 @@ const createPodSchema = z.object({
 		.describe("Name for the pod."),
 	image: z
 		.string()
-		.describe("Container image to run (e.g. 'node:20-alpine')."),
+		.describe("Container image to run (e.g. 'node:24-alpine')."),
 	resources: z
 		.object({
 			cpu: z.string().optional().describe("CPU allocation (e.g. '0.5', '1')."),
