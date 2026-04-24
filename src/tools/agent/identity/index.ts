@@ -27,30 +27,36 @@ const verifyCredentialSchema = z.object({
 export function registerIdentityTools(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
-	server.tool(
+	server.registerTool(
 		"get_did",
-		"Get the DID document for an agent. Use this to retrieve an agent's decentralized identifier.",
-		agentIdSchema.shape,
+		{
+			description: "Get the DID document for an agent. Use this to retrieve an agent's decentralized identifier.",
+			inputSchema: agentIdSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.get<unknown>(`/agents/${encodeURIComponent(args.agentId)}/did`);
 			return toolSuccess(result);
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"resolve_did",
-		"Resolve a DID to its DID document. Use this to look up any DID regardless of which agent owns it.",
-		resolveDidSchema.shape,
+		{
+			description: "Resolve a DID to its DID document. Use this to look up any DID regardless of which agent owns it.",
+			inputSchema: resolveDidSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.get<unknown>(`/identity/did/${encodeURIComponent(args.did)}`);
 			return toolSuccess(result);
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"rotate_keys",
-		"Rotate the cryptographic keys for an agent's DID. Use this to update key material for security.",
-		agentIdSchema.shape,
+		{
+			description: "Rotate the cryptographic keys for an agent's DID. Use this to update key material for security.",
+			inputSchema: agentIdSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			requireMasterKeyGuard(context);
 			const result = await context.client.post<unknown>(`/agents/${encodeURIComponent(args.agentId)}/did/rotate`);
@@ -58,30 +64,36 @@ export function registerIdentityTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"list_credentials",
-		"List all verifiable credentials for an agent. Use this to see what credentials an agent holds.",
-		agentIdSchema.shape,
+		{
+			description: "List all verifiable credentials for an agent. Use this to see what credentials an agent holds.",
+			inputSchema: agentIdSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.get<unknown>(`/agents/${encodeURIComponent(args.agentId)}/credentials`);
 			return toolSuccess(result);
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"verify_credential",
-		"Verify a JWT-encoded verifiable credential. Use this to check if a credential is valid and authentic.",
-		verifyCredentialSchema.shape,
+		{
+			description: "Verify a JWT-encoded verifiable credential. Use this to check if a credential is valid and authentic.",
+			inputSchema: verifyCredentialSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.post<unknown>("/identity/verify", { jwtVc: args.jwtVc });
 			return toolSuccess(result);
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"get_agent_card",
-		"Get the public agent card for an agent. Use this to retrieve the agent's public profile and capabilities.",
-		agentIdSchema.shape,
+		{
+			description: "Get the public agent card for an agent. Use this to retrieve the agent's public profile and capabilities.",
+			inputSchema: agentIdSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.get<unknown>(`/agents/${encodeURIComponent(args.agentId)}/card`);
 			return toolSuccess(result);

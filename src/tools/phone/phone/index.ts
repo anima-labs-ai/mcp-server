@@ -122,10 +122,12 @@ const phoneSendSmsSchema = z.object({
 export function registerPhoneTools(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
-	server.tool(
+	server.registerTool(
 		"phone_search",
-		"Search available phone numbers for provisioning by geography or digit pattern. Use this to find suitable numbers before provisioning.",
-		phoneSearchSchema.shape,
+		{
+			description: "Search available phone numbers for provisioning by geography or digit pattern. Use this to find suitable numbers before provisioning.",
+			inputSchema: phoneSearchSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const params = new URLSearchParams();
 			if (args.countryCode) params.set("countryCode", args.countryCode);
@@ -143,10 +145,12 @@ export function registerPhoneTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"phone_provision",
-		"Provision a selected phone number for the agent and assign optional capabilities. Use this after choosing a number from phone_search.",
-		phoneProvisionSchema.shape,
+		{
+			description: "Provision a selected phone number for the agent and assign optional capabilities. Use this after choosing a number from phone_search.",
+			inputSchema: phoneProvisionSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			requireMasterKeyGuard(context);
 			const body: Record<string, unknown> = { agentId: args.agentId };
@@ -158,10 +162,12 @@ export function registerPhoneTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"phone_release",
-		"Release a previously provisioned phone number so it is no longer assigned. Use this when cleaning up unused or temporary numbers.",
-		phoneReleaseSchema.shape,
+		{
+			description: "Release a previously provisioned phone number so it is no longer assigned. Use this when cleaning up unused or temporary numbers.",
+			inputSchema: phoneReleaseSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			requireMasterKeyGuard(context);
 			const result = await context.client.post<unknown>("/phone/release", args);
@@ -175,10 +181,12 @@ export function registerPhoneTools(options: ToolRegistrationOptions): void {
 			.describe("Agent ID whose phone numbers to list."),
 	});
 
-	server.tool(
+	server.registerTool(
 		"phone_list",
-		"List all phone numbers assigned to a specific agent. Use this to review active inventory and assigned capabilities.",
-		phoneListSchema.shape,
+		{
+			description: "List all phone numbers assigned to a specific agent. Use this to review active inventory and assigned capabilities.",
+			inputSchema: phoneListSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const params = new URLSearchParams({ agentId: args.agentId });
 			const result = await context.client.get<unknown>(`/phone/numbers?${params}`);
@@ -187,10 +195,12 @@ export function registerPhoneTools(options: ToolRegistrationOptions): void {
 	);
 
 
-	server.tool(
+	server.registerTool(
 		"phone_send_sms",
-		"Send an SMS or MMS message to a destination phone number. Use this for outbound notifications or conversational messaging.",
-		phoneSendSmsSchema.shape,
+		{
+			description: "Send an SMS or MMS message to a destination phone number. Use this for outbound notifications or conversational messaging.",
+			inputSchema: phoneSendSmsSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const body: Record<string, unknown> = {
 				agentId: args.agentId,
@@ -222,10 +232,12 @@ export function registerPhoneTools(options: ToolRegistrationOptions): void {
 			.describe("Filter by language code or prefix (e.g. 'en', 'en-US', 'fr-FR')."),
 	});
 
-	server.tool(
+	server.registerTool(
 		"voice_list_voices",
-		"List available voices for AI agent phone calls. Filter by tier (basic/premium), gender, or language. Use this to find the right voice for an agent's personality.",
-		voiceListSchema.shape,
+		{
+			description: "List available voices for AI agent phone calls. Filter by tier (basic/premium), gender, or language. Use this to find the right voice for an agent's personality.",
+			inputSchema: voiceListSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const params = new URLSearchParams();
 			if (args.tier) params.set("tier", args.tier);
@@ -246,10 +258,12 @@ export function registerPhoneTools(options: ToolRegistrationOptions): void {
 			.describe("Agent ID to check phone status for."),
 	});
 
-	server.tool(
+	server.registerTool(
 		"phone_status",
-		"Get a status-oriented view of provisioned numbers including capability flags. Use this to verify readiness and operational state for messaging workflows.",
-		phoneStatusSchema.shape,
+		{
+			description: "Get a status-oriented view of provisioned numbers including capability flags. Use this to verify readiness and operational state for messaging workflows.",
+			inputSchema: phoneStatusSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const params = new URLSearchParams({ agentId: args.agentId });
 			const result = await context.client.get<unknown>(`/phone/numbers?${params}`);

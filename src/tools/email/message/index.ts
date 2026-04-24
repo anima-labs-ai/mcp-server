@@ -133,10 +133,12 @@ export function registerMessageTools(options: ToolRegistrationOptions): void {
 		id: z.string().describe("Attachment ID."),
 	});
 
-	server.tool(
+	server.registerTool(
 		"message_send_email",
-		"Send an outbound email through the unified messaging API when your workflow should create a tracked message record. Use this for programmatic email delivery tied to an agent identity.",
-		messageSendEmailInput.shape,
+		{
+			description: "Send an outbound email through the unified messaging API when your workflow should create a tracked message record. Use this for programmatic email delivery tied to an agent identity.",
+			inputSchema: messageSendEmailInput.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const payload = {
 				agentId: args.agentId,
@@ -150,30 +152,36 @@ export function registerMessageTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"message_send_sms",
-		"Send an outbound SMS through the unified messaging API and return the created message record. Use this for transactional texts or agent-driven mobile messaging.",
-		messageSendSmsInput.shape,
+		{
+			description: "Send an outbound SMS through the unified messaging API and return the created message record. Use this for transactional texts or agent-driven mobile messaging.",
+			inputSchema: messageSendSmsInput.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.post("/messages/sms", args);
 			return toolSuccess(result);
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"message_get",
-		"Fetch a specific message by ID, including channel metadata and delivery status. Use this when a workflow needs to inspect one message in detail.",
-		messageGetInput.shape,
+		{
+			description: "Fetch a specific message by ID, including channel metadata and delivery status. Use this when a workflow needs to inspect one message in detail.",
+			inputSchema: messageGetInput.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.get(`/messages/${args.id}`);
 			return toolSuccess(result);
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"message_list",
-		"List messages with optional channel, direction, status, and pagination filters. Use this to browse recent traffic or build paged inbox/outbox views.",
-		messageListInput.shape,
+		{
+			description: "List messages with optional channel, direction, status, and pagination filters. Use this to browse recent traffic or build paged inbox/outbox views.",
+			inputSchema: messageListInput.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const params = new URLSearchParams();
 			if (args.channel) params.set("channel", args.channel);
@@ -189,20 +197,24 @@ export function registerMessageTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"message_search",
-		"Run full-text search across messages with optional channel and date constraints. Use this to locate prior conversations or audit communication history quickly.",
-		messageSearchInput.shape,
+		{
+			description: "Run full-text search across messages with optional channel and date constraints. Use this to locate prior conversations or audit communication history quickly.",
+			inputSchema: messageSearchInput.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.post("/messages/search", args);
 			return toolSuccess(result);
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"message_semantic_search",
-		"Search messages by semantic similarity using embeddings rather than exact keyword matching. Use this to find conceptually related messages even when wording differs.",
-		messageSemanticSearchInput.shape,
+		{
+			description: "Search messages by semantic similarity using embeddings rather than exact keyword matching. Use this to find conceptually related messages even when wording differs.",
+			inputSchema: messageSemanticSearchInput.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.post("/messages/search/semantic", {
 				query: args.query,
@@ -214,10 +226,12 @@ export function registerMessageTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"conversation_search",
-		"Search conversation threads by topic by combining semantic message retrieval with thread grouping. Use this to discover related discussions rather than individual messages.",
-		conversationSearchInput.shape,
+		{
+			description: "Search conversation threads by topic by combining semantic message retrieval with thread grouping. Use this to discover related discussions rather than individual messages.",
+			inputSchema: conversationSearchInput.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const semanticResult = await context.client.post<{
 				results: Array<{
@@ -297,10 +311,12 @@ export function registerMessageTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"message_upload_attachment",
-		"Upload an attachment for an existing message by ID so downstream delivery or processing can reference the file. Use this when adding files after message creation.",
-		messageUploadAttachmentInput.shape,
+		{
+			description: "Upload an attachment for an existing message by ID so downstream delivery or processing can reference the file. Use this when adding files after message creation.",
+			inputSchema: messageUploadAttachmentInput.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const { messageId, ...body } = args;
 			const result = await context.client.post(
@@ -311,10 +327,12 @@ export function registerMessageTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"message_get_attachment",
-		"Retrieve a temporary download URL for a previously uploaded attachment. Use this when a client needs direct file access for preview or download.",
-		messageGetAttachmentInput.shape,
+		{
+			description: "Retrieve a temporary download URL for a previously uploaded attachment. Use this when a client needs direct file access for preview or download.",
+			inputSchema: messageGetAttachmentInput.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.get(`/attachments/${args.id}/download`);
 			return toolSuccess(result);

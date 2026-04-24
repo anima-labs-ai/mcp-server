@@ -80,33 +80,39 @@ export function registerWebhookTools(options: ToolRegistrationOptions): void {
 			.describe("Optional pagination cursor from a previous response."),
 	});
 
-	server.tool(
+	server.registerTool(
 		"Create Webhook",
-		"Create a new webhook endpoint with subscribed event types so external systems can receive Anima events. Use this when integrating downstream processors or automations.",
-		webhookCreateInput.shape,
-		{ readOnlyHint: false, destructiveHint: false },
+		{
+			description: "Create a new webhook endpoint with subscribed event types so external systems can receive Anima events. Use this when integrating downstream processors or automations.",
+			inputSchema: webhookCreateInput.shape,
+			annotations: { readOnlyHint: false, destructiveHint: false },
+		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.post("/webhooks", args);
 			return toolSuccess(result);
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"Get Webhook",
-		"Fetch full details for a specific webhook by ID, including URL, events, and status fields. Use this when validating an existing webhook configuration.",
-		webhookGetInput.shape,
-		{ readOnlyHint: true, destructiveHint: false },
+		{
+			description: "Fetch full details for a specific webhook by ID, including URL, events, and status fields. Use this when validating an existing webhook configuration.",
+			inputSchema: webhookGetInput.shape,
+			annotations: { readOnlyHint: true, destructiveHint: false },
+		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.get(`/webhooks/${args.id}`);
 			return toolSuccess(result);
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"Update Webhook",
-		"Update an existing webhook's URL, subscribed events, enabled state, or description. Use this when endpoint destinations or subscription behavior changes.",
-		webhookUpdateInput.shape,
-		{ readOnlyHint: false, destructiveHint: false },
+		{
+			description: "Update an existing webhook's URL, subscribed events, enabled state, or description. Use this when endpoint destinations or subscription behavior changes.",
+			inputSchema: webhookUpdateInput.shape,
+			annotations: { readOnlyHint: false, destructiveHint: false },
+		},
 		withErrorHandling(async (args, context) => {
 			const { id, enabled, ...rest } = args;
 			const payload = {
@@ -118,22 +124,26 @@ export function registerWebhookTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"Delete Webhook",
-		"Delete a webhook endpoint by ID so it no longer receives event deliveries. Use this when retiring integrations or removing invalid destinations.",
-		webhookDeleteInput.shape,
-		{ readOnlyHint: false, destructiveHint: true },
+		{
+			description: "Delete a webhook endpoint by ID so it no longer receives event deliveries. Use this when retiring integrations or removing invalid destinations.",
+			inputSchema: webhookDeleteInput.shape,
+			annotations: { readOnlyHint: false, destructiveHint: true },
+		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.delete(`/webhooks/${args.id}`);
 			return toolSuccess(result);
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"List Webhooks",
-		"List webhooks with optional agent scope and cursor pagination. Use this to audit currently configured endpoints across your workspace.",
-		webhookListInput.shape,
-		{ readOnlyHint: true, destructiveHint: false },
+		{
+			description: "List webhooks with optional agent scope and cursor pagination. Use this to audit currently configured endpoints across your workspace.",
+			inputSchema: webhookListInput.shape,
+			annotations: { readOnlyHint: true, destructiveHint: false },
+		},
 		withErrorHandling(async (args, context) => {
 			const params = new URLSearchParams();
 			if (args.agentId) params.set("agentId", args.agentId);
@@ -146,11 +156,13 @@ export function registerWebhookTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"Test Webhook",
-		"Trigger a test event delivery for a webhook to verify endpoint reachability and signature handling. Use this before enabling production event flows.",
-		webhookTestInput.shape,
-		{ readOnlyHint: false, destructiveHint: false },
+		{
+			description: "Trigger a test event delivery for a webhook to verify endpoint reachability and signature handling. Use this before enabling production event flows.",
+			inputSchema: webhookTestInput.shape,
+			annotations: { readOnlyHint: false, destructiveHint: false },
+		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.post(`/webhooks/${args.id}/test`, {
 				event: "message.received",
@@ -159,11 +171,13 @@ export function registerWebhookTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"List Webhook Deliveries",
-		"List delivery attempts for a specific webhook, including retry and response details when available. Use this to troubleshoot failed or delayed webhook calls.",
-		webhookListDeliveriesInput.shape,
-		{ readOnlyHint: true, destructiveHint: false },
+		{
+			description: "List delivery attempts for a specific webhook, including retry and response details when available. Use this to troubleshoot failed or delayed webhook calls.",
+			inputSchema: webhookListDeliveriesInput.shape,
+			annotations: { readOnlyHint: true, destructiveHint: false },
+		},
 		withErrorHandling(async (args, context) => {
 			const params = new URLSearchParams();
 			if (args.limit !== undefined) params.set("limit", String(args.limit));
@@ -180,11 +194,13 @@ export function registerWebhookTools(options: ToolRegistrationOptions): void {
 		id: z.string().describe("Webhook ID to test and re-enable."),
 	});
 
-	server.tool(
+	server.registerTool(
 		"Re-enable Webhook",
-		"Test a disabled webhook endpoint and re-enable it if the test delivery succeeds. Use this after fixing a webhook endpoint that was auto-disabled due to consecutive failures.",
-		webhookReenableInput.shape,
-		{ readOnlyHint: false, destructiveHint: false },
+		{
+			description: "Test a disabled webhook endpoint and re-enable it if the test delivery succeeds. Use this after fixing a webhook endpoint that was auto-disabled due to consecutive failures.",
+			inputSchema: webhookReenableInput.shape,
+			annotations: { readOnlyHint: false, destructiveHint: false },
+		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.post(`/webhooks/${args.id}/reenable`, {});
 			return toolSuccess(result);
@@ -195,11 +211,13 @@ export function registerWebhookTools(options: ToolRegistrationOptions): void {
 		id: z.string().describe("Webhook ID to get delivery statistics for."),
 	});
 
-	server.tool(
+	server.registerTool(
 		"Webhook Stats",
-		"Get aggregate delivery statistics for a webhook, including total deliveries, success rate, and failure counts. Use this for monitoring webhook health.",
-		webhookStatsInput.shape,
-		{ readOnlyHint: true, destructiveHint: false },
+		{
+			description: "Get aggregate delivery statistics for a webhook, including total deliveries, success rate, and failure counts. Use this for monitoring webhook health.",
+			inputSchema: webhookStatsInput.shape,
+			annotations: { readOnlyHint: true, destructiveHint: false },
+		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.get(`/webhooks/${args.id}/stats`);
 			return toolSuccess(result);

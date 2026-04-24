@@ -84,10 +84,12 @@ const updateRegistrySchema = z.object({
 export function registerRegistryTools(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
-	server.tool(
+	server.registerTool(
 		"register_agent",
-		"Register an agent in the public registry for discovery. Use this to make an agent discoverable by other agents.",
-		registerAgentSchema.shape,
+		{
+			description: "Register an agent in the public registry for discovery. Use this to make an agent discoverable by other agents.",
+			inputSchema: registerAgentSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			requireMasterKeyGuard(context);
 			const result = await context.client.post<unknown>("/registry/agents", args);
@@ -95,10 +97,12 @@ export function registerRegistryTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"search_registry",
-		"Search the agent registry to discover agents. Use this to find agents by name, description, or category.",
-		searchRegistrySchema.shape,
+		{
+			description: "Search the agent registry to discover agents. Use this to find agents by name, description, or category.",
+			inputSchema: searchRegistrySchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const params = new URLSearchParams();
 			params.set("q", args.query);
@@ -108,20 +112,24 @@ export function registerRegistryTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"lookup_agent",
-		"Look up a specific agent in the registry by DID. Use this to get full details about a registered agent.",
-		didSchema.shape,
+		{
+			description: "Look up a specific agent in the registry by DID. Use this to get full details about a registered agent.",
+			inputSchema: didSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.get<unknown>(`/registry/agents/${encodeURIComponent(args.did)}`);
 			return toolSuccess(result);
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"update_registry",
-		"Update an agent's registry entry. Use this to change the public profile of a registered agent.",
-		updateRegistrySchema.shape,
+		{
+			description: "Update an agent's registry entry. Use this to change the public profile of a registered agent.",
+			inputSchema: updateRegistrySchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			requireMasterKeyGuard(context);
 			const { did, ...body } = args;
@@ -130,10 +138,12 @@ export function registerRegistryTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"unlist_agent",
-		"Remove an agent from the public registry. Use this to make an agent no longer discoverable.",
-		didSchema.shape,
+		{
+			description: "Remove an agent from the public registry. Use this to make an agent no longer discoverable.",
+			inputSchema: didSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			requireMasterKeyGuard(context);
 			const result = await context.client.delete<unknown>(`/registry/agents/${encodeURIComponent(args.did)}`);

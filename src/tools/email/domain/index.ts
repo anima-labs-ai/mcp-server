@@ -21,10 +21,12 @@ const emptySchema = z.object({});
 export function registerDomainTools(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
-	server.tool(
+	server.registerTool(
 		"domain_add",
-		"Add a custom sending domain to the workspace so it can be configured for email traffic. Use this before DNS setup and verification.",
-		domainAddSchema.shape,
+		{
+			description: "Add a custom sending domain to the workspace so it can be configured for email traffic. Use this before DNS setup and verification.",
+			inputSchema: domainAddSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			requireMasterKeyGuard(context);
 			const result = await context.client.post<unknown>("/domains", args);
@@ -32,10 +34,12 @@ export function registerDomainTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"domain_verify",
-		"Trigger a verification check for a domain after DNS records are configured. Use this to re-run DNS validation and update verification status.",
-		domainIdSchema.shape,
+		{
+			description: "Trigger a verification check for a domain after DNS records are configured. Use this to re-run DNS validation and update verification status.",
+			inputSchema: domainIdSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			requireMasterKeyGuard(context);
 			const path = `/domains/${encodeURIComponent(args.id)}/verify`;
@@ -44,10 +48,12 @@ export function registerDomainTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"domain_get",
-		"Fetch full details for a single domain, including verification and configuration state. Use this to inspect current domain health.",
-		domainIdSchema.shape,
+		{
+			description: "Fetch full details for a single domain, including verification and configuration state. Use this to inspect current domain health.",
+			inputSchema: domainIdSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const path = `/domains/${encodeURIComponent(args.id)}`;
 			const result = await context.client.get<unknown>(path);
@@ -55,20 +61,24 @@ export function registerDomainTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"domain_list",
-		"List all domains connected to the current workspace. Use this to audit configured sender domains and choose one for follow-up actions.",
-		emptySchema.shape,
+		{
+			description: "List all domains connected to the current workspace. Use this to audit configured sender domains and choose one for follow-up actions.",
+			inputSchema: emptySchema.shape,
+		},
 		withErrorHandling(async (_args, context) => {
 			const result = await context.client.get<unknown>("/domains");
 			return toolSuccess(result);
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"domain_delete",
-		"Delete a domain from the workspace when it is no longer needed. Use this to remove old or incorrect domain configurations.",
-		domainIdSchema.shape,
+		{
+			description: "Delete a domain from the workspace when it is no longer needed. Use this to remove old or incorrect domain configurations.",
+			inputSchema: domainIdSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			requireMasterKeyGuard(context);
 			const path = `/domains/${encodeURIComponent(args.id)}`;
@@ -77,10 +87,12 @@ export function registerDomainTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"domain_dns_records",
-		"Get the exact DNS records required to complete domain onboarding. Use this to configure SPF, DKIM, MX, or verification entries at your DNS provider.",
-		domainIdSchema.shape,
+		{
+			description: "Get the exact DNS records required to complete domain onboarding. Use this to configure SPF, DKIM, MX, or verification entries at your DNS provider.",
+			inputSchema: domainIdSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const path = `/domains/${encodeURIComponent(args.id)}/dns-records`;
 			const result = await context.client.get<unknown>(path);
@@ -100,10 +112,12 @@ export function registerDomainTools(options: ToolRegistrationOptions): void {
 			.describe("Enable or disable automatic verification."),
 	});
 
-	server.tool(
+	server.registerTool(
 		"domain_update",
-		"Update configuration for a domain, such as catch-all behavior or auto-verify settings. Use this to adjust domain behavior after initial setup.",
-		domainUpdateSchema.shape,
+		{
+			description: "Update configuration for a domain, such as catch-all behavior or auto-verify settings. Use this to adjust domain behavior after initial setup.",
+			inputSchema: domainUpdateSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const { id, ...payload } = args;
 			const path = `/domains/${encodeURIComponent(id)}`;
@@ -112,10 +126,12 @@ export function registerDomainTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"domain_deliverability",
-		"Check domain deliverability diagnostics and readiness for outbound email. Use this to troubleshoot sending reputation or setup issues before campaigns.",
-		domainIdSchema.shape,
+		{
+			description: "Check domain deliverability diagnostics and readiness for outbound email. Use this to troubleshoot sending reputation or setup issues before campaigns.",
+			inputSchema: domainIdSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const path = `/domains/${encodeURIComponent(args.id)}/deliverability`;
 			const result = await context.client.get<unknown>(path);
@@ -123,10 +139,12 @@ export function registerDomainTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"domain_zone_file",
-		"Get the full DNS zone file for a domain. Use this for complete DNS export or to verify all records are correctly configured.",
-		domainIdSchema.shape,
+		{
+			description: "Get the full DNS zone file for a domain. Use this for complete DNS export or to verify all records are correctly configured.",
+			inputSchema: domainIdSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const path = `/domains/${encodeURIComponent(args.id)}/zone-file`;
 			const result = await context.client.get<unknown>(path);

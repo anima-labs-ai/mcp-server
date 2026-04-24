@@ -64,10 +64,12 @@ const reconcilePaymentsSchema = z.object({
 export function registerInvoiceTools(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
-	server.tool(
+	server.registerTool(
 		"invoice_process",
-		"Process a detected invoice — validate fields, confirm the invoice, and optionally create a payee-locked card. Use dry_run=true to preview without making changes.",
-		processInvoiceSchema.shape,
+		{
+			description: "Process a detected invoice — validate fields, confirm the invoice, and optionally create a payee-locked card. Use dry_run=true to preview without making changes.",
+			inputSchema: processInvoiceSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const shouldConfirm = args.confirm ?? false;
 			const shouldCreateCard = args.create_card ?? false;
@@ -114,10 +116,12 @@ export function registerInvoiceTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"invoice_auto_pay",
-		"Trigger auto-payment for a confirmed invoice. Enqueues a payment job that will select the optimal payment path (browser extension or direct API) and handle retries.",
-		autoPayInvoiceSchema.shape,
+		{
+			description: "Trigger auto-payment for a confirmed invoice. Enqueues a payment job that will select the optimal payment path (browser extension or direct API) and handle retries.",
+			inputSchema: autoPayInvoiceSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const dryRun = args.dry_run ?? true;
 			const invoicePath = `/invoices/${encodeURIComponent(args.invoice_id)}`;
@@ -152,10 +156,12 @@ export function registerInvoiceTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"invoice_reconcile",
-		"Match payment receipts against invoices using amount, time, vendor, and order ID signals. Returns confidence scores and auto-links high-confidence matches.",
-		reconcilePaymentsSchema.shape,
+		{
+			description: "Match payment receipts against invoices using amount, time, vendor, and order ID signals. Returns confidence scores and auto-links high-confidence matches.",
+			inputSchema: reconcilePaymentsSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const autoLinkThreshold = args.auto_link_threshold ?? 0.7;
 			const dryRun = args.dry_run ?? true;

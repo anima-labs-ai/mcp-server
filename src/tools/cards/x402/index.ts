@@ -23,10 +23,12 @@ export function registerX402Tools(
   const { server } = options;
   const x402Fetcher = dependencies.x402Fetcher ?? x402Fetch;
 
-  server.tool(
+  server.registerTool(
     "x402_fetch",
-    "Fetch an x402-protected resource using challenge-response settlement flow.",
-    x402FetchSchema.shape,
+    {
+      description: "Fetch an x402-protected resource using challenge-response settlement flow.",
+      inputSchema: x402FetchSchema.shape,
+    },
     withErrorHandling(async (args) => {
       const budgetAtomic =
         typeof args.budget_limit_cents === "number"

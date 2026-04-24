@@ -48,10 +48,12 @@ const orgListInput = z.object({
 function registerOrgCreateTool(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
-	server.tool(
+	server.registerTool(
 		"org_create",
-		"Create a new organization and return its details, including credentials when available. Use this when onboarding a new tenant and ensure a master key is configured.",
-		orgCreateInput.shape,
+		{
+			description: "Create a new organization and return its details, including credentials when available. Use this when onboarding a new tenant and ensure a master key is configured.",
+			inputSchema: orgCreateInput.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			requireMasterKeyGuard(context);
 			const result = await context.client.post("/orgs", args, {
@@ -65,10 +67,12 @@ function registerOrgCreateTool(options: ToolRegistrationOptions): void {
 function registerOrgGetTool(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
-	server.tool(
+	server.registerTool(
 		"org_get",
-		"Fetch one organization by ID. Use this to inspect current organization configuration and metadata.",
-		orgGetInput.shape,
+		{
+			description: "Fetch one organization by ID. Use this to inspect current organization configuration and metadata.",
+			inputSchema: orgGetInput.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.get(`/orgs/${args.id}`);
 			return toolSuccess(result);
@@ -79,10 +83,12 @@ function registerOrgGetTool(options: ToolRegistrationOptions): void {
 function registerOrgUpdateTool(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
-	server.tool(
+	server.registerTool(
 		"org_update",
-		"Update organization name or metadata fields. Use this when organization settings need to be corrected or renamed.",
-		orgUpdateInput.shape,
+		{
+			description: "Update organization name or metadata fields. Use this when organization settings need to be corrected or renamed.",
+			inputSchema: orgUpdateInput.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const { id, ...body } = args;
 			const result = await context.client.patch(`/orgs/${id}`, body);
@@ -94,10 +100,12 @@ function registerOrgUpdateTool(options: ToolRegistrationOptions): void {
 function registerOrgDeleteTool(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
-	server.tool(
+	server.registerTool(
 		"org_delete",
-		"Delete an organization permanently by ID. Use this only for irreversible cleanup and requires master key access.",
-		orgDeleteInput.shape,
+		{
+			description: "Delete an organization permanently by ID. Use this only for irreversible cleanup and requires master key access.",
+			inputSchema: orgDeleteInput.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			requireMasterKeyGuard(context);
 			const result = await context.client.delete(`/orgs/${args.id}`, {
@@ -111,10 +119,12 @@ function registerOrgDeleteTool(options: ToolRegistrationOptions): void {
 function registerOrgRotateKeyTool(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
-	server.tool(
+	server.registerTool(
 		"org_rotate_key",
-		"Rotate the API key for an organization and return the new credential material. Use this when keys are compromised or part of regular security rotation.",
-		orgRotateKeyInput.shape,
+		{
+			description: "Rotate the API key for an organization and return the new credential material. Use this when keys are compromised or part of regular security rotation.",
+			inputSchema: orgRotateKeyInput.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			requireMasterKeyGuard(context);
 			const result = await context.client.post(`/orgs/${args.id}/rotate-key`, undefined, {
@@ -128,10 +138,12 @@ function registerOrgRotateKeyTool(options: ToolRegistrationOptions): void {
 function registerOrgListTool(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
-	server.tool(
+	server.registerTool(
 		"org_list",
-		"List organizations with optional cursor pagination. Use this to browse all tenants and audit organization inventory; requires master key.",
-		orgListInput.shape,
+		{
+			description: "List organizations with optional cursor pagination. Use this to browse all tenants and audit organization inventory; requires master key.",
+			inputSchema: orgListInput.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			requireMasterKeyGuard(context);
 			const params = new URLSearchParams();

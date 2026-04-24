@@ -41,10 +41,12 @@ const cancelA2aTaskInput = z.object({
 function registerDiscoverAgentTool(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
-	server.tool(
+	server.registerTool(
 		"discover_agent",
-		"Fetch an agent's Agent Card from its well-known URL (/.well-known/agent.json). Use this to discover an agent's capabilities, supported task types, and endpoints before sending tasks.",
-		discoverAgentInput.shape,
+		{
+			description: "Fetch an agent's Agent Card from its well-known URL (/.well-known/agent.json). Use this to discover an agent's capabilities, supported task types, and endpoints before sending tasks.",
+			inputSchema: discoverAgentInput.shape,
+		},
 		withErrorHandling(async (args, _context) => {
 			const url = new URL("/.well-known/agent.json", args.url);
 			const res = await fetch(url.toString());
@@ -60,10 +62,12 @@ function registerDiscoverAgentTool(options: ToolRegistrationOptions): void {
 function registerSubmitA2aTaskTool(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
-	server.tool(
+	server.registerTool(
 		"submit_a2a_task",
-		"Submit a task to an agent via the A2A protocol. The agent will process the task asynchronously. Use discover_agent first to check supported task types.",
-		submitA2aTaskInput.shape,
+		{
+			description: "Submit a task to an agent via the A2A protocol. The agent will process the task asynchronously. Use discover_agent first to check supported task types.",
+			inputSchema: submitA2aTaskInput.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const { agentId, ...body } = args;
 			const result = await context.client.post(`/agents/${agentId}/a2a/tasks`, body);
@@ -75,10 +79,12 @@ function registerSubmitA2aTaskTool(options: ToolRegistrationOptions): void {
 function registerGetA2aTaskTool(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
-	server.tool(
+	server.registerTool(
 		"get_a2a_task",
-		"Get the current status and output of an A2A task. Use this to poll for task completion after submitting a task.",
-		getA2aTaskInput.shape,
+		{
+			description: "Get the current status and output of an A2A task. Use this to poll for task completion after submitting a task.",
+			inputSchema: getA2aTaskInput.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.get(`/agents/${args.agentId}/a2a/tasks/${args.taskId}`);
 			return toolSuccess(result);
@@ -89,10 +95,12 @@ function registerGetA2aTaskTool(options: ToolRegistrationOptions): void {
 function registerListA2aTasksTool(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
-	server.tool(
+	server.registerTool(
 		"list_a2a_tasks",
-		"List A2A tasks for an agent with optional status filtering and pagination. Use this to see all tasks submitted to or by an agent.",
-		listA2aTasksInput.shape,
+		{
+			description: "List A2A tasks for an agent with optional status filtering and pagination. Use this to see all tasks submitted to or by an agent.",
+			inputSchema: listA2aTasksInput.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const params = new URLSearchParams();
 			if (args.status) params.set("status", args.status);
@@ -109,10 +117,12 @@ function registerListA2aTasksTool(options: ToolRegistrationOptions): void {
 function registerCancelA2aTaskTool(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
-	server.tool(
+	server.registerTool(
 		"cancel_a2a_task",
-		"Cancel a running A2A task. The task must be in SUBMITTED or WORKING status to be cancelable.",
-		cancelA2aTaskInput.shape,
+		{
+			description: "Cancel a running A2A task. The task must be in SUBMITTED or WORKING status to be cancelable.",
+			inputSchema: cancelA2aTaskInput.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.post(`/agents/${args.agentId}/a2a/tasks/${args.taskId}/cancel`);
 			return toolSuccess(result);

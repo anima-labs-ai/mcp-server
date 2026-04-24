@@ -80,10 +80,12 @@ const listHoldsSchema = z.object({
 export function registerFundingTools(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
-	server.tool(
+	server.registerTool(
 		"funding_create_source",
-		"Register a card funding source using Stripe payment method and customer IDs.",
-		createSourceSchema.shape,
+		{
+			description: "Register a card funding source using Stripe payment method and customer IDs.",
+			inputSchema: createSourceSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.post<unknown>("/funding/sources", {
 				paymentMethodId: args.payment_method_id,
@@ -98,10 +100,12 @@ export function registerFundingTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"funding_list_sources",
-		"List funding sources for the current organization, optionally filtered by status.",
-		listSourcesSchema.shape,
+		{
+			description: "List funding sources for the current organization, optionally filtered by status.",
+			inputSchema: listSourcesSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const params = new URLSearchParams();
 			if (args.status) params.set("status", args.status);
@@ -111,10 +115,12 @@ export function registerFundingTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"funding_create_hold",
-		"Create a pre-authorization hold on a funding source for later capture.",
-		createHoldSchema.shape,
+		{
+			description: "Create a pre-authorization hold on a funding source for later capture.",
+			inputSchema: createHoldSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.post<unknown>("/funding/holds", {
 				fundingSourceId: args.funding_source_id,
@@ -129,10 +135,12 @@ export function registerFundingTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"funding_capture_hold",
-		"Capture part or all of an existing funding hold.",
-		captureHoldSchema.shape,
+		{
+			description: "Capture part or all of an existing funding hold.",
+			inputSchema: captureHoldSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const path = `/funding/holds/${encodeURIComponent(args.hold_id)}/capture`;
 			const result = await context.client.post<unknown>(path, {
@@ -143,10 +151,12 @@ export function registerFundingTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"funding_release_hold",
-		"Release an existing funding hold and cancel remaining capturable amount.",
-		releaseHoldSchema.shape,
+		{
+			description: "Release an existing funding hold and cancel remaining capturable amount.",
+			inputSchema: releaseHoldSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const path = `/funding/holds/${encodeURIComponent(args.hold_id)}/release`;
 			const result = await context.client.post<unknown>(path, {
@@ -157,10 +167,12 @@ export function registerFundingTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"funding_get_hold",
-		"Get details for a specific funding hold by ID.",
-		holdIdSchema.shape,
+		{
+			description: "Get details for a specific funding hold by ID.",
+			inputSchema: holdIdSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const path = `/funding/holds/${encodeURIComponent(args.hold_id)}`;
 			const result = await context.client.get<unknown>(path);
@@ -168,10 +180,12 @@ export function registerFundingTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"funding_list_holds",
-		"List funding holds for the current organization with optional filters.",
-		listHoldsSchema.shape,
+		{
+			description: "List funding holds for the current organization with optional filters.",
+			inputSchema: listHoldsSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const params = new URLSearchParams();
 			if (args.funding_source_id) params.set("fundingSourceId", args.funding_source_id);

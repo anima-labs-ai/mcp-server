@@ -136,10 +136,12 @@ export function registerSecurityTools(options: ToolRegistrationOptions): void {
 			.describe("Optional intended channel, such as EMAIL or SMS."),
 	});
 
-	server.tool(
+	server.registerTool(
 		"security_approve",
-		"Approve or reject a message that is waiting in pending-review state. Use this to unblock compliant outbound content or explicitly reject risky messages.",
-		securityApproveInput.shape,
+		{
+			description: "Approve or reject a message that is waiting in pending-review state. Use this to unblock compliant outbound content or explicitly reject risky messages.",
+			inputSchema: securityApproveInput.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			requireMasterKeyGuard(context);
 			const result = await context.client.post(
@@ -154,10 +156,12 @@ export function registerSecurityTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"security_list_events",
-		"List security events for an organization with optional agent and event-type filters. Use this for incident triage, compliance review, and audit timelines.",
-		securityListEventsInput.shape,
+		{
+			description: "List security events for an organization with optional agent and event-type filters. Use this for incident triage, compliance review, and audit timelines.",
+			inputSchema: securityListEventsInput.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const params = new URLSearchParams();
 			if (args.agentId) params.set("agentId", args.agentId);
@@ -172,10 +176,12 @@ export function registerSecurityTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"security_get_policy",
-		"Fetch the active security policy for an agent, including scan level and domain constraints. Use this before changing enforcement behavior or diagnosing blocked messages.",
-		securityGetPolicyInput.shape,
+		{
+			description: "Fetch the active security policy for an agent, including scan level and domain constraints. Use this before changing enforcement behavior or diagnosing blocked messages.",
+			inputSchema: securityGetPolicyInput.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.get(
 				`/v1/orgs/${args.orgId}/agents/${args.agentId}/security-policy`,
@@ -184,10 +190,12 @@ export function registerSecurityTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"security_update_policy",
-		"Update an agent security policy to tune scanning strictness, domain allow-lists, and blocking patterns. Use this to harden or relax outbound message controls.",
-		securityUpdatePolicyInput.shape,
+		{
+			description: "Update an agent security policy to tune scanning strictness, domain allow-lists, and blocking patterns. Use this to harden or relax outbound message controls.",
+			inputSchema: securityUpdatePolicyInput.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			requireMasterKeyGuard(context);
 			const { orgId, agentId, ...policy } = args;
@@ -204,10 +212,12 @@ export function registerSecurityTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"security_scan_content",
-		"Dry-run scan message content for likely PII or injection issues without sending any outbound message. Use this as a preflight safety check before calling message send tools.",
-		securityScanContentInput.shape,
+		{
+			description: "Dry-run scan message content for likely PII or injection issues without sending any outbound message. Use this as a preflight safety check before calling message send tools.",
+			inputSchema: securityScanContentInput.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			let recentEvents: unknown = [];
 			try {

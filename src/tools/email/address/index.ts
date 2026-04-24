@@ -117,10 +117,12 @@ const validateAddressSchema = z.object({
 export function registerAddressTools(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
-	server.tool(
+	server.registerTool(
 		"create_address",
-		"Create a new postal address for an agent. Use this to register billing, shipping, mailing, or registered addresses.",
-		createAddressSchema.shape,
+		{
+			description: "Create a new postal address for an agent. Use this to register billing, shipping, mailing, or registered addresses.",
+			inputSchema: createAddressSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			requireMasterKeyGuard(context);
 			const result = await context.client.post<unknown>("/addresses", args);
@@ -128,10 +130,12 @@ export function registerAddressTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"list_addresses",
-		"List all addresses for an agent, optionally filtered by type. Use this to review the agent's registered addresses.",
-		listAddressesSchema.shape,
+		{
+			description: "List all addresses for an agent, optionally filtered by type. Use this to review the agent's registered addresses.",
+			inputSchema: listAddressesSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const params = new URLSearchParams();
 			params.set("agentId", args.agentId);
@@ -142,10 +146,12 @@ export function registerAddressTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"get_address",
-		"Get full details for a specific address by ID. Use this to inspect a single address record.",
-		getAddressSchema.shape,
+		{
+			description: "Get full details for a specific address by ID. Use this to inspect a single address record.",
+			inputSchema: getAddressSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const path = `/addresses/${encodeURIComponent(args.id)}?agentId=${encodeURIComponent(args.agentId)}`;
 			const result = await context.client.get<unknown>(path);
@@ -153,10 +159,12 @@ export function registerAddressTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"update_address",
-		"Update fields on an existing address. Use this to correct or change address details.",
-		updateAddressSchema.shape,
+		{
+			description: "Update fields on an existing address. Use this to correct or change address details.",
+			inputSchema: updateAddressSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			requireMasterKeyGuard(context);
 			const { id, ...body } = args;
@@ -166,10 +174,12 @@ export function registerAddressTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"delete_address",
-		"Delete an address from an agent. Use this to remove addresses that are no longer needed.",
-		deleteAddressSchema.shape,
+		{
+			description: "Delete an address from an agent. Use this to remove addresses that are no longer needed.",
+			inputSchema: deleteAddressSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			requireMasterKeyGuard(context);
 			const path = `/addresses/${encodeURIComponent(args.id)}`;
@@ -178,10 +188,12 @@ export function registerAddressTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"validate_address",
-		"Validate an existing address against postal standards. Use this to verify address accuracy before shipping or official registration.",
-		validateAddressSchema.shape,
+		{
+			description: "Validate an existing address against postal standards. Use this to verify address accuracy before shipping or official registration.",
+			inputSchema: validateAddressSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const path = `/addresses/${encodeURIComponent(args.id)}/validate`;
 			const result = await context.client.post<unknown>(path, { agentId: args.agentId });

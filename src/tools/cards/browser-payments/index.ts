@@ -28,10 +28,12 @@ const fillAddressSchema = z.object({
 export function registerBrowserPaymentsTools(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
-	server.tool(
+	server.registerTool(
 		"browser_detect_checkout",
-		"Detect checkout forms on the current browser page.",
-		detectCheckoutSchema.shape,
+		{
+			description: "Detect checkout forms on the current browser page.",
+			inputSchema: detectCheckoutSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.post<unknown>("/internal/extension/tool-call", {
 				tool: "detect_checkout",
@@ -41,10 +43,12 @@ export function registerBrowserPaymentsTools(options: ToolRegistrationOptions): 
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"browser_pay_checkout",
-		"Execute payment on a detected checkout form.",
-		payCheckoutSchema.shape,
+		{
+			description: "Execute payment on a detected checkout form.",
+			inputSchema: payCheckoutSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.post<unknown>("/internal/extension/tool-call", {
 				tool: "pay_checkout",
@@ -54,10 +58,12 @@ export function registerBrowserPaymentsTools(options: ToolRegistrationOptions): 
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"browser_fill_card",
-		"Fill card details into checkout form fields.",
-		fillCardSchema.shape,
+		{
+			description: "Fill card details into checkout form fields.",
+			inputSchema: fillCardSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.post<unknown>("/internal/extension/tool-call", {
 				tool: "fill_card",
@@ -67,10 +73,12 @@ export function registerBrowserPaymentsTools(options: ToolRegistrationOptions): 
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"browser_fill_address",
-		"Fill billing or shipping address into checkout form fields.",
-		fillAddressSchema.shape,
+		{
+			description: "Fill billing or shipping address into checkout form fields.",
+			inputSchema: fillAddressSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.post<unknown>("/internal/extension/tool-call", {
 				tool: "fill_address",

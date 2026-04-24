@@ -23,16 +23,18 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 
 	// ── voice_catalog ──
 
-	server.tool(
+	server.registerTool(
 		"voice_catalog",
-		"List available AI voices for phone calls. Filter by tier (basic for low-latency, premium for natural voices), gender, or language. Returns voice IDs needed for voice_create_call.",
 		{
+			description: "List available AI voices for phone calls. Filter by tier (basic for low-latency, premium for natural voices), gender, or language. Returns voice IDs needed for voice_create_call.",
+			inputSchema: {
 			tier: z.enum(["basic", "premium"]).optional()
 				.describe("Filter by pricing tier."),
 			gender: z.enum(["male", "female", "neutral"]).optional()
 				.describe("Filter by voice gender."),
 			language: z.string().optional()
 				.describe("Filter by language code (e.g. 'en-US', 'fr-FR')."),
+		},
 		},
 		withErrorHandling(async (args, context) => {
 			const params = new URLSearchParams();
@@ -47,10 +49,11 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 
 	// ── voice_create_call ──
 
-	server.tool(
+	server.registerTool(
 		"voice_create_call",
-		"Initiate an outbound voice call from an agent. The agent must have a provisioned phone number. Returns a callId — connect via WebSocket for real-time conversation.",
 		{
+			description: "Initiate an outbound voice call from an agent. The agent must have a provisioned phone number. Returns a callId — connect via WebSocket for real-time conversation.",
+			inputSchema: {
 			agentId: z.string().optional()
 				.describe("Agent ID to call from (defaults to current agent if using agent key)."),
 			to: z.string()
@@ -59,6 +62,7 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 				.describe("Voice quality tier (default: basic)."),
 			fromNumber: z.string().optional()
 				.describe("Source number to call from (defaults to agent's primary number)."),
+		},
 		},
 		withErrorHandling(async (args, context) => {
 			const body: Record<string, unknown> = { to: args.to };
@@ -72,10 +76,11 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 
 	// ── voice_list_calls ──
 
-	server.tool(
+	server.registerTool(
 		"voice_list_calls",
-		"List voice calls with optional filters. Returns call history with status, direction, duration, and tier info.",
 		{
+			description: "List voice calls with optional filters. Returns call history with status, direction, duration, and tier info.",
+			inputSchema: {
 			agentId: z.string().optional()
 				.describe("Filter by agent ID."),
 			direction: z.enum(["INBOUND", "OUTBOUND"]).optional()
@@ -86,6 +91,7 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 				.describe("Max results (default: 20)."),
 			offset: z.number().int().nonnegative().optional()
 				.describe("Offset for pagination."),
+		},
 		},
 		withErrorHandling(async (args, context) => {
 			const params = new URLSearchParams();
@@ -102,12 +108,14 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 
 	// ── voice_get_call ──
 
-	server.tool(
+	server.registerTool(
 		"voice_get_call",
-		"Get detailed information about a specific voice call including status, duration, participants, and tier.",
 		{
+			description: "Get detailed information about a specific voice call including status, duration, participants, and tier.",
+			inputSchema: {
 			callId: z.string()
 				.describe("The call ID to retrieve."),
+		},
 		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.get<unknown>(`/voice/calls/${args.callId}`);
@@ -117,12 +125,14 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 
 	// ── voice_get_transcript ──
 
-	server.tool(
+	server.registerTool(
 		"voice_get_transcript",
-		"Get the full transcript of a voice call with speaker labels, timestamps, and confidence scores. Available after the call ends and transcription completes.",
 		{
+			description: "Get the full transcript of a voice call with speaker labels, timestamps, and confidence scores. Available after the call ends and transcription completes.",
+			inputSchema: {
 			callId: z.string()
 				.describe("The call ID to get the transcript for."),
+		},
 		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.get<unknown>(`/voice/calls/${args.callId}/transcript`);
@@ -132,12 +142,14 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 
 	// ── voice_get_recording ──
 
-	server.tool(
+	server.registerTool(
 		"voice_get_recording",
-		"Get a time-limited download URL for a call recording (WAV format). The URL expires after 1 hour. Recording must have been enabled during the call.",
 		{
+			description: "Get a time-limited download URL for a call recording (WAV format). The URL expires after 1 hour. Recording must have been enabled during the call.",
+			inputSchema: {
 			callId: z.string()
 				.describe("The call ID to get the recording for."),
+		},
 		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.get<unknown>(`/voice/calls/${args.callId}/recording`);
@@ -147,12 +159,14 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 
 	// ── voice_get_summary ──
 
-	server.tool(
+	server.registerTool(
 		"voice_get_summary",
-		"Get an AI-generated summary of a call including one-liner, topics, action items, decisions, open questions, next steps, intent, and outcome. Available after post-call processing completes.",
 		{
+			description: "Get an AI-generated summary of a call including one-liner, topics, action items, decisions, open questions, next steps, intent, and outcome. Available after post-call processing completes.",
+			inputSchema: {
 			callId: z.string()
 				.describe("The call ID to get the summary for."),
+		},
 		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.get<unknown>(`/voice/calls/${args.callId}/summary`);
@@ -162,12 +176,14 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 
 	// ── voice_get_score ──
 
-	server.tool(
+	server.registerTool(
 		"voice_get_score",
-		"Get the quality score of a call with composite score (0-100), sub-scores (resolution, sentiment, efficiency, engagement, latency, compliance), and detailed metrics (speaking time, dead air, response latency).",
 		{
+			description: "Get the quality score of a call with composite score (0-100), sub-scores (resolution, sentiment, efficiency, engagement, latency, compliance), and detailed metrics (speaking time, dead air, response latency).",
+			inputSchema: {
 			callId: z.string()
 				.describe("The call ID to get the score for."),
+		},
 		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.get<unknown>(`/voice/calls/${args.callId}/score`);
@@ -177,10 +193,11 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 
 	// ── voice_search_calls ──
 
-	server.tool(
+	server.registerTool(
 		"voice_search_calls",
-		"Semantic search across all call transcripts using natural language. Uses vector similarity to find relevant call segments. Great for finding specific conversations or topics discussed.",
 		{
+			description: "Semantic search across all call transcripts using natural language. Uses vector similarity to find relevant call segments. Great for finding specific conversations or topics discussed.",
+			inputSchema: {
 			query: z.string()
 				.describe("Natural language search query (e.g. 'billing dispute', 'product demo')."),
 			agentId: z.string().optional()
@@ -193,6 +210,7 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 				.describe("Max results (default: 10)."),
 			threshold: z.number().min(0).max(1).optional()
 				.describe("Similarity threshold 0-1 (default: 0.7). Lower = more results."),
+		},
 		},
 		withErrorHandling(async (args, context) => {
 			const body: Record<string, unknown> = { query: args.query };
@@ -208,12 +226,14 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 
 	// ── voice_get_security_scan ──
 
-	server.tool(
+	server.registerTool(
 		"voice_get_security_scan",
-		"Get security scan results for a call including detected threats (PII leakage, prompt injection, social engineering), compliance pass/fail, and risk score (0-100). Available after post-call security analysis.",
 		{
+			description: "Get security scan results for a call including detected threats (PII leakage, prompt injection, social engineering), compliance pass/fail, and risk score (0-100). Available after post-call security analysis.",
+			inputSchema: {
 			callId: z.string()
 				.describe("The call ID to get security scan results for."),
+		},
 		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.get<unknown>(`/voice/calls/${args.callId}/security`);

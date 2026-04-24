@@ -358,10 +358,12 @@ const templateSendSchema = z.object({
 export function registerEmailTools(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
-	server.tool(
+	server.registerTool(
 		"email_send",
-		"Send a new outbound email from the agent mailbox. Use this when you need to compose and deliver a message with optional CC, threading headers.",
-		emailSendSchema.shape,
+		{
+			description: "Send a new outbound email from the agent mailbox. Use this when you need to compose and deliver a message with optional CC, threading headers.",
+			inputSchema: emailSendSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const body: Record<string, unknown> = {
 				agentId: args.agentId,
@@ -379,10 +381,12 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"email_get",
-		"Retrieve one specific email by ID, including metadata and body fields. Use this before replying, forwarding, or inspecting message details.",
-		emailGetSchema.shape,
+		{
+			description: "Retrieve one specific email by ID, including metadata and body fields. Use this before replying, forwarding, or inspecting message details.",
+			inputSchema: emailGetSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const path = `/email/${encodeURIComponent(args.id)}`;
 			const result = await context.client.get<unknown>(path);
@@ -390,10 +394,12 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"email_list",
-		"List emails in inbox or another folder with pagination controls. Use this to browse recent messages and mailbox contents.",
-		emailListSchema.shape,
+		{
+			description: "List emails in inbox or another folder with pagination controls. Use this to browse recent messages and mailbox contents.",
+			inputSchema: emailListSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const params = new URLSearchParams();
 			if (args.folder) params.set("folder", args.folder);
@@ -406,10 +412,12 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"email_reply",
-		"Reply to an existing email thread by first loading the original message and setting threading headers. Use this when you need a proper in-thread response.",
-		emailReplySchema.shape,
+		{
+			description: "Reply to an existing email thread by first loading the original message and setting threading headers. Use this when you need a proper in-thread response.",
+			inputSchema: emailReplySchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			requireMasterKeyGuard(context);
 
@@ -472,10 +480,12 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"email_forward",
-		"Forward an existing email to another recipient by loading the original content first. Use this to share a prior message while preserving context.",
-		emailForwardSchema.shape,
+		{
+			description: "Forward an existing email to another recipient by loading the original content first. Use this to share a prior message while preserving context.",
+			inputSchema: emailForwardSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const originalPath = `/email/${encodeURIComponent(args.originalId)}`;
 			const originalData = await context.client.get<unknown>(originalPath);
@@ -519,20 +529,24 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"email_search",
-		"Search mailbox messages by query text and structured filters like sender, recipient, subject, and date bounds. Use this to locate specific conversations quickly.",
-		emailSearchSchema.shape,
+		{
+			description: "Search mailbox messages by query text and structured filters like sender, recipient, subject, and date bounds. Use this to locate specific conversations quickly.",
+			inputSchema: emailSearchSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.post<unknown>("/messages/search", args);
 			return toolSuccess(result);
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"inbox_digest",
-		"Generate a compact digest of recent inbox messages with sender, subject, date, and snippet. Use this for quick triage without opening each email.",
-		inboxDigestSchema.shape,
+		{
+			description: "Generate a compact digest of recent inbox messages with sender, subject, date, and snippet. Use this for quick triage without opening each email.",
+			inputSchema: inboxDigestSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const params = new URLSearchParams();
 			if (args.limit !== undefined) params.set("limit", String(args.limit));
@@ -582,10 +596,12 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"email_mark_read",
-		"Mark a specific email message as read by ID.",
-		emailMarkReadSchema.shape,
+		{
+			description: "Mark a specific email message as read by ID.",
+			inputSchema: emailMarkReadSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const path = `/email/${encodeURIComponent(args.id)}/read`;
 			const result = await context.client.post<unknown>(path, { id: args.id });
@@ -593,10 +609,12 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"email_mark_unread",
-		"Mark a specific email message as unread by ID.",
-		emailMarkUnreadSchema.shape,
+		{
+			description: "Mark a specific email message as unread by ID.",
+			inputSchema: emailMarkUnreadSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const path = `/email/${encodeURIComponent(args.id)}/unread`;
 			const result = await context.client.post<unknown>(path, { id: args.id });
@@ -604,10 +622,12 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"batch_mark_read",
-		"Mark multiple email messages as read in one operation.",
-		batchMarkReadSchema.shape,
+		{
+			description: "Mark multiple email messages as read in one operation.",
+			inputSchema: batchMarkReadSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.post<unknown>("/email/batch/read", {
 				ids: args.ids,
@@ -616,10 +636,12 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"batch_mark_unread",
-		"Mark multiple email messages as unread in one operation.",
-		batchMarkUnreadSchema.shape,
+		{
+			description: "Mark multiple email messages as unread in one operation.",
+			inputSchema: batchMarkUnreadSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.post<unknown>("/email/batch/unread", {
 				ids: args.ids,
@@ -628,10 +650,12 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"batch_delete",
-		"Delete multiple emails at once.",
-		batchDeleteSchema.shape,
+		{
+			description: "Delete multiple emails at once.",
+			inputSchema: batchDeleteSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.post<unknown>("/email/batch/delete", {
 				ids: args.ids,
@@ -640,10 +664,12 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"batch_move",
-		"Move multiple emails to a specified folder.",
-		batchMoveSchema.shape,
+		{
+			description: "Move multiple emails to a specified folder.",
+			inputSchema: batchMoveSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.post<unknown>("/email/batch/move", {
 				ids: args.ids,
@@ -653,10 +679,12 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"email_move",
-		"Move a specific email message to a destination folder.",
-		emailMoveSchema.shape,
+		{
+			description: "Move a specific email message to a destination folder.",
+			inputSchema: emailMoveSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const path = `/email/${encodeURIComponent(args.id)}/move`;
 			const result = await context.client.post<unknown>(path, {
@@ -667,10 +695,12 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"email_delete",
-		"Delete a specific email message by ID.",
-		emailDeleteSchema.shape,
+		{
+			description: "Delete a specific email message by ID.",
+			inputSchema: emailDeleteSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const path = `/email/${encodeURIComponent(args.id)}`;
 			const result = await context.client.delete<unknown>(path);
@@ -678,10 +708,12 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"manage_folders",
-		"List existing folders or create a new email folder.",
-		manageFoldersSchema.shape,
+		{
+			description: "List existing folders or create a new email folder.",
+			inputSchema: manageFoldersSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			switch (args.action) {
 				case "list": {
@@ -701,10 +733,12 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"manage_contacts",
-		"List, create, or delete contacts used for email workflows.",
-		manageContactsSchema.shape,
+		{
+			description: "List, create, or delete contacts used for email workflows.",
+			inputSchema: manageContactsSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			switch (args.action) {
 				case "list": {
@@ -733,10 +767,12 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"manage_templates",
-		"List, create, or delete email templates.",
-		manageTemplatesSchema.shape,
+		{
+			description: "List, create, or delete email templates.",
+			inputSchema: manageTemplatesSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			switch (args.action) {
 				case "list": {
@@ -768,10 +804,12 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"template_send",
-		"Send an email by rendering and dispatching a stored template.",
-		templateSendSchema.shape,
+		{
+			description: "Send an email by rendering and dispatching a stored template.",
+			inputSchema: templateSendSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const path = `/templates/${encodeURIComponent(args.templateId)}/send`;
 			const result = await context.client.post<unknown>(path, {

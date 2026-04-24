@@ -17,14 +17,16 @@ import { withErrorHandling, toolSuccess } from "../../../shared/index.js";
 export function registerOAuthTools(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
-	server.tool(
+	server.registerTool(
 		"vault_oauth_list_apps",
-		"List available OAuth services that agents can connect to. Shows service name, auth method, default scopes, and category. Use this to discover which services support managed authentication.",
 		{
+			description: "List available OAuth services that agents can connect to. Shows service name, auth method, default scopes, and category. Use this to discover which services support managed authentication.",
+			inputSchema: {
 			category: z
 				.string()
 				.optional()
 				.describe("Filter by category (productivity, developer, communication, crm, etc.)"),
+		},
 		},
 		withErrorHandling(async (args, context) => {
 			const params = new URLSearchParams();
@@ -37,10 +39,11 @@ export function registerOAuthTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"vault_oauth_create_link",
-		"Create a Connect Link — a hosted URL where a user can authenticate with an OAuth service. Share this link with the user; once they complete authentication, their tokens are stored securely in the vault.",
 		{
+			description: "Create a Connect Link — a hosted URL where a user can authenticate with an OAuth service. Share this link with the user; once they complete authentication, their tokens are stored securely in the vault.",
+			inputSchema: {
 			agentId: z
 				.string()
 				.optional()
@@ -61,6 +64,7 @@ export function registerOAuthTools(options: ToolRegistrationOptions): void {
 				.optional()
 				.describe("URL to redirect to after authentication completes."),
 		},
+		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.post<unknown>(
 				"/vault/oauth/link",
@@ -70,13 +74,15 @@ export function registerOAuthTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"vault_oauth_link_status",
-		"Check the status of a Connect Link. Poll this after creating a link to know when the user has completed authentication. Returns PENDING, COMPLETED, EXPIRED, or FAILED.",
 		{
+			description: "Check the status of a Connect Link. Poll this after creating a link to know when the user has completed authentication. Returns PENDING, COMPLETED, EXPIRED, or FAILED.",
+			inputSchema: {
 			token: z
 				.string()
 				.describe("The Connect Link token returned by vault_oauth_create_link."),
+		},
 		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.get<unknown>(
@@ -86,10 +92,11 @@ export function registerOAuthTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"vault_oauth_list_accounts",
-		"List all connected OAuth accounts for an agent, optionally filtered by user or service. Shows connection status, granted scopes, and token expiry.",
 		{
+			description: "List all connected OAuth accounts for an agent, optionally filtered by user or service. Shows connection status, granted scopes, and token expiry.",
+			inputSchema: {
 			agentId: z
 				.string()
 				.optional()
@@ -107,6 +114,7 @@ export function registerOAuthTools(options: ToolRegistrationOptions): void {
 				.optional()
 				.describe("Filter by connection status."),
 		},
+		},
 		withErrorHandling(async (args, context) => {
 			const params = new URLSearchParams();
 			if (args.agentId) params.set("agentId", args.agentId);
@@ -121,10 +129,11 @@ export function registerOAuthTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"vault_oauth_disconnect",
-		"Disconnect an OAuth account, revoking access and deleting stored tokens. Use this when an agent no longer needs access to a service.",
 		{
+			description: "Disconnect an OAuth account, revoking access and deleting stored tokens. Use this when an agent no longer needs access to a service.",
+			inputSchema: {
 			agentId: z
 				.string()
 				.optional()
@@ -132,6 +141,7 @@ export function registerOAuthTools(options: ToolRegistrationOptions): void {
 			accountId: z
 				.string()
 				.describe("Connected account ID to disconnect."),
+		},
 		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.delete<unknown>(
@@ -141,10 +151,11 @@ export function registerOAuthTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"vault_oauth_require_auth",
-		"Check if a service is authenticated for an agent/user. If authenticated, returns the connected account. If not, generates and returns a Connect Link URL. Use this for inline auth — present the link to the user when they need to connect a service.",
 		{
+			description: "Check if a service is authenticated for an agent/user. If authenticated, returns the connected account. If not, generates and returns a Connect Link URL. Use this for inline auth — present the link to the user when they need to connect a service.",
+			inputSchema: {
 			agentId: z
 				.string()
 				.optional()
@@ -156,6 +167,7 @@ export function registerOAuthTools(options: ToolRegistrationOptions): void {
 			appSlug: z
 				.string()
 				.describe("Service slug to check (e.g. google, github, slack)."),
+		},
 		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.post<unknown>(

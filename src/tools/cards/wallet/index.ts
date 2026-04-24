@@ -88,10 +88,12 @@ const walletTransactionsSchema = z.object({
 export function registerWalletTools(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
-	server.tool(
+	server.registerTool(
 		"create_wallet",
-		"Create a new wallet for an agent. Use this to provision a payment wallet for agent-to-agent transactions.",
-		createWalletSchema.shape,
+		{
+			description: "Create a new wallet for an agent. Use this to provision a payment wallet for agent-to-agent transactions.",
+			inputSchema: createWalletSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			requireMasterKeyGuard(context);
 			const { agentId, ...body } = args;
@@ -100,20 +102,24 @@ export function registerWalletTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"get_wallet",
-		"Get wallet details for an agent including balance. Use this to check an agent's wallet status and balance.",
-		agentIdSchema.shape,
+		{
+			description: "Get wallet details for an agent including balance. Use this to check an agent's wallet status and balance.",
+			inputSchema: agentIdSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.get<unknown>(`/agents/${encodeURIComponent(args.agentId)}/wallet`);
 			return toolSuccess(result);
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"wallet_pay",
-		"Send a payment from an agent's wallet. Use this to transfer funds to another agent or address.",
-		walletPaySchema.shape,
+		{
+			description: "Send a payment from an agent's wallet. Use this to transfer funds to another agent or address.",
+			inputSchema: walletPaySchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			requireMasterKeyGuard(context);
 			const { agentId, ...body } = args;
@@ -122,10 +128,12 @@ export function registerWalletTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"wallet_x402_fetch",
-		"Fetch a URL with automatic x402 payment negotiation via the agent's wallet API. Use this to access paid APIs and content.",
-		x402FetchSchema.shape,
+		{
+			description: "Fetch a URL with automatic x402 payment negotiation via the agent's wallet API. Use this to access paid APIs and content.",
+			inputSchema: x402FetchSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			requireMasterKeyGuard(context);
 			const { agentId, ...body } = args;
@@ -134,10 +142,12 @@ export function registerWalletTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"wallet_transactions",
-		"List wallet transactions for an agent. Use this to review payment history.",
-		walletTransactionsSchema.shape,
+		{
+			description: "List wallet transactions for an agent. Use this to review payment history.",
+			inputSchema: walletTransactionsSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			const params = new URLSearchParams();
 			if (args.status) params.set("status", args.status);
@@ -148,10 +158,12 @@ export function registerWalletTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"freeze_wallet",
-		"Freeze an agent's wallet to prevent transactions. Use this to temporarily disable payments.",
-		agentIdSchema.shape,
+		{
+			description: "Freeze an agent's wallet to prevent transactions. Use this to temporarily disable payments.",
+			inputSchema: agentIdSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			requireMasterKeyGuard(context);
 			const result = await context.client.post<unknown>(`/agents/${encodeURIComponent(args.agentId)}/wallet/freeze`);
@@ -159,10 +171,12 @@ export function registerWalletTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.tool(
+	server.registerTool(
 		"unfreeze_wallet",
-		"Unfreeze an agent's wallet to re-enable transactions. Use this to restore payment capability.",
-		agentIdSchema.shape,
+		{
+			description: "Unfreeze an agent's wallet to re-enable transactions. Use this to restore payment capability.",
+			inputSchema: agentIdSchema.shape,
+		},
 		withErrorHandling(async (args, context) => {
 			requireMasterKeyGuard(context);
 			const result = await context.client.post<unknown>(`/agents/${encodeURIComponent(args.agentId)}/wallet/unfreeze`);
