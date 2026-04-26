@@ -97,3 +97,50 @@ export function requireMasterKeyGuard(context: ToolContext): void {
 		);
 	}
 }
+
+/**
+ * Register a tool under multiple names so the LLM can find it via either
+ * the namespaced canonical name (`email_send`) or natural-language verb
+ * forms (`send_email`). Only the canonical name's description appears
+ * verbatim; aliases get a "(alias of <canonical>)" suffix so the model
+ * understands they resolve to the same handler.
+ *
+ * Why aliases at all:
+ *   LLMs hallucinate tool names from common-sense templates. When the
+ *   user says "send an email", the model often emits `send_email` as
+ *   the call. With no alias, that call fails with "tool not found" and
+ *   the model has to retry. With the alias, it just works.
+ *
+ *   We pay a small cost in tool-list bloat (the names show up twice in
+ *   the catalog) but accept it because the alternative — model retries
+ *   on a wrong-name guess — costs more in latency and tokens per turn.
+ */
+// biome-ignore lint/suspicious/noExplicitAny: Mirrors McpServer.registerTool's overloaded signature; preserving stricter inference here would require copying ~80 lines of generics from the SDK.
+export function registerToolWithAliases(
+	server: McpServer,
+	canonical: string,
+	aliases: readonly string[],
+	config: {
+		description: string;
+		// biome-ignore lint/suspicious/noExplicitAny: Same — Zod-shape passthrough.
+		inputSchema: any;
+	},
+	// biome-ignore lint/suspicious/noExplicitAny: Same.
+	handler: any,
+): void {
+	server.registerTool(
+		canonical,
+		{ description: config.description, inputSchema: config.inputSchema },
+		handler,
+	);
+	for (const alias of aliases) {
+		server.registerTool(
+			alias,
+			{
+				description: `${config.description} (alias of \`${canonical}\`)`,
+				inputSchema: config.inputSchema,
+			},
+			handler,
+		);
+	}
+}

@@ -1,9 +1,10 @@
 import { z } from "zod";
 import type { ToolRegistrationOptions } from "../../../shared/index.js";
 import {
-	withErrorHandling,
-	toolSuccess,
+	registerToolWithAliases,
 	requireMasterKeyGuard,
+	toolSuccess,
+	withErrorHandling,
 } from "../../../shared/index.js";
 
 type UnknownRecord = Record<string, unknown>;
@@ -358,10 +359,13 @@ const templateSendSchema = z.object({
 export function registerEmailTools(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
-	server.registerTool(
+	registerToolWithAliases(
+		server,
 		"email_send",
+		["send_email", "anima.email.send"],
 		{
-			description: "Send a new outbound email from the agent mailbox. Use this when you need to compose and deliver a message with optional CC, threading headers.",
+			description:
+				"Send a new outbound email from the agent mailbox. Use this when you need to compose and deliver a message with optional CC, threading headers.",
 			inputSchema: emailSendSchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
@@ -381,26 +385,32 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.registerTool(
+	registerToolWithAliases(
+		server,
 		"email_get",
+		["get_email", "anima.email.get"],
 		{
-			description: "Retrieve one specific email by ID, including metadata and body fields. Use this before replying, forwarding, or inspecting message details.",
+			description:
+				"Retrieve one specific email by ID, including metadata and body fields. Use this before replying, forwarding, or inspecting message details.",
 			inputSchema: emailGetSchema.shape,
 		},
-		withErrorHandling(async (args, context) => {
+		withErrorHandling<z.infer<typeof emailGetSchema>>(async (args, context) => {
 			const path = `/email/${encodeURIComponent(args.id)}`;
 			const result = await context.client.get<unknown>(path);
 			return toolSuccess(result);
 		}, options.context),
 	);
 
-	server.registerTool(
+	registerToolWithAliases(
+		server,
 		"email_list",
+		["list_emails", "anima.email.list"],
 		{
-			description: "List emails in inbox or another folder with pagination controls. Use this to browse recent messages and mailbox contents.",
+			description:
+				"List emails in inbox or another folder with pagination controls. Use this to browse recent messages and mailbox contents.",
 			inputSchema: emailListSchema.shape,
 		},
-		withErrorHandling(async (args, context) => {
+		withErrorHandling<z.infer<typeof emailListSchema>>(async (args, context) => {
 			const params = new URLSearchParams();
 			if (args.folder) params.set("folder", args.folder);
 			if (args.limit !== undefined) params.set("limit", String(args.limit));
