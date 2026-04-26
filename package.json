@@ -18,7 +18,8 @@
     "start": "bun run src/index.ts",
     "dev": "bun run --watch src/index.ts",
     "typecheck": "bunx tsc --noEmit",
-    "test": "bun test"
+    "test": "bun test",
+    "gen:tool-catalog": "bun run scripts/generate-tool-catalog.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.0",
