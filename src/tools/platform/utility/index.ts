@@ -196,6 +196,68 @@ function findAgentByName(payload: unknown, agentName: string): JsonObject | unde
 	});
 }
 
+function registerDiscoverTool(options: ToolRegistrationOptions): void {
+	const { server } = options;
+
+	const discoverInput = z.object({
+		intent: z
+			.string()
+			.min(3)
+			.describe(
+				"Plain-English description of what you want to do, e.g. 'send a follow-up email to a customer who replied' or 'place a call to their phone'.",
+			),
+		limit: z
+			.number()
+			.int()
+			.positive()
+			.max(20)
+			.optional()
+			.describe("Max number of tools to return (default 5)."),
+	});
+
+	server.registerTool(
+		"anima_discover",
+		{
+			description:
+				"Find the right Anima MCP tool for an intent in plain English. Use this when you don't remember the exact tool name. Returns a ranked list of {name, description, why} so you can pick. Falls back to keyword matching when the platform's pgvector index is unavailable.",
+			inputSchema: discoverInput.shape,
+			annotations: { readOnlyHint: true, destructiveHint: false },
+		},
+		withErrorHandling(async (args, context) => {
+			// Server-side endpoint backed by pgvector; falls back to fuzzy
+			// keyword search if the embedding generator is unavailable.
+			const limit = args.limit ?? 5;
+			const url = `/v1/mcp/discover?intent=${encodeURIComponent(args.intent)}&limit=${limit}`;
+			try {
+				const result = await context.client.get<{
+					matches: Array<{ name: string; description: string; score: number; why: string }>;
+				}>(url);
+				return toolSuccess({
+					intent: args.intent,
+					matches: result.matches,
+					hint:
+						result.matches.length > 0
+							? `Top match: \`${result.matches[0]?.name}\`. Call its schema with tools/list to see the input shape.`
+							: "No close matches. Try a more specific intent or use tools/list to browse the catalog.",
+				});
+			} catch (error) {
+				// If the discover endpoint isn't deployed yet (404), gracefully
+				// degrade: return a static hint pointing to tools/list.
+				if (error instanceof Error && error.message.includes("404")) {
+					return toolSuccess({
+						intent: args.intent,
+						matches: [],
+						hint: "Discovery service not yet enabled. Use tools/list to browse the full catalog of 190+ tools.",
+					});
+				}
+				return toolError(
+					`Discovery failed: ${error instanceof Error ? error.message : String(error)}`,
+				);
+			}
+		}, options.context),
+	);
+}
+
 function registerWhoAmITool(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
@@ -572,6 +634,7 @@ function registerCheckTasksTool(options: ToolRegistrationOptions): void {
 }
 
 export function registerUtilityTools(options: ToolRegistrationOptions): void {
+	registerDiscoverTool(options);
 	registerWhoAmITool(options);
 	registerCheckHealthTool(options);
 	registerListAgentsTool(options);
