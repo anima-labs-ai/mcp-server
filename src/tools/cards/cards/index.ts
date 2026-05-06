@@ -19,7 +19,7 @@ function asString(value: unknown): string | undefined {
 }
 
 async function resolveCurrentAgentId(context: ToolContext): Promise<string> {
-	const whoami = await context.client.get<unknown>("/accounts/me");
+	const whoami = await context.client.get<unknown>("/v1/accounts/me");
 	const whoamiObject = asRecord(whoami);
 	const agentId =
 		asString(whoamiObject?.id) ??
@@ -312,7 +312,7 @@ export function registerCardTools(options: ToolRegistrationOptions): void {
 				spend_limit_per_auth,
 				...rest
 			} = args;
-			const result = await context.client.post<unknown>("/cards", {
+			const result = await context.client.post<unknown>("/v1/cards", {
 				agentId,
 				...rest,
 				spendLimitDaily: spend_limit_daily,
@@ -338,7 +338,7 @@ export function registerCardTools(options: ToolRegistrationOptions): void {
 			params.set("agentId", agentId);
 			if (args.status) params.set("status", args.status);
 			const result = await context.client.get<unknown>(
-				`/cards?${params.toString()}`,
+				`/v1/cards?${params.toString()}`,
 			);
 			return toolSuccess(result);
 		}, options.context),
@@ -351,7 +351,7 @@ export function registerCardTools(options: ToolRegistrationOptions): void {
 			inputSchema: cardIdSchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const path = `/cards/${encodeURIComponent(args.card_id)}`;
+			const path = `/v1/cards/${encodeURIComponent(args.card_id)}`;
 			const result = await context.client.get<unknown>(path);
 			return toolSuccess(result);
 		}, options.context),
@@ -364,7 +364,7 @@ export function registerCardTools(options: ToolRegistrationOptions): void {
 			inputSchema: cardIdSchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.put<unknown>("/cards", {
+			const result = await context.client.put<unknown>("/v1/cards", {
 				cardId: args.card_id,
 				status: "FROZEN",
 			});
@@ -379,7 +379,7 @@ export function registerCardTools(options: ToolRegistrationOptions): void {
 			inputSchema: cardIdSchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.put<unknown>("/cards", {
+			const result = await context.client.put<unknown>("/v1/cards", {
 				cardId: args.card_id,
 				status: "ACTIVE",
 			});
@@ -398,7 +398,7 @@ export function registerCardTools(options: ToolRegistrationOptions): void {
 			if (args.card_id) params.set("cardId", args.card_id);
 			params.set("limit", String(args.limit));
 			const result = await context.client.get<unknown>(
-				`/cards/transactions?${params.toString()}`,
+				`/v1/cards/transactions?${params.toString()}`,
 			);
 			return toolSuccess(result);
 		}, options.context),
@@ -421,7 +421,7 @@ export function registerCardTools(options: ToolRegistrationOptions): void {
 				...rest
 			} = args;
 
-			const result = await context.client.post<unknown>("/cards/policies", {
+			const result = await context.client.post<unknown>("/v1/cards/policies", {
 				cardId: card_id,
 				...rest,
 				maxAmountCents: max_amount_cents,
@@ -444,7 +444,7 @@ export function registerCardTools(options: ToolRegistrationOptions): void {
 			const params = new URLSearchParams();
 			params.set("cardId", args.card_id);
 			const result = await context.client.get<unknown>(
-				`/cards/policies?${params.toString()}`,
+				`/v1/cards/policies?${params.toString()}`,
 			);
 			return toolSuccess(result);
 		}, options.context),
@@ -457,7 +457,7 @@ export function registerCardTools(options: ToolRegistrationOptions): void {
 			inputSchema: deleteSpendingPolicySchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const path = `/cards/policies/${encodeURIComponent(args.policy_id)}`;
+			const path = `/v1/cards/policies/${encodeURIComponent(args.policy_id)}`;
 			const result = await context.client.delete<unknown>(path);
 			return toolSuccess(result);
 		}, options.context),
@@ -470,7 +470,7 @@ export function registerCardTools(options: ToolRegistrationOptions): void {
 			inputSchema: cardIdSchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const path = `/cards/${encodeURIComponent(args.card_id)}`;
+			const path = `/v1/cards/${encodeURIComponent(args.card_id)}`;
 			const card = await context.client.get<unknown>(path);
 			const summary = extractSpendingSummary(card);
 			return toolSuccess({
@@ -509,7 +509,7 @@ export function registerCardTools(options: ToolRegistrationOptions): void {
 			inputSchema: createCardholderSchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.post<unknown>("/cardholders", {
+			const result = await context.client.post<unknown>("/v1/cardholders", {
 				name: args.name,
 				type: args.type,
 				email: args.email,
@@ -545,7 +545,7 @@ export function registerCardTools(options: ToolRegistrationOptions): void {
 			inputSchema: getCardholderSchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const path = `/cardholders/${encodeURIComponent(args.id)}`;
+			const path = `/v1/cardholders/${encodeURIComponent(args.id)}`;
 			const result = await context.client.get<unknown>(path);
 			return toolSuccess(result);
 		}, options.context),
@@ -561,7 +561,7 @@ export function registerCardTools(options: ToolRegistrationOptions): void {
 			const params = new URLSearchParams();
 			params.set("page", String(args.page));
 			params.set("limit", String(args.limit));
-			const result = await context.client.get<unknown>(`/cardholders?${params.toString()}`);
+			const result = await context.client.get<unknown>(`/v1/cardholders?${params.toString()}`);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -573,7 +573,7 @@ export function registerCardTools(options: ToolRegistrationOptions): void {
 			inputSchema: updateCardholderSchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const path = `/cardholders/${encodeURIComponent(args.id)}`;
+			const path = `/v1/cardholders/${encodeURIComponent(args.id)}`;
 			const result = await context.client.patch<unknown>(path, {
 				id: args.id,
 				name: args.name,
@@ -611,7 +611,7 @@ export function registerCardTools(options: ToolRegistrationOptions): void {
 			inputSchema: getCardholderSchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const path = `/cardholders/${encodeURIComponent(args.id)}`;
+			const path = `/v1/cardholders/${encodeURIComponent(args.id)}`;
 			const result = await context.client.delete<unknown>(path);
 			return toolSuccess(result);
 		}, options.context),
@@ -677,7 +677,7 @@ export function registerCardTools(options: ToolRegistrationOptions): void {
 				spend_limit_per_auth,
 				...rest
 			} = args;
-			const path = `/cards/${encodeURIComponent(card_id)}`;
+			const path = `/v1/cards/${encodeURIComponent(card_id)}`;
 			const result = await context.client.patch<unknown>(path, {
 				...rest,
 				spendLimitDaily: spend_limit_daily,
@@ -698,7 +698,7 @@ export function registerCardTools(options: ToolRegistrationOptions): void {
 			inputSchema: cardIdSchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const path = `/cards/${encodeURIComponent(args.card_id)}`;
+			const path = `/v1/cards/${encodeURIComponent(args.card_id)}`;
 			const result = await context.client.delete<unknown>(path);
 			return toolSuccess(result);
 		}, options.context),
@@ -758,7 +758,7 @@ export function registerCardTools(options: ToolRegistrationOptions): void {
 				blocked_merchants,
 				...rest
 			} = args;
-			const path = `/cards/policies/${encodeURIComponent(policy_id)}`;
+			const path = `/v1/cards/policies/${encodeURIComponent(policy_id)}`;
 			const result = await context.client.patch<unknown>(path, {
 				...rest,
 				maxAmountCents: max_amount_cents,
@@ -784,7 +784,7 @@ export function registerCardTools(options: ToolRegistrationOptions): void {
 			inputSchema: getTransactionSchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const path = `/cards/transactions/${encodeURIComponent(args.transaction_id)}`;
+			const path = `/v1/cards/transactions/${encodeURIComponent(args.transaction_id)}`;
 			const result = await context.client.get<unknown>(path);
 			return toolSuccess(result);
 		}, options.context),
@@ -806,7 +806,7 @@ export function registerCardTools(options: ToolRegistrationOptions): void {
 			inputSchema: killSwitchSchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.post<unknown>("/cards/kill-switch", {
+			const result = await context.client.post<unknown>("/v1/cards/kill-switch", {
 				scope: args.scope,
 				agentId: args.agent_id,
 			});
@@ -850,7 +850,7 @@ export function registerCardTools(options: ToolRegistrationOptions): void {
 			if (args.status) params.set("status", args.status);
 			params.set("limit", String(args.limit));
 			const result = await context.client.get<unknown>(
-				`/cards/approvals?${params.toString()}`,
+				`/v1/cards/approvals?${params.toString()}`,
 			);
 			return toolSuccess(result);
 		}, options.context),
@@ -863,7 +863,7 @@ export function registerCardTools(options: ToolRegistrationOptions): void {
 			inputSchema: approvalDecisionSchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const path = `/cards/approvals/${encodeURIComponent(args.approval_id)}/decision`;
+			const path = `/v1/cards/approvals/${encodeURIComponent(args.approval_id)}/decision`;
 			const result = await context.client.post<unknown>(path, {
 				decision: "APPROVED",
 			});
@@ -878,7 +878,7 @@ export function registerCardTools(options: ToolRegistrationOptions): void {
 			inputSchema: approvalDecisionSchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const path = `/cards/approvals/${encodeURIComponent(args.approval_id)}/decision`;
+			const path = `/v1/cards/approvals/${encodeURIComponent(args.approval_id)}/decision`;
 			const result = await context.client.post<unknown>(path, {
 				decision: "DECLINED",
 			});

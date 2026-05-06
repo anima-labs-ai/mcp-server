@@ -231,7 +231,7 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 		},
 		withErrorHandling(async (args, context) => {
 			requireMasterKeyGuard(context);
-			const result = await context.client.post<unknown>("/vault/provision", {
+			const result = await context.client.post<unknown>("/v1/vault/provision", {
 				agentId: args.agentId,
 			});
 			return toolSuccess(result);
@@ -246,7 +246,7 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 		},
 		withErrorHandling(async (args, context) => {
 			requireMasterKeyGuard(context);
-			const result = await context.client.post<unknown>("/vault/deprovision", {
+			const result = await context.client.post<unknown>("/v1/vault/deprovision", {
 				agentId: args.agentId,
 			});
 			return toolSuccess(result);
@@ -266,7 +266,7 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 			if (args.search) params.set("search", args.search);
 
 			const result = await context.client.get<unknown>(
-				`/vault/credentials?${params.toString()}`,
+				`/v1/vault/credentials?${params.toString()}`,
 			);
 			return toolSuccess(result);
 		}, options.context),
@@ -281,7 +281,7 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 		withErrorHandling(async (args, context) => {
 			const params = new URLSearchParams();
 			if (args.agentId) params.set("agentId", args.agentId);
-			const path = `/vault/credentials/${encodeURIComponent(args.id)}?${params.toString()}`;
+			const path = `/v1/vault/credentials/${encodeURIComponent(args.id)}?${params.toString()}`;
 			const result = await context.client.get<Record<string, unknown>>(path);
 			return toolSuccess(maskCredentialFields(result));
 		}, options.context),
@@ -294,7 +294,7 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 			inputSchema: vaultCreateCredentialSchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.post<unknown>("/vault/credentials", args);
+			const result = await context.client.post<unknown>("/v1/vault/credentials", args);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -307,7 +307,7 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 		},
 		withErrorHandling(async (args, context) => {
 			const { id, ...payload } = args;
-			const path = `/vault/credentials/${encodeURIComponent(id)}`;
+			const path = `/v1/vault/credentials/${encodeURIComponent(id)}`;
 			// agentId is part of payload and sent in the body for PUT
 			const result = await context.client.put<unknown>(path, payload);
 			return toolSuccess(result);
@@ -321,7 +321,7 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 			inputSchema: vaultCredentialIdSchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const path = `/vault/credentials/${encodeURIComponent(args.id)}`;
+			const path = `/v1/vault/credentials/${encodeURIComponent(args.id)}`;
 			// oRPC DELETE reads agentId from request body
 			const result = await context.client.delete<unknown>(path, { agentId: args.agentId });
 			return toolSuccess(result);
@@ -336,7 +336,7 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.post<unknown>(
-				"/vault/generate-password",
+				"/v1/vault/generate-password",
 				args,
 			);
 			return toolSuccess(result);
@@ -352,7 +352,7 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 		withErrorHandling(async (args, context) => {
 			const params = new URLSearchParams();
 			if (args.agentId) params.set("agentId", args.agentId);
-			const path = `/vault/totp/${encodeURIComponent(args.id)}?${params.toString()}`;
+			const path = `/v1/vault/totp/${encodeURIComponent(args.id)}?${params.toString()}`;
 			const result = await context.client.get<unknown>(path);
 			return toolSuccess(result);
 		}, options.context),
@@ -378,7 +378,7 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 			params.set("search", args.search);
 			if (args.type) params.set("type", args.type);
 			const result = await context.client.get<unknown>(
-				`/vault/search?${params.toString()}`,
+				`/v1/vault/search?${params.toString()}`,
 			);
 			return toolSuccess(result);
 		}, options.context),
@@ -395,7 +395,7 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 			inputSchema: vaultSyncSchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.post<unknown>("/vault/sync", {
+			const result = await context.client.post<unknown>("/v1/vault/sync", {
 				agentId: args.agentId,
 			});
 			return toolSuccess(result);
@@ -412,7 +412,7 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 			const params = new URLSearchParams();
 			if (args.agentId) params.set("agentId", args.agentId);
 			const result = await context.client.get<unknown>(
-				`/vault/status?${params.toString()}`,
+				`/v1/vault/status?${params.toString()}`,
 			);
 			return toolSuccess(result);
 		}, options.context),
@@ -444,7 +444,7 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 			inputSchema: vaultShareSchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.post<unknown>("/vault/share", args);
+			const result = await context.client.post<unknown>("/v1/vault/share", args);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -467,7 +467,7 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 			if (args.agentId) params.set("agentId", args.agentId);
 			params.set("direction", args.direction);
 			const result = await context.client.get<unknown>(
-				`/vault/shares?${params.toString()}`,
+				`/v1/vault/shares?${params.toString()}`,
 			);
 			return toolSuccess(result);
 		}, options.context),
@@ -486,7 +486,7 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.post<unknown>(
-				"/vault/share/revoke",
+				"/v1/vault/share/revoke",
 				args,
 			);
 			return toolSuccess(result);
@@ -522,7 +522,7 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 			inputSchema: vaultCreateTokenSchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.post<unknown>("/vault/token", args);
+			const result = await context.client.post<unknown>("/v1/vault/token", args);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -543,7 +543,7 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.post<unknown>(
-				"/vault/token/exchange",
+				"/v1/vault/token/exchange",
 				args,
 			);
 			return toolSuccess(result);
@@ -565,7 +565,7 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.post<unknown>(
-				"/vault/token/revoke",
+				"/v1/vault/token/revoke",
 				args,
 			);
 			return toolSuccess(result);
@@ -592,7 +592,7 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 			inputSchema: vaultReloadSchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.post<unknown>("/vault/reload", args);
+			const result = await context.client.post<unknown>("/v1/vault/reload", args);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -617,7 +617,7 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 			inputSchema: vaultPlanExecSchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.post<unknown>("/vault/plan/exec", args);
+			const result = await context.client.post<unknown>("/v1/vault/plan/exec", args);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -638,7 +638,7 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 			inputSchema: vaultPlanProxySchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.post<unknown>("/vault/plan/proxy", args);
+			const result = await context.client.post<unknown>("/v1/vault/plan/proxy", args);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -660,7 +660,7 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 			inputSchema: vaultAuditQuerySchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.get<unknown>("/vault/audit", args as Record<string, unknown>);
+			const result = await context.client.get<unknown>("/v1/vault/audit", args as Record<string, unknown>);
 			return toolSuccess(result);
 		}, options.context),
 	);

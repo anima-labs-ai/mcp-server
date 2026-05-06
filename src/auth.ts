@@ -20,7 +20,7 @@ export function makeAuthenticator(apiUrl: string): (req: IncomingMessage) => Pro
     const client = new ApiClient({ baseUrl: apiUrl, apiKey: token });
     let orgId = "default";
     try {
-      const orgs = await client.get<Array<{ id: string }>>("/orgs");
+      const orgs = await client.get<Array<{ id: string }>>("/v1/orgs");
       if (Array.isArray(orgs) && orgs[0]?.id) orgId = orgs[0].id;
     } catch {
       const err: McpAuthError = { status: 401, message: "Invalid or expired API key" };

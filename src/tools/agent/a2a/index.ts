@@ -70,7 +70,7 @@ function registerSubmitA2aTaskTool(options: ToolRegistrationOptions): void {
 		},
 		withErrorHandling(async (args, context) => {
 			const { agentId, ...body } = args;
-			const result = await context.client.post(`/agents/${agentId}/a2a/tasks`, body);
+			const result = await context.client.post(`/v1/agents/${agentId}/a2a/tasks`, body);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -86,7 +86,7 @@ function registerGetA2aTaskTool(options: ToolRegistrationOptions): void {
 			inputSchema: getA2aTaskInput.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.get(`/agents/${args.agentId}/a2a/tasks/${args.taskId}`);
+			const result = await context.client.get(`/v1/agents/${args.agentId}/a2a/tasks/${args.taskId}`);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -107,7 +107,7 @@ function registerListA2aTasksTool(options: ToolRegistrationOptions): void {
 			if (args.cursor) params.set("cursor", args.cursor);
 			if (args.limit) params.set("limit", String(args.limit));
 			const qs = params.toString();
-			const path = qs ? `/agents/${args.agentId}/a2a/tasks?${qs}` : `/agents/${args.agentId}/a2a/tasks`;
+			const path = qs ? `/v1/agents/${args.agentId}/a2a/tasks?${qs}` : `/v1/agents/${args.agentId}/a2a/tasks`;
 			const result = await context.client.get(path);
 			return toolSuccess(result);
 		}, options.context),
@@ -124,7 +124,7 @@ function registerCancelA2aTaskTool(options: ToolRegistrationOptions): void {
 			inputSchema: cancelA2aTaskInput.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.post(`/agents/${args.agentId}/a2a/tasks/${args.taskId}/cancel`);
+			const result = await context.client.post(`/v1/agents/${args.agentId}/a2a/tasks/${args.taskId}/cancel`);
 			return toolSuccess(result);
 		}, options.context),
 	);

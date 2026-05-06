@@ -125,7 +125,7 @@ export function registerAddressTools(options: ToolRegistrationOptions): void {
 		},
 		withErrorHandling(async (args, context) => {
 			requireMasterKeyGuard(context);
-			const result = await context.client.post<unknown>("/addresses", args);
+			const result = await context.client.post<unknown>("/v1/addresses", args);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -140,7 +140,7 @@ export function registerAddressTools(options: ToolRegistrationOptions): void {
 			const params = new URLSearchParams();
 			params.set("agentId", args.agentId);
 			if (args.type) params.set("type", args.type);
-			const path = `/addresses?${params}`;
+			const path = `/v1/addresses?${params}`;
 			const result = await context.client.get<unknown>(path);
 			return toolSuccess(result);
 		}, options.context),
@@ -153,7 +153,7 @@ export function registerAddressTools(options: ToolRegistrationOptions): void {
 			inputSchema: getAddressSchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const path = `/addresses/${encodeURIComponent(args.id)}?agentId=${encodeURIComponent(args.agentId)}`;
+			const path = `/v1/addresses/${encodeURIComponent(args.id)}?agentId=${encodeURIComponent(args.agentId)}`;
 			const result = await context.client.get<unknown>(path);
 			return toolSuccess(result);
 		}, options.context),
@@ -168,7 +168,7 @@ export function registerAddressTools(options: ToolRegistrationOptions): void {
 		withErrorHandling(async (args, context) => {
 			requireMasterKeyGuard(context);
 			const { id, ...body } = args;
-			const path = `/addresses/${encodeURIComponent(id)}`;
+			const path = `/v1/addresses/${encodeURIComponent(id)}`;
 			const result = await context.client.put<unknown>(path, body);
 			return toolSuccess(result);
 		}, options.context),
@@ -182,7 +182,7 @@ export function registerAddressTools(options: ToolRegistrationOptions): void {
 		},
 		withErrorHandling(async (args, context) => {
 			requireMasterKeyGuard(context);
-			const path = `/addresses/${encodeURIComponent(args.id)}`;
+			const path = `/v1/addresses/${encodeURIComponent(args.id)}`;
 			const result = await context.client.delete<unknown>(path);
 			return toolSuccess(result);
 		}, options.context),
@@ -195,7 +195,7 @@ export function registerAddressTools(options: ToolRegistrationOptions): void {
 			inputSchema: validateAddressSchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const path = `/addresses/${encodeURIComponent(args.id)}/validate`;
+			const path = `/v1/addresses/${encodeURIComponent(args.id)}/validate`;
 			const result = await context.client.post<unknown>(path, { agentId: args.agentId });
 			return toolSuccess(result);
 		}, options.context),

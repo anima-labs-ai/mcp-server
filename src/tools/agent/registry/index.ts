@@ -92,7 +92,7 @@ export function registerRegistryTools(options: ToolRegistrationOptions): void {
 		},
 		withErrorHandling(async (args, context) => {
 			requireMasterKeyGuard(context);
-			const result = await context.client.post<unknown>("/registry/agents", args);
+			const result = await context.client.post<unknown>("/v1/registry/agents", args);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -107,7 +107,7 @@ export function registerRegistryTools(options: ToolRegistrationOptions): void {
 			const params = new URLSearchParams();
 			params.set("q", args.query);
 			if (args.category) params.set("category", args.category);
-			const result = await context.client.get<unknown>(`/registry/agents/search?${params}`);
+			const result = await context.client.get<unknown>(`/v1/registry/agents/search?${params}`);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -119,7 +119,7 @@ export function registerRegistryTools(options: ToolRegistrationOptions): void {
 			inputSchema: didSchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.get<unknown>(`/registry/agents/${encodeURIComponent(args.did)}`);
+			const result = await context.client.get<unknown>(`/v1/registry/agents/${encodeURIComponent(args.did)}`);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -133,7 +133,7 @@ export function registerRegistryTools(options: ToolRegistrationOptions): void {
 		withErrorHandling(async (args, context) => {
 			requireMasterKeyGuard(context);
 			const { did, ...body } = args;
-			const result = await context.client.put<unknown>(`/registry/agents/${encodeURIComponent(did)}`, body);
+			const result = await context.client.put<unknown>(`/v1/registry/agents/${encodeURIComponent(did)}`, body);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -146,7 +146,7 @@ export function registerRegistryTools(options: ToolRegistrationOptions): void {
 		},
 		withErrorHandling(async (args, context) => {
 			requireMasterKeyGuard(context);
-			const result = await context.client.delete<unknown>(`/registry/agents/${encodeURIComponent(args.did)}`);
+			const result = await context.client.delete<unknown>(`/v1/registry/agents/${encodeURIComponent(args.did)}`);
 			return toolSuccess(result);
 		}, options.context),
 	);
