@@ -97,7 +97,7 @@ export function registerWalletTools(options: ToolRegistrationOptions): void {
 		withErrorHandling(async (args, context) => {
 			requireMasterKeyGuard(context);
 			const { agentId, ...body } = args;
-			const result = await context.client.post<unknown>(`/agents/${encodeURIComponent(agentId)}/wallet`, body);
+			const result = await context.client.post<unknown>(`/v1/agents/${encodeURIComponent(agentId)}/wallet`, body);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -109,7 +109,7 @@ export function registerWalletTools(options: ToolRegistrationOptions): void {
 			inputSchema: agentIdSchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.get<unknown>(`/agents/${encodeURIComponent(args.agentId)}/wallet`);
+			const result = await context.client.get<unknown>(`/v1/agents/${encodeURIComponent(args.agentId)}/wallet`);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -123,7 +123,7 @@ export function registerWalletTools(options: ToolRegistrationOptions): void {
 		withErrorHandling(async (args, context) => {
 			requireMasterKeyGuard(context);
 			const { agentId, ...body } = args;
-			const result = await context.client.post<unknown>(`/agents/${encodeURIComponent(agentId)}/wallet/pay`, body);
+			const result = await context.client.post<unknown>(`/v1/agents/${encodeURIComponent(agentId)}/wallet/pay`, body);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -137,7 +137,7 @@ export function registerWalletTools(options: ToolRegistrationOptions): void {
 		withErrorHandling(async (args, context) => {
 			requireMasterKeyGuard(context);
 			const { agentId, ...body } = args;
-			const result = await context.client.post<unknown>(`/agents/${encodeURIComponent(agentId)}/wallet/x402-fetch`, body);
+			const result = await context.client.post<unknown>(`/v1/agents/${encodeURIComponent(agentId)}/wallet/x402-fetch`, body);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -152,7 +152,7 @@ export function registerWalletTools(options: ToolRegistrationOptions): void {
 			const params = new URLSearchParams();
 			if (args.status) params.set("status", args.status);
 			const qs = params.toString();
-			const path = `/agents/${encodeURIComponent(args.agentId)}/wallet/transactions${qs ? `?${qs}` : ""}`;
+			const path = `/v1/agents/${encodeURIComponent(args.agentId)}/wallet/transactions${qs ? `?${qs}` : ""}`;
 			const result = await context.client.get<unknown>(path);
 			return toolSuccess(result);
 		}, options.context),
@@ -166,7 +166,7 @@ export function registerWalletTools(options: ToolRegistrationOptions): void {
 		},
 		withErrorHandling(async (args, context) => {
 			requireMasterKeyGuard(context);
-			const result = await context.client.post<unknown>(`/agents/${encodeURIComponent(args.agentId)}/wallet/freeze`);
+			const result = await context.client.post<unknown>(`/v1/agents/${encodeURIComponent(args.agentId)}/wallet/freeze`);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -179,7 +179,7 @@ export function registerWalletTools(options: ToolRegistrationOptions): void {
 		},
 		withErrorHandling(async (args, context) => {
 			requireMasterKeyGuard(context);
-			const result = await context.client.post<unknown>(`/agents/${encodeURIComponent(args.agentId)}/wallet/unfreeze`);
+			const result = await context.client.post<unknown>(`/v1/agents/${encodeURIComponent(args.agentId)}/wallet/unfreeze`);
 			return toolSuccess(result);
 		}, options.context),
 	);

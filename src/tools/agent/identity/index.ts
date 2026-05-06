@@ -34,7 +34,7 @@ export function registerIdentityTools(options: ToolRegistrationOptions): void {
 			inputSchema: agentIdSchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.get<unknown>(`/agents/${encodeURIComponent(args.agentId)}/did`);
+			const result = await context.client.get<unknown>(`/v1/agents/${encodeURIComponent(args.agentId)}/did`);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -46,7 +46,7 @@ export function registerIdentityTools(options: ToolRegistrationOptions): void {
 			inputSchema: resolveDidSchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.get<unknown>(`/identity/did/${encodeURIComponent(args.did)}`);
+			const result = await context.client.get<unknown>(`/v1/identity/did/${encodeURIComponent(args.did)}`);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -59,7 +59,7 @@ export function registerIdentityTools(options: ToolRegistrationOptions): void {
 		},
 		withErrorHandling(async (args, context) => {
 			requireMasterKeyGuard(context);
-			const result = await context.client.post<unknown>(`/agents/${encodeURIComponent(args.agentId)}/did/rotate`);
+			const result = await context.client.post<unknown>(`/v1/agents/${encodeURIComponent(args.agentId)}/did/rotate`);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -71,7 +71,7 @@ export function registerIdentityTools(options: ToolRegistrationOptions): void {
 			inputSchema: agentIdSchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.get<unknown>(`/agents/${encodeURIComponent(args.agentId)}/credentials`);
+			const result = await context.client.get<unknown>(`/v1/agents/${encodeURIComponent(args.agentId)}/credentials`);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -83,7 +83,7 @@ export function registerIdentityTools(options: ToolRegistrationOptions): void {
 			inputSchema: verifyCredentialSchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.post<unknown>("/identity/verify", { jwtVc: args.jwtVc });
+			const result = await context.client.post<unknown>("/v1/identity/verify", { jwtVc: args.jwtVc });
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -95,7 +95,7 @@ export function registerIdentityTools(options: ToolRegistrationOptions): void {
 			inputSchema: agentIdSchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.get<unknown>(`/agents/${encodeURIComponent(args.agentId)}/card`);
+			const result = await context.client.get<unknown>(`/v1/agents/${encodeURIComponent(args.agentId)}/card`);
 			return toolSuccess(result);
 		}, options.context),
 	);

@@ -74,7 +74,7 @@ export function registerInvoiceTools(options: ToolRegistrationOptions): void {
 			const shouldConfirm = args.confirm ?? false;
 			const shouldCreateCard = args.create_card ?? false;
 			const dryRun = args.dry_run ?? true;
-			const invoicePath = `/invoices/${encodeURIComponent(args.invoice_id)}`;
+			const invoicePath = `/v1/invoices/${encodeURIComponent(args.invoice_id)}`;
 			const invoice = await context.client.get<unknown>(invoicePath);
 
 			if (dryRun) {
@@ -124,7 +124,7 @@ export function registerInvoiceTools(options: ToolRegistrationOptions): void {
 		},
 		withErrorHandling(async (args, context) => {
 			const dryRun = args.dry_run ?? true;
-			const invoicePath = `/invoices/${encodeURIComponent(args.invoice_id)}`;
+			const invoicePath = `/v1/invoices/${encodeURIComponent(args.invoice_id)}`;
 
 			if (dryRun) {
 				const invoice = await context.client.get<unknown>(invoicePath);
@@ -183,7 +183,7 @@ export function registerInvoiceTools(options: ToolRegistrationOptions): void {
 				body.dryRun = true;
 			}
 
-			const result = await context.client.post<unknown>("/invoices/match-receipts", body);
+			const result = await context.client.post<unknown>("/v1/invoices/match-receipts", body);
 			return toolSuccess(result);
 		}, options.context),
 	);

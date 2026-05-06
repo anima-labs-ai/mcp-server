@@ -147,7 +147,7 @@ export function registerMessageTools(options: ToolRegistrationOptions): void {
 				body: args.text ?? args.html ?? "(empty message)",
 				bodyHtml: args.html,
 			};
-			const result = await context.client.post("/messages/email", payload);
+			const result = await context.client.post("/v1/messages/email", payload);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -159,7 +159,7 @@ export function registerMessageTools(options: ToolRegistrationOptions): void {
 			inputSchema: messageSendSmsInput.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.post("/messages/sms", args);
+			const result = await context.client.post("/v1/messages/sms", args);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -171,7 +171,7 @@ export function registerMessageTools(options: ToolRegistrationOptions): void {
 			inputSchema: messageGetInput.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.get(`/messages/${args.id}`);
+			const result = await context.client.get(`/v1/messages/${args.id}`);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -191,7 +191,7 @@ export function registerMessageTools(options: ToolRegistrationOptions): void {
 			if (args.limit !== undefined) params.set("limit", String(args.limit));
 			if (args.cursor) params.set("cursor", args.cursor);
 
-			const path = params.toString() ? `/messages?${params}` : "/messages";
+			const path = params.toString() ? `/v1/messages?${params}` : "/v1/messages";
 			const result = await context.client.get(path);
 			return toolSuccess(result);
 		}, options.context),
@@ -204,7 +204,7 @@ export function registerMessageTools(options: ToolRegistrationOptions): void {
 			inputSchema: messageSearchInput.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.post("/messages/search", args);
+			const result = await context.client.post("/v1/messages/search", args);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -216,7 +216,7 @@ export function registerMessageTools(options: ToolRegistrationOptions): void {
 			inputSchema: messageSemanticSearchInput.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.post("/messages/search/semantic", {
+			const result = await context.client.post("/v1/messages/search/semantic", {
 				query: args.query,
 				agentId: args.agentId,
 				limit: args.limit,
@@ -243,7 +243,7 @@ export function registerMessageTools(options: ToolRegistrationOptions): void {
 					createdAt: string;
 					agentId: string;
 				}>;
-			}>("/messages/search/semantic", {
+			}>("/v1/messages/search/semantic", {
 				query: args.topic,
 				agentId: args.agentId,
 				limit: args.limit ?? 10,
@@ -267,7 +267,7 @@ export function registerMessageTools(options: ToolRegistrationOptions): void {
 
 			for (const message of semanticResult.results) {
 				const fullMessage = await context.client.get<{ threadId: string | null }>(
-					`/messages/${message.id}`,
+					`/v1/messages/${message.id}`,
 				);
 				const threadId = fullMessage.threadId ?? message.id;
 
@@ -320,7 +320,7 @@ export function registerMessageTools(options: ToolRegistrationOptions): void {
 		withErrorHandling(async (args, context) => {
 			const { messageId, ...body } = args;
 			const result = await context.client.post(
-				`/messages/${messageId}/attachments`,
+				`/v1/messages/${messageId}/attachments`,
 				body,
 			);
 			return toolSuccess(result);
@@ -334,7 +334,7 @@ export function registerMessageTools(options: ToolRegistrationOptions): void {
 			inputSchema: messageGetAttachmentInput.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.get(`/attachments/${args.id}/download`);
+			const result = await context.client.get(`/v1/attachments/${args.id}/download`);
 			return toolSuccess(result);
 		}, options.context),
 	);

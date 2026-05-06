@@ -380,7 +380,7 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 			if (args.bcc) body.bcc = args.bcc;
 			if (args.inReplyTo) body.inReplyTo = args.inReplyTo;
 			if (args.references) body.references = args.references;
-			const result = await context.client.post<unknown>("/email/send", body);
+			const result = await context.client.post<unknown>("/v1/email/send", body);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -395,7 +395,7 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 			inputSchema: emailGetSchema.shape,
 		},
 		withErrorHandling<z.infer<typeof emailGetSchema>>(async (args, context) => {
-			const path = `/email/${encodeURIComponent(args.id)}`;
+			const path = `/v1/email/${encodeURIComponent(args.id)}`;
 			const result = await context.client.get<unknown>(path);
 			return toolSuccess(result);
 		}, options.context),
@@ -416,7 +416,7 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 			if (args.limit !== undefined) params.set("limit", String(args.limit));
 			if (args.offset !== undefined) params.set("offset", String(args.offset));
 
-			const path = params.toString() ? `/email?${params}` : "/email";
+			const path = params.toString() ? `/v1/email?${params}` : "/v1/email";
 			const result = await context.client.get<unknown>(path);
 			return toolSuccess(result);
 		}, options.context),
@@ -431,7 +431,7 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 		withErrorHandling(async (args, context) => {
 			requireMasterKeyGuard(context);
 
-			const originalPath = `/email/${encodeURIComponent(args.originalId)}`;
+			const originalPath = `/v1/email/${encodeURIComponent(args.originalId)}`;
 			const originalData = await context.client.get<unknown>(originalPath);
 			const original = asRecord(originalData);
 			if (!original) {
@@ -485,7 +485,7 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 				}
 			}
 
-			const result = await context.client.post<unknown>("/email/send", payload);
+			const result = await context.client.post<unknown>("/v1/email/send", payload);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -497,7 +497,7 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 			inputSchema: emailForwardSchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const originalPath = `/email/${encodeURIComponent(args.originalId)}`;
+			const originalPath = `/v1/email/${encodeURIComponent(args.originalId)}`;
 			const originalData = await context.client.get<unknown>(originalPath);
 			const original = asRecord(originalData);
 			if (!original) {
@@ -534,7 +534,7 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 				body: forwardedBody,
 			};
 
-			const result = await context.client.post<unknown>("/email/send", payload);
+			const result = await context.client.post<unknown>("/v1/email/send", payload);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -546,7 +546,7 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 			inputSchema: emailSearchSchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.post<unknown>("/messages/search", args);
+			const result = await context.client.post<unknown>("/v1/messages/search", args);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -561,7 +561,7 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 			const params = new URLSearchParams();
 			if (args.limit !== undefined) params.set("limit", String(args.limit));
 
-			const path = params.toString() ? `/email?${params}` : "/email";
+			const path = params.toString() ? `/v1/email?${params}` : "/v1/email";
 			const result = await context.client.get<unknown>(path);
 			const items = extractEmailItems(result);
 
@@ -613,7 +613,7 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 			inputSchema: emailMarkReadSchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const path = `/email/${encodeURIComponent(args.id)}/read`;
+			const path = `/v1/email/${encodeURIComponent(args.id)}/read`;
 			const result = await context.client.post<unknown>(path, { id: args.id });
 			return toolSuccess(result);
 		}, options.context),
@@ -626,7 +626,7 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 			inputSchema: emailMarkUnreadSchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const path = `/email/${encodeURIComponent(args.id)}/unread`;
+			const path = `/v1/email/${encodeURIComponent(args.id)}/unread`;
 			const result = await context.client.post<unknown>(path, { id: args.id });
 			return toolSuccess(result);
 		}, options.context),
@@ -639,7 +639,7 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 			inputSchema: batchMarkReadSchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.post<unknown>("/email/batch/read", {
+			const result = await context.client.post<unknown>("/v1/email/batch/read", {
 				ids: args.ids,
 			});
 			return toolSuccess(result);
@@ -653,7 +653,7 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 			inputSchema: batchMarkUnreadSchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.post<unknown>("/email/batch/unread", {
+			const result = await context.client.post<unknown>("/v1/email/batch/unread", {
 				ids: args.ids,
 			});
 			return toolSuccess(result);
@@ -667,7 +667,7 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 			inputSchema: batchDeleteSchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.post<unknown>("/email/batch/delete", {
+			const result = await context.client.post<unknown>("/v1/email/batch/delete", {
 				ids: args.ids,
 			});
 			return toolSuccess(result);
@@ -681,7 +681,7 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 			inputSchema: batchMoveSchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.post<unknown>("/email/batch/move", {
+			const result = await context.client.post<unknown>("/v1/email/batch/move", {
 				ids: args.ids,
 				folder: args.folder,
 			});
@@ -696,7 +696,7 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 			inputSchema: emailMoveSchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const path = `/email/${encodeURIComponent(args.id)}/move`;
+			const path = `/v1/email/${encodeURIComponent(args.id)}/move`;
 			const result = await context.client.post<unknown>(path, {
 				id: args.id,
 				folder: args.folder,
@@ -712,7 +712,7 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 			inputSchema: emailDeleteSchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const path = `/email/${encodeURIComponent(args.id)}`;
+			const path = `/v1/email/${encodeURIComponent(args.id)}`;
 			const result = await context.client.delete<unknown>(path);
 			return toolSuccess(result);
 		}, options.context),
@@ -727,14 +727,14 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 		withErrorHandling(async (args, context) => {
 			switch (args.action) {
 				case "list": {
-					const result = await context.client.get<unknown>("/email/folders");
+					const result = await context.client.get<unknown>("/v1/email/folders");
 					return toolSuccess(result);
 				}
 				case "create": {
 					if (!args.name) {
 						throw new Error("Folder name is required when action is 'create'.");
 					}
-					const result = await context.client.post<unknown>("/email/folders", {
+					const result = await context.client.post<unknown>("/v1/email/folders", {
 						name: args.name,
 					});
 					return toolSuccess(result);
@@ -752,14 +752,14 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 		withErrorHandling(async (args, context) => {
 			switch (args.action) {
 				case "list": {
-					const result = await context.client.get<unknown>("/contacts");
+					const result = await context.client.get<unknown>("/v1/contacts");
 					return toolSuccess(result);
 				}
 				case "create": {
 					if (!args.email) {
 						throw new Error("Contact email is required when action is 'create'.");
 					}
-					const result = await context.client.post<unknown>("/contacts", {
+					const result = await context.client.post<unknown>("/v1/contacts", {
 						email: args.email,
 						name: args.name,
 					});
@@ -769,7 +769,7 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 					if (!args.contactId) {
 						throw new Error("Contact ID is required when action is 'delete'.");
 					}
-					const path = `/contacts/${encodeURIComponent(args.contactId)}`;
+					const path = `/v1/contacts/${encodeURIComponent(args.contactId)}`;
 					const result = await context.client.delete<unknown>(path);
 					return toolSuccess(result);
 				}
@@ -786,7 +786,7 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 		withErrorHandling(async (args, context) => {
 			switch (args.action) {
 				case "list": {
-					const result = await context.client.get<unknown>("/templates");
+					const result = await context.client.get<unknown>("/v1/templates");
 					return toolSuccess(result);
 				}
 				case "create": {
@@ -795,7 +795,7 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 							"Template name, subject, and body are required when action is 'create'.",
 						);
 					}
-					const result = await context.client.post<unknown>("/templates", {
+					const result = await context.client.post<unknown>("/v1/templates", {
 						name: args.name,
 						subject: args.subject,
 						body: args.body,
@@ -806,7 +806,7 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 					if (!args.templateId) {
 						throw new Error("Template ID is required when action is 'delete'.");
 					}
-					const path = `/templates/${encodeURIComponent(args.templateId)}`;
+					const path = `/v1/templates/${encodeURIComponent(args.templateId)}`;
 					const result = await context.client.delete<unknown>(path);
 					return toolSuccess(result);
 				}
@@ -821,7 +821,7 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 			inputSchema: templateSendSchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const path = `/templates/${encodeURIComponent(args.templateId)}/send`;
+			const path = `/v1/templates/${encodeURIComponent(args.templateId)}/send`;
 			const result = await context.client.post<unknown>(path, {
 				to: args.to,
 				variables: args.variables,

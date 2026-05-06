@@ -54,7 +54,7 @@ function registerAgentCreateTool(options: ToolRegistrationOptions): void {
 			inputSchema: agentCreateInput.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.post("/agents", args);
+			const result = await context.client.post("/v1/agents", args);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -70,7 +70,7 @@ function registerAgentGetTool(options: ToolRegistrationOptions): void {
 			inputSchema: agentGetInput.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.get(`/agents/${args.id}`);
+			const result = await context.client.get(`/v1/agents/${args.id}`);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -89,7 +89,7 @@ function registerAgentListTool(options: ToolRegistrationOptions): void {
 			const params = new URLSearchParams();
 			if (args.cursor) params.set("cursor", args.cursor);
 			if (args.limit) params.set("limit", String(args.limit));
-			const path = params.toString() ? `/agents?${params.toString()}` : "/agents";
+			const path = params.toString() ? `/v1/agents?${params.toString()}` : "/v1/agents";
 			const result = await context.client.get(path);
 			return toolSuccess(result);
 		}, options.context),
@@ -107,7 +107,7 @@ function registerAgentUpdateTool(options: ToolRegistrationOptions): void {
 		},
 		withErrorHandling(async (args, context) => {
 			const { id, ...body } = args;
-			const result = await context.client.patch(`/agents/${id}`, body);
+			const result = await context.client.patch(`/v1/agents/${id}`, body);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -123,7 +123,7 @@ function registerAgentDeleteTool(options: ToolRegistrationOptions): void {
 			inputSchema: agentDeleteInput.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.delete(`/agents/${args.id}`);
+			const result = await context.client.delete(`/v1/agents/${args.id}`);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -139,7 +139,7 @@ function registerAgentRotateKeyTool(options: ToolRegistrationOptions): void {
 			inputSchema: agentRotateKeyInput.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.post(`/agents/${args.id}/rotate-key`);
+			const result = await context.client.post(`/v1/agents/${args.id}/rotate-key`);
 			return toolSuccess(result);
 		}, options.context),
 	);

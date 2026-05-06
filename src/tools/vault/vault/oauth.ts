@@ -33,7 +33,7 @@ export function registerOAuthTools(options: ToolRegistrationOptions): void {
 			if (args.category) params.set("category", args.category);
 			const qs = params.toString();
 			const result = await context.client.get<unknown>(
-				`/vault/oauth/apps${qs ? `?${qs}` : ""}`,
+				`/v1/vault/oauth/apps${qs ? `?${qs}` : ""}`,
 			);
 			return toolSuccess(result);
 		}, options.context),
@@ -67,7 +67,7 @@ export function registerOAuthTools(options: ToolRegistrationOptions): void {
 		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.post<unknown>(
-				"/vault/oauth/link",
+				"/v1/vault/oauth/link",
 				args,
 			);
 			return toolSuccess(result);
@@ -86,7 +86,7 @@ export function registerOAuthTools(options: ToolRegistrationOptions): void {
 		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.get<unknown>(
-				`/vault/oauth/link/${encodeURIComponent(args.token)}`,
+				`/v1/vault/oauth/link/${encodeURIComponent(args.token)}`,
 			);
 			return toolSuccess(result);
 		}, options.context),
@@ -123,7 +123,7 @@ export function registerOAuthTools(options: ToolRegistrationOptions): void {
 			if (args.status) params.set("status", args.status);
 			const qs = params.toString();
 			const result = await context.client.get<unknown>(
-				`/vault/oauth/accounts${qs ? `?${qs}` : ""}`,
+				`/v1/vault/oauth/accounts${qs ? `?${qs}` : ""}`,
 			);
 			return toolSuccess(result);
 		}, options.context),
@@ -145,7 +145,7 @@ export function registerOAuthTools(options: ToolRegistrationOptions): void {
 		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.delete<unknown>(
-				`/vault/oauth/accounts/${encodeURIComponent(args.accountId)}`,
+				`/v1/vault/oauth/accounts/${encodeURIComponent(args.accountId)}`,
 			);
 			return toolSuccess(result);
 		}, options.context),
@@ -171,7 +171,7 @@ export function registerOAuthTools(options: ToolRegistrationOptions): void {
 		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.post<unknown>(
-				"/vault/oauth/require-auth",
+				"/v1/vault/oauth/require-auth",
 				args,
 			);
 			return toolSuccess(result);

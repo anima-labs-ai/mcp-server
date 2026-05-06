@@ -41,7 +41,7 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 			if (args.tier) params.set("tier", args.tier);
 			if (args.gender) params.set("gender", args.gender);
 			if (args.language) params.set("language", args.language);
-			const path = params.toString() ? `/voice/catalog?${params}` : "/voice/catalog";
+			const path = params.toString() ? `/v1/voice/catalog?${params}` : "/v1/voice/catalog";
 			const result = await context.client.get<unknown>(path);
 			return toolSuccess(result);
 		}, options.context),
@@ -69,7 +69,7 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 			if (args.agentId) body.agentId = args.agentId;
 			if (args.tier) body.tier = args.tier;
 			if (args.fromNumber) body.fromNumber = args.fromNumber;
-			const result = await context.client.post<unknown>("/voice/calls", body);
+			const result = await context.client.post<unknown>("/v1/voice/calls", body);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -100,7 +100,7 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 			if (args.state) params.set("state", args.state);
 			if (args.limit !== undefined) params.set("limit", String(args.limit));
 			if (args.offset !== undefined) params.set("offset", String(args.offset));
-			const path = params.toString() ? `/voice/calls?${params}` : "/voice/calls";
+			const path = params.toString() ? `/v1/voice/calls?${params}` : "/v1/voice/calls";
 			const result = await context.client.get<unknown>(path);
 			return toolSuccess(result);
 		}, options.context),
@@ -118,7 +118,7 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 		},
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.get<unknown>(`/voice/calls/${args.callId}`);
+			const result = await context.client.get<unknown>(`/v1/voice/calls/${args.callId}`);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -135,7 +135,7 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 		},
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.get<unknown>(`/voice/calls/${args.callId}/transcript`);
+			const result = await context.client.get<unknown>(`/v1/voice/calls/${args.callId}/transcript`);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -152,7 +152,7 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 		},
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.get<unknown>(`/voice/calls/${args.callId}/recording`);
+			const result = await context.client.get<unknown>(`/v1/voice/calls/${args.callId}/recording`);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -169,7 +169,7 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 		},
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.get<unknown>(`/voice/calls/${args.callId}/summary`);
+			const result = await context.client.get<unknown>(`/v1/voice/calls/${args.callId}/summary`);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -186,7 +186,7 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 		},
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.get<unknown>(`/voice/calls/${args.callId}/score`);
+			const result = await context.client.get<unknown>(`/v1/voice/calls/${args.callId}/score`);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -219,7 +219,7 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 			if (args.dateTo) body.dateTo = args.dateTo;
 			if (args.limit !== undefined) body.limit = args.limit;
 			if (args.threshold !== undefined) body.threshold = args.threshold;
-			const result = await context.client.post<unknown>("/voice/search", body);
+			const result = await context.client.post<unknown>("/v1/voice/search", body);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -236,7 +236,7 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 		},
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.get<unknown>(`/voice/calls/${args.callId}/security`);
+			const result = await context.client.get<unknown>(`/v1/voice/calls/${args.callId}/security`);
 			return toolSuccess(result);
 		}, options.context),
 	);

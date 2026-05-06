@@ -87,7 +87,7 @@ export function registerFundingTools(options: ToolRegistrationOptions): void {
 			inputSchema: createSourceSchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.post<unknown>("/funding/sources", {
+			const result = await context.client.post<unknown>("/v1/funding/sources", {
 				paymentMethodId: args.payment_method_id,
 				customerId: args.customer_id,
 				label: args.label,
@@ -110,7 +110,7 @@ export function registerFundingTools(options: ToolRegistrationOptions): void {
 			const params = new URLSearchParams();
 			if (args.status) params.set("status", args.status);
 			params.set("limit", String(args.limit));
-			const result = await context.client.get<unknown>(`/funding/sources?${params.toString()}`);
+			const result = await context.client.get<unknown>(`/v1/funding/sources?${params.toString()}`);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -122,7 +122,7 @@ export function registerFundingTools(options: ToolRegistrationOptions): void {
 			inputSchema: createHoldSchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.post<unknown>("/funding/holds", {
+			const result = await context.client.post<unknown>("/v1/funding/holds", {
 				fundingSourceId: args.funding_source_id,
 				cardId: args.card_id,
 				amountCents: args.amount_cents,
@@ -142,7 +142,7 @@ export function registerFundingTools(options: ToolRegistrationOptions): void {
 			inputSchema: captureHoldSchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const path = `/funding/holds/${encodeURIComponent(args.hold_id)}/capture`;
+			const path = `/v1/funding/holds/${encodeURIComponent(args.hold_id)}/capture`;
 			const result = await context.client.post<unknown>(path, {
 				amountCents: args.amount_cents,
 				metadata: args.metadata,
@@ -158,7 +158,7 @@ export function registerFundingTools(options: ToolRegistrationOptions): void {
 			inputSchema: releaseHoldSchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const path = `/funding/holds/${encodeURIComponent(args.hold_id)}/release`;
+			const path = `/v1/funding/holds/${encodeURIComponent(args.hold_id)}/release`;
 			const result = await context.client.post<unknown>(path, {
 				reason: args.reason,
 				metadata: args.metadata,
@@ -174,7 +174,7 @@ export function registerFundingTools(options: ToolRegistrationOptions): void {
 			inputSchema: holdIdSchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const path = `/funding/holds/${encodeURIComponent(args.hold_id)}`;
+			const path = `/v1/funding/holds/${encodeURIComponent(args.hold_id)}`;
 			const result = await context.client.get<unknown>(path);
 			return toolSuccess(result);
 		}, options.context),
@@ -192,7 +192,7 @@ export function registerFundingTools(options: ToolRegistrationOptions): void {
 			if (args.card_id) params.set("cardId", args.card_id);
 			if (args.status) params.set("status", args.status);
 			params.set("limit", String(args.limit));
-			const result = await context.client.get<unknown>(`/funding/holds?${params.toString()}`);
+			const result = await context.client.get<unknown>(`/v1/funding/holds?${params.toString()}`);
 			return toolSuccess(result);
 		}, options.context),
 	);

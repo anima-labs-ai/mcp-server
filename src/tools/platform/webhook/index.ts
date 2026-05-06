@@ -88,7 +88,7 @@ export function registerWebhookTools(options: ToolRegistrationOptions): void {
 			annotations: { readOnlyHint: false, destructiveHint: false },
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.post("/webhooks", args);
+			const result = await context.client.post("/v1/webhooks", args);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -101,7 +101,7 @@ export function registerWebhookTools(options: ToolRegistrationOptions): void {
 			annotations: { readOnlyHint: true, destructiveHint: false },
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.get(`/webhooks/${args.id}`);
+			const result = await context.client.get(`/v1/webhooks/${args.id}`);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -119,7 +119,7 @@ export function registerWebhookTools(options: ToolRegistrationOptions): void {
 				...rest,
 				...(enabled === undefined ? {} : { active: enabled }),
 			};
-			const result = await context.client.put(`/webhooks/${id}`, payload);
+			const result = await context.client.put(`/v1/webhooks/${id}`, payload);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -132,7 +132,7 @@ export function registerWebhookTools(options: ToolRegistrationOptions): void {
 			annotations: { readOnlyHint: false, destructiveHint: true },
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.delete(`/webhooks/${args.id}`);
+			const result = await context.client.delete(`/v1/webhooks/${args.id}`);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -150,7 +150,7 @@ export function registerWebhookTools(options: ToolRegistrationOptions): void {
 			if (args.limit !== undefined) params.set("limit", String(args.limit));
 			if (args.cursor) params.set("cursor", args.cursor);
 
-			const path = params.toString() ? `/webhooks?${params}` : "/webhooks";
+			const path = params.toString() ? `/v1/webhooks?${params}` : "/v1/webhooks";
 			const result = await context.client.get(path);
 			return toolSuccess(result);
 		}, options.context),
@@ -164,7 +164,7 @@ export function registerWebhookTools(options: ToolRegistrationOptions): void {
 			annotations: { readOnlyHint: false, destructiveHint: false },
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.post(`/webhooks/${args.id}/test`, {
+			const result = await context.client.post(`/v1/webhooks/${args.id}/test`, {
 				event: "message.received",
 			});
 			return toolSuccess(result);
@@ -183,7 +183,7 @@ export function registerWebhookTools(options: ToolRegistrationOptions): void {
 			if (args.limit !== undefined) params.set("limit", String(args.limit));
 			if (args.cursor) params.set("cursor", args.cursor);
 
-			const basePath = `/webhooks/${args.id}/deliveries`;
+			const basePath = `/v1/webhooks/${args.id}/deliveries`;
 			const path = params.toString() ? `${basePath}?${params}` : basePath;
 			const result = await context.client.get(path);
 			return toolSuccess(result);
@@ -202,7 +202,7 @@ export function registerWebhookTools(options: ToolRegistrationOptions): void {
 			annotations: { readOnlyHint: false, destructiveHint: false },
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.post(`/webhooks/${args.id}/reenable`, {});
+			const result = await context.client.post(`/v1/webhooks/${args.id}/reenable`, {});
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -219,7 +219,7 @@ export function registerWebhookTools(options: ToolRegistrationOptions): void {
 			annotations: { readOnlyHint: true, destructiveHint: false },
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.get(`/webhooks/${args.id}/stats`);
+			const result = await context.client.get(`/v1/webhooks/${args.id}/stats`);
 			return toolSuccess(result);
 		}, options.context),
 	);
