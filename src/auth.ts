@@ -40,7 +40,19 @@ export function makeAuthenticator(apiUrl: string): (req: IncomingMessage) => Pro
       const head = token.slice(0, Math.min(token.indexOf("_") + 1, 8)) || token.slice(0, 4);
       console.warn(`[mcp-auth] unknown token prefix "${head}" — passing through to API`);
     }
-    const client = new ApiClient({ baseUrl: apiUrl, apiKey: token });
+    // Pass the token as BOTH apiKey and masterKey. The `hasMasterKey()` check
+    // and `requireMasterKeyGuard` were designed for local CLI usage where
+    // `ANIMA_MASTER_KEY` was a separate env var distinct from the
+    // per-request `ANIMA_API_KEY`. In the cloud-deployed mcp.useanima.sh
+    // scenario, every request carries one Bearer token and the API
+    // (apps/api/src/middleware/auth.ts:resolveAuth) is the only thing that
+    // can decide whether that token has master authority — a user-bound
+    // `oat_*` token resolves to `keyType: "master"`, an agent-bound one
+    // resolves to `keyType: "agent"`, an `sk_live_` to scoped permissions.
+    // Optimistically advertise master capability here so client-side guards
+    // don't pre-empt; if the API rejects with 403 the caller gets the real
+    // permission error instead of a misleading "ANIMA_MASTER_KEY required".
+    const client = new ApiClient({ baseUrl: apiUrl, apiKey: token, masterKey: token });
     let orgId = "default";
     try {
       const orgs = await client.get<Array<{ id: string }>>("/v1/orgs");
