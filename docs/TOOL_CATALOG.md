@@ -321,368 +321,7 @@ Update an agent
 
 **Source:** `src/tools/agent/registry/index.ts:127`
 
-## cards / browser-payments
-
-4 tools.
-
-| Name | Description | Flags |
-|---|---|---|
-| `browser_detect_checkout` | Detect checkout forms on the current browser page. | — |
-| `browser_fill_address` | Fill billing or shipping address into checkout form fields. | — |
-| `browser_fill_card` | Fill card details into checkout form fields. | — |
-| `browser_pay_checkout` | Execute payment on a detected checkout form. | — |
-
-### `browser_detect_checkout`
-
-Detect checkout forms on the current browser page.
-
-**Input schema:** `detectCheckoutSchema` — see source for fields.
-
-**Source:** `src/tools/cards/browser-payments/index.ts:31`
-
-### `browser_fill_address`
-
-Fill billing or shipping address into checkout form fields.
-
-**Input schema:** `fillAddressSchema` — see source for fields.
-
-**Source:** `src/tools/cards/browser-payments/index.ts:76`
-
-### `browser_fill_card`
-
-Fill card details into checkout form fields.
-
-**Input schema:** `fillCardSchema` — see source for fields.
-
-**Source:** `src/tools/cards/browser-payments/index.ts:61`
-
-### `browser_pay_checkout`
-
-Execute payment on a detected checkout form.
-
-**Input schema:** `payCheckoutSchema` — see source for fields.
-
-**Source:** `src/tools/cards/browser-payments/index.ts:46`
-
-## cards / cards
-
-23 tools.
-
-| Name | Description | Flags |
-|---|---|---|
-| `approve_authorization` | Approve a pending card authorization. This records the approval decision and cre… | — |
-| `create_card` | Create a virtual card for the current agent with optional spend limits. Use this… | — |
-| `create_cardholder` | Create a cardholder for the current organization to use as the owner of issuing … | — |
-| `create_spending_policy` | Create a spending policy for a card with action rules, optional limits, and merc… | — |
-| `decline_authorization` | Decline a pending card authorization. This confirms the decline decision and doe… | — |
-| `delete_card` | Permanently delete a card by ID. The card must be frozen or canceled first. Use … | — |
-| `delete_cardholder` | Delete a cardholder by ID after deactivating it upstream. Use this to remove obs… | — |
-| `delete_spending_policy` | Delete a spending policy by policy ID. Use this when removing obsolete card cont… | — |
-| `freeze_card` | Freeze a card to block all new transactions immediately. Use this when suspiciou… | — |
-| `get_card` | Get full details for a specific card by ID, including status and limit informati… | — |
-| `get_cardholder` | Get details for a specific cardholder by ID. Use this to inspect billing and sta… | — |
-| `get_spending_summary` | Get a normalized spending summary for a card, including today and month totals v… | — |
-| `get_transaction` | Get full details for a single card transaction by ID, including merchant info, a… | — |
-| `get_transactions` | Get card transaction history with merchant and amount details. Use this to audit… | — |
-| `kill_switch` | Emergency kill switch that immediately freezes all cards within the specified sc… | — |
-| `list_approvals` | List pending and historical card authorization approvals. Use this to review tra… | — |
-| `list_cardholders` | List cardholders in the current organization with pagination. Use this to select… | — |
-| `list_cards` | List cards for the current agent with an optional status filter. Use this to ins… | — |
-| `list_spending_policies` | List all spending policies attached to a specific card. Use this to review activ… | — |
-| `unfreeze_card` | Unfreeze a previously frozen card so transactions can proceed again. Use this af… | — |
-| `update_card` | Update a card | — |
-| `update_cardholder` | Update cardholder profile fields such as status and billing details. Use this to… | — |
-| `update_spending_policy` | Update an existing spending policy by ID to change its rules, action, or merchan… | — |
-
-### `approve_authorization`
-
-Approve a pending card authorization. This records the approval decision and creates a pre-approval pattern so future similar transactions from the same merchant auto-approve. Note: the original Stripe authorization was already declined due to the 2-second webhook deadline, but approving creates a pattern for future transactions.
-
-**Input schema:** `approvalDecisionSchema` — see source for fields.
-
-**Source:** `src/tools/cards/cards/index.ts:859`
-
-### `create_card`
-
-Create a virtual card for the current agent with optional spend limits. Use this to provision a controlled card before running purchase workflows.
-
-**Input schema:** `createCardSchema` — see source for fields.
-
-**Source:** `src/tools/cards/cards/index.ts:298`
-
-### `create_cardholder`
-
-Create a cardholder for the current organization to use as the owner of issuing cards. Use this before creating cards when individual cardholder profiles are required.
-
-**Input schema:** `createCardholderSchema` — see source for fields.
-
-**Source:** `src/tools/cards/cards/index.ts:505`
-
-### `create_spending_policy`
-
-Create a spending policy for a card with action rules, optional limits, and merchant/category constraints. Use this to enforce card governance automatically.
-
-**Input schema:** `createSpendingPolicySchema` — see source for fields.
-
-**Source:** `src/tools/cards/cards/index.ts:407`
-
-### `decline_authorization`
-
-Decline a pending card authorization. This confirms the decline decision and does not create a pre-approval pattern. Use this when the transaction should not be allowed in the future either.
-
-**Input schema:** `approvalDecisionSchema` — see source for fields.
-
-**Source:** `src/tools/cards/cards/index.ts:874`
-
-### `delete_card`
-
-Permanently delete a card by ID. The card must be frozen or canceled first. Use this to remove decommissioned cards from the system.
-
-**Input schema:** `cardIdSchema` — see source for fields.
-
-**Source:** `src/tools/cards/cards/index.ts:694`
-
-### `delete_cardholder`
-
-Delete a cardholder by ID after deactivating it upstream. Use this to remove obsolete cardholder records from active use.
-
-**Input schema:** `getCardholderSchema` — see source for fields.
-
-**Source:** `src/tools/cards/cards/index.ts:607`
-
-### `delete_spending_policy`
-
-Delete a spending policy by policy ID. Use this when removing obsolete card controls or simplifying rule sets.
-
-**Input schema:** `deleteSpendingPolicySchema` — see source for fields.
-
-**Source:** `src/tools/cards/cards/index.ts:453`
-
-### `freeze_card`
-
-Freeze a card to block all new transactions immediately. Use this when suspicious activity is detected or temporary lockout is required.
-
-**Input schema:** `cardIdSchema` — see source for fields.
-
-**Source:** `src/tools/cards/cards/index.ts:360`
-
-### `get_card`
-
-Get full details for a specific card by ID, including status and limit information. Use this when you need card-level state before taking action.
-
-**Input schema:** `cardIdSchema` — see source for fields.
-
-**Source:** `src/tools/cards/cards/index.ts:347`
-
-### `get_cardholder`
-
-Get details for a specific cardholder by ID. Use this to inspect billing and status fields before assigning or updating cardholders.
-
-**Input schema:** `getCardholderSchema` — see source for fields.
-
-**Source:** `src/tools/cards/cards/index.ts:541`
-
-### `get_spending_summary`
-
-Get a normalized spending summary for a card, including today and month totals versus configured limits. Use this for quick budget and status checks.
-
-**Input schema:** `cardIdSchema` — see source for fields.
-
-**Source:** `src/tools/cards/cards/index.ts:466`
-
-### `get_transaction`
-
-Get full details for a single card transaction by ID, including merchant info, amount, and status. Use this to inspect a specific charge or refund.
-
-**Input schema:** `getTransactionSchema` — see source for fields.
-
-**Source:** `src/tools/cards/cards/index.ts:780`
-
-### `get_transactions`
-
-Get card transaction history with merchant and amount details. Use this to audit recent spend activity and inspect charge-level outcomes.
-
-**Input schema:** `getTransactionsSchema` — see source for fields.
-
-**Source:** `src/tools/cards/cards/index.ts:390`
-
-### `kill_switch`
-
-Emergency kill switch that immediately freezes all cards within the specified scope. Use this when widespread fraud or compromise is detected and all card activity must stop.
-
-**Input schema:** `killSwitchSchema` — see source for fields.
-
-**Source:** `src/tools/cards/cards/index.ts:802`
-
-### `list_approvals`
-
-List pending and historical card authorization approvals. Use this to review transactions awaiting human decision or audit past approval outcomes.
-
-**Input schema:** `listApprovalsSchema` — see source for fields.
-
-**Source:** `src/tools/cards/cards/index.ts:841`
-
-### `list_cardholders`
-
-List cardholders in the current organization with pagination. Use this to select existing cardholders for card assignment workflows.
-
-**Input schema:** `listCardholdersSchema` — see source for fields.
-
-**Source:** `src/tools/cards/cards/index.ts:554`
-
-### `list_cards`
-
-List cards for the current agent with an optional status filter. Use this to inspect available cards before selecting one for operations.
-
-**Input schema:** `listCardsSchema` — see source for fields.
-
-**Source:** `src/tools/cards/cards/index.ts:329`
-
-### `list_spending_policies`
-
-List all spending policies attached to a specific card. Use this to review active controls and policy ordering.
-
-**Input schema:** `listSpendingPoliciesSchema` — see source for fields.
-
-**Source:** `src/tools/cards/cards/index.ts:437`
-
-### `unfreeze_card`
-
-Unfreeze a previously frozen card so transactions can proceed again. Use this after reviewing and clearing a freeze condition.
-
-**Input schema:** `cardIdSchema` — see source for fields.
-
-**Source:** `src/tools/cards/cards/index.ts:375`
-
-### `update_card`
-
-Update a card
-
-**Input schema:** `updateCardSchema` — see source for fields.
-
-**Source:** `src/tools/cards/cards/index.ts:663`
-
-### `update_cardholder`
-
-Update cardholder profile fields such as status and billing details. Use this to keep cardholder records aligned with operational needs.
-
-**Input schema:** `updateCardholderSchema` — see source for fields.
-
-**Source:** `src/tools/cards/cards/index.ts:569`
-
-### `update_spending_policy`
-
-Update an existing spending policy by ID to change its rules, action, or merchant constraints. Use this to refine card governance without deleting and recreating policies.
-
-**Input schema:** `updateSpendingPolicySchema` — see source for fields.
-
-**Source:** `src/tools/cards/cards/index.ts:745`
-
-## cards / funding
-
-7 tools.
-
-| Name | Description | Flags |
-|---|---|---|
-| `funding_capture_hold` | Capture part or all of an existing funding hold. | — |
-| `funding_create_hold` | Create a pre-authorization hold on a funding source for later capture. | — |
-| `funding_create_source` | Register a card funding source using Stripe payment method and customer IDs. | — |
-| `funding_get_hold` | Get details for a specific funding hold by ID. | — |
-| `funding_list_holds` | List funding holds for the current organization with optional filters. | — |
-| `funding_list_sources` | List funding sources for the current organization, optionally filtered by status… | — |
-| `funding_release_hold` | Release an existing funding hold and cancel remaining capturable amount. | — |
-
-### `funding_capture_hold`
-
-Capture part or all of an existing funding hold.
-
-**Input schema:** `captureHoldSchema` — see source for fields.
-
-**Source:** `src/tools/cards/funding/index.ts:138`
-
-### `funding_create_hold`
-
-Create a pre-authorization hold on a funding source for later capture.
-
-**Input schema:** `createHoldSchema` — see source for fields.
-
-**Source:** `src/tools/cards/funding/index.ts:118`
-
-### `funding_create_source`
-
-Register a card funding source using Stripe payment method and customer IDs.
-
-**Input schema:** `createSourceSchema` — see source for fields.
-
-**Source:** `src/tools/cards/funding/index.ts:83`
-
-### `funding_get_hold`
-
-Get details for a specific funding hold by ID.
-
-**Input schema:** `holdIdSchema` — see source for fields.
-
-**Source:** `src/tools/cards/funding/index.ts:170`
-
-### `funding_list_holds`
-
-List funding holds for the current organization with optional filters.
-
-**Input schema:** `listHoldsSchema` — see source for fields.
-
-**Source:** `src/tools/cards/funding/index.ts:183`
-
-### `funding_list_sources`
-
-List funding sources for the current organization, optionally filtered by status.
-
-**Input schema:** `listSourcesSchema` — see source for fields.
-
-**Source:** `src/tools/cards/funding/index.ts:103`
-
-### `funding_release_hold`
-
-Release an existing funding hold and cancel remaining capturable amount.
-
-**Input schema:** `releaseHoldSchema` — see source for fields.
-
-**Source:** `src/tools/cards/funding/index.ts:154`
-
-## cards / invoice
-
-3 tools.
-
-| Name | Description | Flags |
-|---|---|---|
-| `invoice_auto_pay` | Trigger auto-payment for a confirmed invoice. Enqueues a payment job that will s… | — |
-| `invoice_process` | Process a detected invoice — validate fields, confirm the invoice, and optionall… | — |
-| `invoice_reconcile` | Match payment receipts against invoices using amount, time, vendor, and order ID… | — |
-
-### `invoice_auto_pay`
-
-Trigger auto-payment for a confirmed invoice. Enqueues a payment job that will select the optimal payment path (browser extension or direct API) and handle retries.
-
-**Input schema:** `autoPayInvoiceSchema` — see source for fields.
-
-**Source:** `src/tools/cards/invoice/index.ts:119`
-
-### `invoice_process`
-
-Process a detected invoice — validate fields, confirm the invoice, and optionally create a payee-locked card. Use dry_run=true to preview without making changes.
-
-**Input schema:** `processInvoiceSchema` — see source for fields.
-
-**Source:** `src/tools/cards/invoice/index.ts:67`
-
-### `invoice_reconcile`
-
-Match payment receipts against invoices using amount, time, vendor, and order ID signals. Returns confidence scores and auto-links high-confidence matches.
-
-**Input schema:** `reconcilePaymentsSchema` — see source for fields.
-
-**Source:** `src/tools/cards/invoice/index.ts:159`
-
-## cards / wallet
+## wallet
 
 7 tools.
 
@@ -702,7 +341,7 @@ Create a new wallet for an agent. Use this to provision a payment wallet for age
 
 **Input schema:** `createWalletSchema` — see source for fields.
 
-**Source:** `src/tools/cards/wallet/index.ts:91`
+**Source:** `src/tools/wallet/index.ts:91`
 
 ### `freeze_wallet`
 
@@ -710,7 +349,7 @@ Freeze an agent
 
 **Input schema:** `agentIdSchema` — see source for fields.
 
-**Source:** `src/tools/cards/wallet/index.ts:161`
+**Source:** `src/tools/wallet/index.ts:161`
 
 ### `get_wallet`
 
@@ -718,7 +357,7 @@ Get wallet details for an agent including balance. Use this to check an agent
 
 **Input schema:** `agentIdSchema` — see source for fields.
 
-**Source:** `src/tools/cards/wallet/index.ts:105`
+**Source:** `src/tools/wallet/index.ts:105`
 
 ### `unfreeze_wallet`
 
@@ -726,7 +365,7 @@ Unfreeze an agent
 
 **Input schema:** `agentIdSchema` — see source for fields.
 
-**Source:** `src/tools/cards/wallet/index.ts:174`
+**Source:** `src/tools/wallet/index.ts:174`
 
 ### `wallet_pay`
 
@@ -734,7 +373,7 @@ Send a payment from an agent
 
 **Input schema:** `walletPaySchema` — see source for fields.
 
-**Source:** `src/tools/cards/wallet/index.ts:117`
+**Source:** `src/tools/wallet/index.ts:117`
 
 ### `wallet_transactions`
 
@@ -742,7 +381,7 @@ List wallet transactions for an agent. Use this to review payment history.
 
 **Input schema:** `walletTransactionsSchema` — see source for fields.
 
-**Source:** `src/tools/cards/wallet/index.ts:145`
+**Source:** `src/tools/wallet/index.ts:145`
 
 ### `wallet_x402_fetch`
 
@@ -750,9 +389,9 @@ Fetch a URL with automatic x402 payment negotiation via the agent
 
 **Input schema:** `x402FetchSchema` — see source for fields.
 
-**Source:** `src/tools/cards/wallet/index.ts:131`
+**Source:** `src/tools/wallet/index.ts:131`
 
-## cards / x402
+## x402
 
 1 tool.
 
@@ -766,7 +405,7 @@ Fetch an x402-protected resource using challenge-response settlement flow.
 
 **Input schema:** `x402FetchSchema` — see source for fields.
 
-**Source:** `src/tools/cards/x402/index.ts:26`
+**Source:** `src/tools/x402/index.ts:26`
 
 ## email / address
 

@@ -1,10 +1,10 @@
 import { z } from "zod";
-import type { ToolRegistrationOptions } from "../../../shared/index.js";
+import type { ToolRegistrationOptions } from "../../shared/index.js";
 import {
 	withErrorHandling,
 	toolSuccess,
 	requireMasterKeyGuard,
-} from "../../../shared/index.js";
+} from "../../shared/index.js";
 
 const agentIdSchema = z.object({
 	agentId: z

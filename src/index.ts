@@ -4,7 +4,6 @@ import { createMcpHttpServer, type DomainFactories, type HttpTransportServer } f
 import { loadConfig } from "./shared/index.js";
 import { makeAuthenticator } from "./auth.js";
 import { buildAgentServer } from "./tools/agent/factory.js";
-import { buildCardsServer } from "./tools/cards/factory.js";
 import { buildEmailServer } from "./tools/email/factory.js";
 import { buildPhoneServer } from "./tools/phone/factory.js";
 import { buildPlatformServer } from "./tools/platform/factory.js";
@@ -23,7 +22,6 @@ export async function buildUnifiedServer(opts: { port?: number } = {}): Promise<
     "/mcp":      (ctx) => buildAllToolsServer(ctx.client),
     // Per-domain endpoints for scoped / tailored connections.
     "/agent":    (ctx) => buildAgentServer(ctx.client),
-    "/cards":    (ctx) => buildCardsServer(ctx.client),
     "/email":    (ctx) => buildEmailServer(ctx.client),
     "/phone":    (ctx) => buildPhoneServer(ctx.client),
     "/platform": (ctx) => buildPlatformServer(ctx.client),
@@ -57,7 +55,7 @@ async function main() {
     const addr = handle.httpServer.address();
     const port = typeof addr === "object" && addr ? addr.port : config.httpPort;
     console.error(`Anima MCP server running on http://localhost:${port}`);
-    console.error("Domains: /mcp (all), /agent, /cards, /email, /phone, /platform, /vault");
+    console.error("Domains: /mcp (all), /agent, /email, /phone, /platform, /vault");
   });
 
   const shutdown = async () => { await handle.close(); process.exit(0); };

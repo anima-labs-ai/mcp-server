@@ -12,13 +12,11 @@ import { registerIdentityTools } from "../agent/identity/index.js";
 import { registerRegistryTools } from "../agent/registry/index.js";
 import { registerA2aTools } from "../agent/a2a/index.js";
 
-// Cards domain
-import { registerCardTools } from "../cards/cards/index.js";
-import { registerWalletTools } from "../cards/wallet/index.js";
-import { registerFundingTools } from "../cards/funding/index.js";
-import { registerInvoiceTools } from "../cards/invoice/index.js";
-import { registerBrowserPaymentsTools } from "../cards/browser-payments/index.js";
-import { registerX402Tools } from "../cards/x402/index.js";
+// Wallet domain
+import { registerWalletTools } from "../wallet/index.js";
+
+// x402 domain
+import { registerX402Tools } from "../x402/index.js";
 
 // Email domain
 import { registerEmailTools } from "../email/email/index.js";
@@ -45,7 +43,7 @@ const SERVER_INFO = {
 	name: "anima-mcp",
 	version: "0.1.0",
 	description:
-		"Anima MCP Server — unified endpoint exposing all Anima tools (agent, cards, email, phone, platform, vault).",
+		"Anima MCP Server — unified endpoint exposing all Anima tools (agent, wallet, x402, email, phone, platform, vault).",
 };
 
 /**
@@ -53,7 +51,7 @@ const SERVER_INFO = {
  * `/mcp` endpoint that clients use for a one-URL install experience.
  *
  * For scoped / tailored access, clients can hit per-domain paths instead
- * (/agent, /cards, /email, /phone, /platform, /vault) — each of those
+ * (/agent, /email, /phone, /platform, /vault) — each of those
  * registers only that domain's tools.
  */
 export function buildAllToolsServer(client: ApiClient): McpServer {
@@ -70,12 +68,10 @@ export function buildAllToolsServer(client: ApiClient): McpServer {
 	registerRegistryTools(context);
 	registerA2aTools(context);
 
-	// Cards
-	registerCardTools(context);
+	// Wallet
 	registerWalletTools(context);
-	registerFundingTools(context);
-	registerInvoiceTools(context);
-	registerBrowserPaymentsTools(context);
+
+	// x402
 	registerX402Tools(context);
 
 	// Email

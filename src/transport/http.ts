@@ -169,7 +169,7 @@ export function createMcpHttpServer(
 <html lang="en"><head>
 <meta charset="utf-8">
 <title>Anima MCP</title>
-<meta name="description" content="Anima MCP Server — unified identity platform for autonomous agents. Tools for email, phone, SMS, cards, vault, and agent infrastructure.">
+<meta name="description" content="Anima MCP Server — unified identity platform for autonomous agents. Tools for email, phone, SMS, vault, and agent infrastructure.">
 <meta property="og:title" content="Anima MCP Server">
 <meta property="og:description" content="Unified identity platform for autonomous agents.">
 <meta property="og:image" content="https://console.useanima.sh/icon-512.png">
