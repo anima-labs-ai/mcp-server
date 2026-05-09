@@ -7,11 +7,46 @@ import {
 
 const agentCreateInput = z.object({
 	name: z.string().describe("Agent display name"),
+	slug: z
+		.string()
+		.regex(/^[a-z0-9-]+$/)
+		.min(2)
+		.max(64)
+		.optional()
+		.describe(
+			"URL-friendly unique identifier (lowercase alphanumeric + hyphens, 2-64 chars). Auto-derived from name if omitted.",
+		),
+	email: z
+		.string()
+		.email()
+		.optional()
+		.describe("Optional email address to provision for this agent"),
+	provisionPhone: z
+		.boolean()
+		.optional()
+		.describe("Whether to auto-provision a phone number for this agent"),
 	metadata: z
 		.record(z.string())
 		.optional()
 		.describe("Optional agent metadata as key-value string pairs"),
 });
+
+/**
+ * Derive an API-acceptable slug from a display name. The API requires
+ * `^[a-z0-9-]+$`, so lowercase, replace runs of non-alphanumerics with
+ * hyphens, trim. The 6-char random suffix avoids unique-constraint
+ * collisions across "Test Agent" → "test-agent" being created twice.
+ */
+function slugifyName(name: string): string {
+	const base = name
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, "-")
+		.replace(/^-+|-+$/g, "")
+		.slice(0, 56);
+	const safe = base.length >= 2 ? base : "agent";
+	const suffix = Math.random().toString(36).slice(2, 8);
+	return `${safe}-${suffix}`;
+}
 
 const agentGetInput = z.object({
 	id: z.string().describe("Agent ID"),
@@ -54,7 +89,11 @@ function registerAgentCreateTool(options: ToolRegistrationOptions): void {
 			inputSchema: agentCreateInput.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.post("/v1/agents", args);
+			const payload = {
+				...args,
+				slug: args.slug ?? slugifyName(args.name),
+			};
+			const result = await context.client.post("/v1/agents", payload);
 			return toolSuccess(result);
 		}, options.context),
 	);
