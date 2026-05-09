@@ -269,7 +269,7 @@ function registerWhoAmITool(options: ToolRegistrationOptions): void {
 			annotations: { readOnlyHint: true, destructiveHint: false },
 		},
 		withErrorHandling(async (_args, context) => {
-			const result = await context.client.get("/v1/accounts/me");
+			const result = await context.client.get("/v1/orgs/me");
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -518,15 +518,20 @@ function registerUpdateMetadataTool(options: ToolRegistrationOptions): void {
 			annotations: { readOnlyHint: false, destructiveHint: false },
 		},
 		withErrorHandling(async (args, context) => {
-			const whoami = await context.client.get("/v1/accounts/me");
-			const whoamiObject = asObject(whoami);
-			const agentId =
-				asString(whoamiObject?.id) ??
-				asString(asObject(whoamiObject?.agent)?.id) ??
-				asString(whoamiObject?.agentId);
+			// Resolve the "current agent" via OAuth userinfo. For agent-bound
+			// oat_* grants (`anima.agentId` non-null) this returns the
+			// delegated agent's ID. For user-bound grants and non-OAuth
+			// credentials there is no implicit "current agent" — point the
+			// caller at agent_update with an explicit ID instead of guessing.
+			const userinfo = await context.client.get("/v1/oauth/userinfo").catch(() => null);
+			const userinfoObject = asObject(userinfo);
+			const animaContext = asObject(userinfoObject?.anima);
+			const agentId = asString(animaContext?.agentId);
 
 			if (!agentId) {
-				return toolError("Could not determine current agent ID");
+				return toolError(
+					"No 'current agent' bound to this credential. Use agent_update with an explicit agent ID instead.",
+				);
 			}
 
 			const result = await context.client.patch(`/v1/agents/${agentId}`, {
