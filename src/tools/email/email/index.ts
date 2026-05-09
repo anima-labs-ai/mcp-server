@@ -487,7 +487,25 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 			inputSchema: emailSearchSchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.post<unknown>("/v1/messages/search", args);
+			// API contract MessageSearchInput expects nested
+			// {query, filters, pagination: {limit, cursor}}. Sending args
+			// flat caused the API to use pagination.limit=20 (the contract
+			// default) and ignore the caller's `limit` — see message_search
+			// fix for the same root cause and detail. Force EMAIL channel
+			// since this is the email-domain alias of message_search.
+			const dateRange =
+				args.after || args.before
+					? { from: args.after, to: args.before }
+					: undefined;
+			const body: Record<string, unknown> = {
+				query: args.query ?? args.subject ?? "",
+				filters: {
+					channel: "EMAIL",
+					...(dateRange ? { dateRange } : {}),
+				},
+				pagination: { limit: args.limit ?? 20 },
+			};
+			const result = await context.client.post<unknown>("/v1/messages/search", body);
 			return toolSuccess(result);
 		}, options.context),
 	);

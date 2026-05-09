@@ -204,7 +204,28 @@ export function registerMessageTools(options: ToolRegistrationOptions): void {
 			inputSchema: messageSearchInput.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.post("/v1/messages/search", args);
+			// API contract MessageSearchInput expects nested
+			// {query, filters: {channel, ...}, pagination: {limit, cursor}}.
+			// Sending the args flat caused the API to fall back to
+			// pagination.limit=20 (the contract default) regardless of what
+			// the caller passed, so even `limit: 1` returned ~900KB of full
+			// message bodies + raw email headers. Reshape into the contract.
+			const dateRange =
+				args.after || args.before
+					? { from: args.after, to: args.before }
+					: undefined;
+			const body: Record<string, unknown> = {
+				query: args.query,
+				filters: {
+					channel: args.channel,
+					...(dateRange ? { dateRange } : {}),
+					// `from`/`to` aren't on MessageSearchInput.filters today;
+					// keeping them as filters here means they're ignored
+					// silently. Pre-filter client-side or add to the contract.
+				},
+				pagination: { limit: args.limit ?? 20 },
+			};
+			const result = await context.client.post("/v1/messages/search", body);
 			return toolSuccess(result);
 		}, options.context),
 	);

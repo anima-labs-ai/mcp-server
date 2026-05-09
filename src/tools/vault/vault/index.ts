@@ -190,7 +190,12 @@ const vaultUpdateCredentialSchema = z.object({
 });
 
 const vaultGeneratePasswordSchema = z.object({
-	agentId: z.string().optional().describe("Agent ID requesting the password. Optional when using an agent API key."),
+	agentId: z
+		.string()
+		.optional()
+		.describe(
+			"Agent ID requesting the password. REQUIRED when calling with a master key (mk_*) or admin:full OAuth grant — those auth contexts have no implicit agent. Optional only when using an agent API key (ak_*).",
+		),
 	length: z
 		.number()
 		.int()
