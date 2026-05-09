@@ -112,18 +112,16 @@ function stringifyValue(value: unknown): string {
 }
 
 const emailSendSchema = z.object({
-	agentId: z
+	agentId: z.string().describe("Agent ID sending the email."),
+	fromIdentityId: z
 		.string()
-		.describe("Agent ID sending the email."),
-	to: z
-		.array(z.string())
-		.describe("List of recipient email addresses."),
-	subject: z
-		.string()
-		.describe("Subject line for the outgoing email."),
-	body: z
-		.string()
-		.describe("Plain-text body content for the email."),
+		.optional()
+		.describe(
+			"Optional EmailIdentity ID to send from. Must belong to this agent and be verified. If omitted, the agent's primary identity is used. Use this to route different message types through different identities (e.g. transactional from @brawz.ai, support from @support.brawz.ai). Discover available IDs via agent_email_identity_list.",
+		),
+	to: z.array(z.string()).describe("List of recipient email addresses."),
+	subject: z.string().describe("Subject line for the outgoing email."),
+	body: z.string().describe("Plain-text body content for the email."),
 	bodyHtml: z
 		.string()
 		.optional()
@@ -139,11 +137,15 @@ const emailSendSchema = z.object({
 	inReplyTo: z
 		.string()
 		.optional()
-		.describe("Optional message ID to set the In-Reply-To header for threading."),
+		.describe(
+			"Optional message ID to set the In-Reply-To header for threading.",
+		),
 	references: z
 		.array(z.string())
 		.optional()
-		.describe("Optional list of message IDs to include in the References header."),
+		.describe(
+			"Optional list of message IDs to include in the References header.",
+		),
 });
 
 const emailGetSchema = z.object({
@@ -170,15 +172,9 @@ const emailListSchema = z.object({
 });
 
 const emailReplySchema = z.object({
-	agentId: z
-		.string()
-		.describe("Agent ID sending the reply."),
-	originalId: z
-		.string()
-		.describe("Original email ID being replied to."),
-	text: z
-		.string()
-		.describe("Plain-text content for your reply message."),
+	agentId: z.string().describe("Agent ID sending the reply."),
+	originalId: z.string().describe("Original email ID being replied to."),
+	text: z.string().describe("Plain-text content for your reply message."),
 	html: z
 		.string()
 		.optional()
@@ -186,23 +182,21 @@ const emailReplySchema = z.object({
 	replyAll: z
 		.boolean()
 		.optional()
-		.describe("When true, include additional participants from the original email."),
+		.describe(
+			"When true, include additional participants from the original email.",
+		),
 });
 
 const emailForwardSchema = z.object({
-	agentId: z
-		.string()
-		.describe("Agent ID forwarding the email."),
-	originalId: z
-		.string()
-		.describe("Original email ID being forwarded."),
-	to: z
-		.string()
-		.describe("Recipient email address for the forwarded message."),
+	agentId: z.string().describe("Agent ID forwarding the email."),
+	originalId: z.string().describe("Original email ID being forwarded."),
+	to: z.string().describe("Recipient email address for the forwarded message."),
 	text: z
 		.string()
 		.optional()
-		.describe("Optional introductory text to prepend before forwarded content."),
+		.describe(
+			"Optional introductory text to prepend before forwarded content.",
+		),
 });
 
 const emailSearchSchema = z.object({
@@ -210,14 +204,8 @@ const emailSearchSchema = z.object({
 		.string()
 		.optional()
 		.describe("Free-text search query applied across email content."),
-	from: z
-		.string()
-		.optional()
-		.describe("Optional sender email filter."),
-	to: z
-		.string()
-		.optional()
-		.describe("Optional recipient email filter."),
+	from: z.string().optional().describe("Optional sender email filter."),
+	to: z.string().optional().describe("Optional recipient email filter."),
 	subject: z
 		.string()
 		.optional()
@@ -244,7 +232,9 @@ const inboxDigestSchema = z.object({
 		.int()
 		.positive()
 		.optional()
-		.describe("Optional maximum number of recent emails to include in the digest."),
+		.describe(
+			"Optional maximum number of recent emails to include in the digest.",
+		),
 });
 
 const emailMarkReadSchema = z.object({
@@ -316,6 +306,7 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 				subject: args.subject,
 				body: args.body,
 			};
+			if (args.fromIdentityId) body.fromIdentityId = args.fromIdentityId;
 			if (args.bodyHtml) body.bodyHtml = args.bodyHtml;
 			if (args.cc) body.cc = args.cc;
 			if (args.bcc) body.bcc = args.bcc;
@@ -351,22 +342,27 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 				"List emails in inbox or another folder with pagination controls. Use this to browse recent messages and mailbox contents.",
 			inputSchema: emailListSchema.shape,
 		},
-		withErrorHandling<z.infer<typeof emailListSchema>>(async (args, context) => {
-			const params = new URLSearchParams();
-			if (args.folder) params.set("folder", args.folder);
-			if (args.limit !== undefined) params.set("limit", String(args.limit));
-			if (args.offset !== undefined) params.set("offset", String(args.offset));
+		withErrorHandling<z.infer<typeof emailListSchema>>(
+			async (args, context) => {
+				const params = new URLSearchParams();
+				if (args.folder) params.set("folder", args.folder);
+				if (args.limit !== undefined) params.set("limit", String(args.limit));
+				if (args.offset !== undefined)
+					params.set("offset", String(args.offset));
 
-			const path = params.toString() ? `/v1/email?${params}` : "/v1/email";
-			const result = await context.client.get<unknown>(path);
-			return toolSuccess(result);
-		}, options.context),
+				const path = params.toString() ? `/v1/email?${params}` : "/v1/email";
+				const result = await context.client.get<unknown>(path);
+				return toolSuccess(result);
+			},
+			options.context,
+		),
 	);
 
 	server.registerTool(
 		"email_reply",
 		{
-			description: "Reply to an existing email thread by first loading the original message and setting threading headers. Use this when you need a proper in-thread response.",
+			description:
+				"Reply to an existing email thread by first loading the original message and setting threading headers. Use this when you need a proper in-thread response.",
 			inputSchema: emailReplySchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
@@ -383,13 +379,13 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 				extractEmailAddress(original.replyTo) ??
 				extractEmailAddress(original.from);
 			if (!replyToAddress) {
-				throw new Error("Unable to determine reply recipient from original email.");
+				throw new Error(
+					"Unable to determine reply recipient from original email.",
+				);
 			}
 
 			const subjectRaw =
-				typeof original.subject === "string"
-					? original.subject
-					: "No subject";
+				typeof original.subject === "string" ? original.subject : "No subject";
 			const subject = ensureReplySubject(subjectRaw);
 
 			const references = extractReferences(original);
@@ -416,17 +412,22 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 			if (references.length > 0) payload.references = references;
 
 			if (args.replyAll) {
-				const ccList = dedupeStrings([
-					...extractStringArray(original.cc),
-					...extractStringArray(original.to),
-				].filter((address) => address !== replyToAddress));
+				const ccList = dedupeStrings(
+					[
+						...extractStringArray(original.cc),
+						...extractStringArray(original.to),
+					].filter((address) => address !== replyToAddress),
+				);
 
 				if (ccList.length > 0) {
 					payload.cc = ccList;
 				}
 			}
 
-			const result = await context.client.post<unknown>("/v1/email/send", payload);
+			const result = await context.client.post<unknown>(
+				"/v1/email/send",
+				payload,
+			);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -434,7 +435,8 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"email_forward",
 		{
-			description: "Forward an existing email to another recipient by loading the original content first. Use this to share a prior message while preserving context.",
+			description:
+				"Forward an existing email to another recipient by loading the original content first. Use this to share a prior message while preserving context.",
 			inputSchema: emailForwardSchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
@@ -446,13 +448,13 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 			}
 
 			const subjectRaw =
-				typeof original.subject === "string"
-					? original.subject
-					: "No subject";
+				typeof original.subject === "string" ? original.subject : "No subject";
 			const subject = ensureForwardSubject(subjectRaw);
 
 			const from = extractEmailAddress(original.from) ?? "unknown sender";
-			const date = stringifyValue(original.date || original.createdAt || "unknown date");
+			const date = stringifyValue(
+				original.date || original.createdAt || "unknown date",
+			);
 			const originalText =
 				typeof original.text === "string"
 					? original.text
@@ -475,7 +477,10 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 				body: forwardedBody,
 			};
 
-			const result = await context.client.post<unknown>("/v1/email/send", payload);
+			const result = await context.client.post<unknown>(
+				"/v1/email/send",
+				payload,
+			);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -483,7 +488,8 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"email_search",
 		{
-			description: "Search mailbox messages by query text and structured filters like sender, recipient, subject, and date bounds. Use this to locate specific conversations quickly.",
+			description:
+				"Search mailbox messages by query text and structured filters like sender, recipient, subject, and date bounds. Use this to locate specific conversations quickly.",
 			inputSchema: emailSearchSchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
@@ -505,7 +511,10 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 				},
 				pagination: { limit: args.limit ?? 20 },
 			};
-			const result = await context.client.post<unknown>("/v1/messages/search", body);
+			const result = await context.client.post<unknown>(
+				"/v1/messages/search",
+				body,
+			);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -513,7 +522,8 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"inbox_digest",
 		{
-			description: "Generate a compact digest of recent inbox messages with sender, subject, date, and snippet. Use this for quick triage without opening each email.",
+			description:
+				"Generate a compact digest of recent inbox messages with sender, subject, date, and snippet. Use this for quick triage without opening each email.",
 			inputSchema: inboxDigestSchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
@@ -531,7 +541,9 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 				// for ordering — INBOUND messages have receivedAt, OUTBOUND
 				// have sentAt, both have createdAt as a fallback.
 				const from =
-					(typeof item.fromAddress === "string" ? item.fromAddress : undefined) ??
+					(typeof item.fromAddress === "string"
+						? item.fromAddress
+						: undefined) ??
 					extractEmailAddress(item.from) ??
 					"unknown sender";
 				const subject =
@@ -608,9 +620,12 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 			inputSchema: batchMarkReadSchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.post<unknown>("/v1/email/batch/read", {
-				ids: args.ids,
-			});
+			const result = await context.client.post<unknown>(
+				"/v1/email/batch/read",
+				{
+					ids: args.ids,
+				},
+			);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -622,9 +637,12 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 			inputSchema: batchMarkUnreadSchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.post<unknown>("/v1/email/batch/unread", {
-				ids: args.ids,
-			});
+			const result = await context.client.post<unknown>(
+				"/v1/email/batch/unread",
+				{
+					ids: args.ids,
+				},
+			);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -636,9 +654,12 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 			inputSchema: batchDeleteSchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.post<unknown>("/v1/email/batch/delete", {
-				ids: args.ids,
-			});
+			const result = await context.client.post<unknown>(
+				"/v1/email/batch/delete",
+				{
+					ids: args.ids,
+				},
+			);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -650,10 +671,13 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 			inputSchema: batchMoveSchema.shape,
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.post<unknown>("/v1/email/batch/move", {
-				ids: args.ids,
-				folder: args.folder,
-			});
+			const result = await context.client.post<unknown>(
+				"/v1/email/batch/move",
+				{
+					ids: args.ids,
+					folder: args.folder,
+				},
+			);
 			return toolSuccess(result);
 		}, options.context),
 	);
