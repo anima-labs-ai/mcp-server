@@ -44,5 +44,14 @@ steps:
       - --set-env-vars=NODE_ENV=production
       - --set-secrets=ANIMA_API_URL=API_URL:latest
 
-images:
-  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/mcp-server:$COMMIT_SHA
+# NOTE: NO `images:` block. Kaniko (build step) pushes images directly via
+# its `--destination` flags rather than through Cloud Build's standard
+# auto-push pipeline. If we list the kaniko-pushed image under `images:`,
+# Cloud Build's post-step verification looks for it via its own pipeline,
+# can't find it (kaniko already pushed it independently), and fails the
+# whole build with:
+#   "ERROR: failed to find one or more images after execution of build steps"
+# even though every step succeeded and the new revision is serving traffic.
+# Re-introduced 2026-05-09 because squash-merge of PR #5 silently dropped
+# the original removal commit. If you re-add this block, expect spurious
+# FAILURE markers on every successful deploy.
