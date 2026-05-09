@@ -48,21 +48,57 @@ export function toolSuccess(
 
 /**
  * Format an error tool response for MCP.
+ *
+ * Two shapes accepted:
+ *   - `string` — backward-compatible. Wrapped as `Error: <message>`.
+ *   - `object` (preferred for typed API errors) — JSON-encoded into the
+ *     text content under an `error: {code, message, ...details}` envelope
+ *     so MCP callers can parse and switch on the typed code (matches
+ *     readiness.blockers[].code from PR #62).
+ *
+ * Customer feedback (2026-05-09): "Free-text errors and structured
+ * readiness can't both be the source of truth. Pick one (codes
+ * everywhere) and the cost of using the API drops sharply."
  */
 export function toolError(
-	message: string,
+	messageOrPayload: string | { code: string; message: string; [key: string]: unknown },
 ): {
 	content: Array<{ type: "text"; text: string }>;
 	isError: true;
 } {
+	if (typeof messageOrPayload === "string") {
+		return {
+			content: [{ type: "text" as const, text: `Error: ${messageOrPayload}` }],
+			isError: true,
+		};
+	}
 	return {
-		content: [{ type: "text" as const, text: `Error: ${message}` }],
+		content: [
+			{
+				type: "text" as const,
+				text: JSON.stringify({ error: messageOrPayload }, null, 2),
+			},
+		],
 		isError: true,
 	};
 }
 
 /**
- * Wrapper that catches errors from tool handlers and formats them as MCP errors.
+ * Wrapper that catches errors from tool handlers and formats them as MCP
+ * errors. Special-cased for ApiError so the upstream API's typed shape
+ * (code + structured `data`) flows through to the MCP caller intact.
+ *
+ * Shape preserved on ApiError responses:
+ *   {
+ *     "error": {
+ *       "code": "IDENTITY_NOT_VERIFIED",  // matches readiness.blockers[].code
+ *       "message": "...",
+ *       "status": 409,
+ *       "identity": "...", "agentId": "...", "region": "...",
+ *       "domainVerified": false,
+ *       "remediation": { "hint": "...", "verificationUrl": "..." }
+ *     }
+ *   }
  */
 export function withErrorHandling<
 	TArgs extends Record<string, unknown>,
@@ -80,6 +116,38 @@ export function withErrorHandling<
 		try {
 			return await handler(args, context);
 		} catch (error) {
+			// Detect ApiError by name (avoids cross-module class-identity
+			// issues with bun's module resolution) and surface the
+			// upstream typed payload.
+			const errObj = error as Record<string, unknown> | null;
+			if (
+				errObj &&
+				typeof errObj === "object" &&
+				errObj.name === "ApiError" &&
+				typeof errObj.body === "object" &&
+				errObj.body !== null
+			) {
+				const body = errObj.body as Record<string, unknown>;
+				const status = typeof errObj.status === "number" ? errObj.status : undefined;
+				const code = typeof body.code === "string" ? body.code : "API_ERROR";
+				const errorMessageFallback =
+					typeof errObj.message === "string" ? errObj.message : "API error";
+				const message =
+					typeof body.message === "string" ? body.message : errorMessageFallback;
+				// Spread `data` (orpc's structured details bucket) into the
+				// envelope alongside code/message so an LLM can read
+				// remediation hints without descending into nested data.
+				const dataFields =
+					body.data && typeof body.data === "object" && !Array.isArray(body.data)
+						? (body.data as Record<string, unknown>)
+						: {};
+				return toolError({
+					code,
+					message,
+					...(status !== undefined ? { status } : {}),
+					...dataFields,
+				});
+			}
 			const message =
 				error instanceof Error ? error.message : String(error);
 			return toolError(message);
