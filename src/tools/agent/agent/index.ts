@@ -29,6 +29,15 @@ const agentCreateInput = z.object({
 		.record(z.string())
 		.optional()
 		.describe("Optional agent metadata as key-value string pairs"),
+	idempotencyKey: z
+		.string()
+		.min(1)
+		.max(255)
+		.regex(/^[\x20-\x7E]+$/)
+		.optional()
+		.describe(
+			"Optional Idempotency-Key. Send the SAME key on retries of the SAME create payload to guarantee exactly-once provisioning even if the network drops mid-flight. Reuse with a different body returns IDEMPOTENCY_BODY_MISMATCH 409. Keys are scoped per-credential, ASCII-printable 1-255 chars (Stripe convention). Server caches the response for 24h.",
+		),
 });
 
 /**
@@ -85,15 +94,24 @@ function registerAgentCreateTool(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"agent_create",
 		{
-			description: "Create a new agent with optional metadata and return the created record. Use this when provisioning a new sending identity or automation actor.",
+			description:
+				"Create a new agent with optional metadata and return the created record. Use this when provisioning a new sending identity or automation actor. Pass idempotencyKey to make retries safe — same key + same body returns the original response, same key + different body returns IDEMPOTENCY_BODY_MISMATCH 409.",
 			inputSchema: agentCreateInput.shape,
 		},
 		withErrorHandling(async (args, context) => {
+			// Strip idempotencyKey from the body — it travels as an HTTP
+			// header, not as a request field. Server-side middleware
+			// (apps/api/src/middleware/idempotency.ts) reads it from the
+			// Idempotency-Key header and caches the response for 24h scoped
+			// per-credential.
+			const { idempotencyKey, ...rest } = args;
 			const payload = {
-				...args,
-				slug: args.slug ?? slugifyName(args.name),
+				...rest,
+				slug: rest.slug ?? slugifyName(rest.name),
 			};
-			const result = await context.client.post("/v1/agents", payload);
+			const result = await context.client.post("/v1/agents", payload, {
+				headers: idempotencyKey ? { "Idempotency-Key": idempotencyKey } : undefined,
+			});
 			return toolSuccess(result);
 		}, options.context),
 	);

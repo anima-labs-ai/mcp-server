@@ -53,7 +53,19 @@ export class ApiClient {
 		method: string,
 		path: string,
 		body?: unknown,
-		options?: { useMasterKey?: boolean; timeoutMs?: number },
+		options?: {
+			useMasterKey?: boolean;
+			timeoutMs?: number;
+			/**
+			 * Optional per-call HTTP headers to merge into the request.
+			 * Used by tools that thread through Idempotency-Key (or any
+			 * other server-recognized header) without baking the option
+			 * into every method signature. Auth + Accept + Content-Type
+			 * are always set by the client and override any colliding
+			 * entries here.
+			 */
+			headers?: Record<string, string>;
+		},
 	): Promise<T> {
 		const url = `${this.baseUrl}${path}`;
 		const key =
@@ -67,6 +79,7 @@ export class ApiClient {
 
 		try {
 			const headers: Record<string, string> = {
+				...(options?.headers ?? {}),
 				Authorization: `Bearer ${key}`,
 				Accept: "application/json",
 			};
@@ -110,7 +123,7 @@ export class ApiClient {
 	/** GET request */
 	async get<T = unknown>(
 		path: string,
-		options?: { useMasterKey?: boolean },
+		options?: { useMasterKey?: boolean; headers?: Record<string, string> },
 	): Promise<T> {
 		return this.request<T>("GET", path, undefined, options);
 	}
@@ -119,7 +132,7 @@ export class ApiClient {
 	async post<T = unknown>(
 		path: string,
 		body?: unknown,
-		options?: { useMasterKey?: boolean },
+		options?: { useMasterKey?: boolean; headers?: Record<string, string> },
 	): Promise<T> {
 		return this.request<T>("POST", path, body, options);
 	}
@@ -128,7 +141,7 @@ export class ApiClient {
 	async patch<T = unknown>(
 		path: string,
 		body?: unknown,
-		options?: { useMasterKey?: boolean },
+		options?: { useMasterKey?: boolean; headers?: Record<string, string> },
 	): Promise<T> {
 		return this.request<T>("PATCH", path, body, options);
 	}
@@ -137,7 +150,7 @@ export class ApiClient {
 	async put<T = unknown>(
 		path: string,
 		body?: unknown,
-		options?: { useMasterKey?: boolean },
+		options?: { useMasterKey?: boolean; headers?: Record<string, string> },
 	): Promise<T> {
 		return this.request<T>("PUT", path, body, options);
 	}

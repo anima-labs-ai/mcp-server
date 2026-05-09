@@ -298,6 +298,24 @@ function registerCheckHealthTool(options: ToolRegistrationOptions): void {
 	);
 }
 
+function registerWorkspaceHealthTool(options: ToolRegistrationOptions): void {
+	const { server } = options;
+
+	server.registerTool(
+		"Workspace Health",
+		{
+			description:
+				"Workspace-level self-diagnosis: returns canSendEmail, canSendSms, current credential context, inventory counts (agents, domains, phones), and a list of typed blockers. Callable by ANY authenticated credential — agent-key, master, or admin:full OAuth — no escalation required. Use this before non-trivial workflows to check 'can I do X right now?' without paying a real send/call to find out. Closes the gap that Check_Health (server-only health) and Who_Am_I (identity only) leave open.",
+			inputSchema: noInput.shape,
+			annotations: { readOnlyHint: true, destructiveHint: false },
+		},
+		withErrorHandling(async (_args, context) => {
+			const result = await context.client.get("/v1/orgs/me/workspace-health");
+			return toolSuccess(result);
+		}, options.context),
+	);
+}
+
 function registerListAgentsTool(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
@@ -666,6 +684,7 @@ export function registerUtilityTools(options: ToolRegistrationOptions): void {
 	registerDiscoverTool(options);
 	registerWhoAmITool(options);
 	registerCheckHealthTool(options);
+	registerWorkspaceHealthTool(options);
 	registerListAgentsTool(options);
 	registerManagePendingTool(options);
 	registerCheckFollowupsTool(options);
