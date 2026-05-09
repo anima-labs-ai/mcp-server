@@ -3,22 +3,12 @@ import type { ToolRegistrationOptions } from "../../../shared/index.js";
 import {
 	requireMasterKeyGuard,
 	toolError,
-	withErrorHandling,
 	toolSuccess,
+	withErrorHandling,
 } from "../../../shared/index.js";
 import { drainFollowUps } from "../../../shared/pending-followup.js";
 
 const noInput = z.object({});
-
-const listAgentsInput = z.object({
-	cursor: z.string().optional().describe("Pagination cursor from a previous response"),
-	limit: z
-		.number()
-		.int()
-		.positive()
-		.optional()
-		.describe("Maximum number of agents to return"),
-});
 
 const managePendingInput = z.object({
 	messageId: z.string().describe("Pending message ID"),
@@ -42,7 +32,10 @@ const messageAgentInput = z.object({
 });
 
 const checkMessagesInput = z.object({
-	unreadOnly: z.boolean().optional().describe("Only return unread inbound messages"),
+	unreadOnly: z
+		.boolean()
+		.optional()
+		.describe("Only return unread inbound messages"),
 	limit: z
 		.number()
 		.int()
@@ -164,7 +157,11 @@ function pickMessageFields(message: unknown): JsonObject {
 	};
 }
 
-function isMessageMatch(message: unknown, from?: string, subject?: string): boolean {
+function isMessageMatch(
+	message: unknown,
+	from?: string,
+	subject?: string,
+): boolean {
 	const messageObject = asObject(message);
 	if (!messageObject) return false;
 
@@ -193,11 +190,15 @@ function parseMessageTimestamp(message: unknown): number {
 	return Number.isNaN(parsed) ? 0 : parsed;
 }
 
-function findAgentByName(payload: unknown, agentName: string): JsonObject | undefined {
+function findAgentByName(
+	payload: unknown,
+	agentName: string,
+): JsonObject | undefined {
 	const normalizedName = agentName.toLowerCase();
 	const agents = getAgentsFromResponse(payload);
 	return agents.find((agent) => {
-		const candidateName = asString(agent.name) ?? asString(agent.agentName) ?? "";
+		const candidateName =
+			asString(agent.name) ?? asString(agent.agentName) ?? "";
 		return candidateName.toLowerCase() === normalizedName;
 	});
 }
@@ -236,7 +237,12 @@ function registerDiscoverTool(options: ToolRegistrationOptions): void {
 			const url = `/v1/mcp/discover?intent=${encodeURIComponent(args.intent)}&limit=${limit}`;
 			try {
 				const result = await context.client.get<{
-					matches: Array<{ name: string; description: string; score: number; why: string }>;
+					matches: Array<{
+						name: string;
+						description: string;
+						score: number;
+						why: string;
+					}>;
 				}>(url);
 				return toolSuccess({
 					intent: args.intent,
@@ -270,7 +276,8 @@ function registerWhoAmITool(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"Who Am I",
 		{
-			description: "Return identity details for the current API credential. Use this to verify which account and scope the MCP server is operating under.",
+			description:
+				"Return identity details for the current API credential. Use this to verify which account and scope the MCP server is operating under.",
 			inputSchema: noInput.shape,
 			annotations: { readOnlyHint: true, destructiveHint: false },
 		},
@@ -287,7 +294,8 @@ function registerCheckHealthTool(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"Check Health",
 		{
-			description: "Check API health status from the server health endpoint. Use this before troubleshooting tool failures to confirm service availability.",
+			description:
+				"Check API health status from the server health endpoint. Use this before troubleshooting tool failures to confirm service availability.",
 			inputSchema: noInput.shape,
 			annotations: { readOnlyHint: true, destructiveHint: false },
 		},
@@ -355,22 +363,26 @@ function registerConceptsTool(options: ToolRegistrationOptions): void {
 							"agent_create implicitly creates one on the platform default (anima.dev). agent_email_identity_add attaches more on workspace-verified domains.",
 					},
 					PhoneIdentity: {
-						summary: "A phone number an Agent can send SMS / make voice calls from.",
+						summary:
+							"A phone number an Agent can send SMS / make voice calls from.",
 						belongs_to: "Agent",
-						lifecycle: "phone_provision → (10DLC if SMS US) → phone_send_sms / voice_create_call → phone_release",
+						lifecycle:
+							"phone_provision → (10DLC if SMS US) → phone_send_sms / voice_create_call → phone_release",
 					},
 					Domain: {
 						summary:
 							"A workspace-level email domain (e.g. brawz.ai). Verified via DNS records before any agent can attach an EmailIdentity on it.",
 						belongs_to: "Organization",
-						verification: "DNS-based (TXT + DKIM + SPF + MX). Tracked on the Domain row; cascaded to EmailIdentities by the email-identity-verification worker.",
+						verification:
+							"DNS-based (TXT + DKIM + SPF + MX). Tracked on the Domain row; cascaded to EmailIdentities by the email-identity-verification worker.",
 					},
 					Inbox: {
 						summary:
 							"Receiving address for inbound mail. Auto-created with each Agent on the same address as the primary EmailIdentity.",
 					},
 					Pod: {
-						summary: "A sandboxed runtime an Agent can launch to execute code (HTTP requests, scripts, etc.).",
+						summary:
+							"A sandboxed runtime an Agent can launch to execute code (HTTP requests, scripts, etc.).",
 						belongs_to: "Agent",
 					},
 					DID: {
@@ -453,8 +465,15 @@ function registerListCapabilitiesTool(options: ToolRegistrationOptions): void {
 					: { error: "Could not resolve credential — token may be invalid" },
 				note: "tools/list returns the full registered set. This response groups them by required auth tier so you don't have to discover that empirically.",
 				any_auth: {
-					description: "Read-only or self-diagnosis. Agent-bound credentials work too.",
-					families: ["Who_Am_I", "Check_Health", "Workspace_Health", "Concepts", "List_Capabilities"],
+					description:
+						"Read-only or self-diagnosis. Agent-bound credentials work too.",
+					families: [
+						"Who_Am_I",
+						"Check_Health",
+						"Workspace_Health",
+						"Concepts",
+						"List_Capabilities",
+					],
 				},
 				agent_or_master: {
 					description:
@@ -500,26 +519,11 @@ function registerListCapabilitiesTool(options: ToolRegistrationOptions): void {
 	);
 }
 
-function registerListAgentsTool(options: ToolRegistrationOptions): void {
-	const { server } = options;
-
-	server.registerTool(
-		"List Agents",
-		{
-			description: "List available agents with optional pagination. Use this as a discovery utility to inspect agent inventory before selecting one.",
-			inputSchema: listAgentsInput.shape,
-			annotations: { readOnlyHint: true, destructiveHint: false },
-		},
-		withErrorHandling(async (args, context) => {
-			const params = new URLSearchParams();
-			if (args.cursor) params.set("cursor", args.cursor);
-			if (args.limit) params.set("limit", String(args.limit));
-			const path = params.toString() ? `/v1/agents?${params.toString()}` : "/v1/agents";
-			const result = await context.client.get(path);
-			return toolSuccess(result);
-		}, options.context),
-	);
-}
+// 2026-05-09: removed registerListAgentsTool. The "List Agents"
+// platform utility was a duplicate of agent_list (registered in
+// agent/agent/index.ts) — same handler, same data, both surfaced in
+// the catalog as separate tools. agent_list is the canonical name in
+// snake_case matching the rest of the agent_* tool family.
 
 function registerManagePendingTool(options: ToolRegistrationOptions): void {
 	const { server } = options;
@@ -527,9 +531,14 @@ function registerManagePendingTool(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"Manage Pending",
 		{
-			description: "Approve or reject a pending message requiring manual decision. Use this to unblock held messages with an explicit action and optional reason.",
+			description:
+				"Approve or reject a pending message requiring manual decision. Use this to unblock held messages with an explicit action and optional reason.",
 			inputSchema: managePendingInput.shape,
-			annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.post(
@@ -550,7 +559,8 @@ function registerCheckFollowupsTool(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"Check Followups",
 		{
-			description: "Drain and return queued follow-up reminders for blocked messages. Use this to poll reminders generated by the pending follow-up scheduler.",
+			description:
+				"Drain and return queued follow-up reminders for blocked messages. Use this to poll reminders generated by the pending follow-up scheduler.",
 			inputSchema: noInput.shape,
 			annotations: { readOnlyHint: true, destructiveHint: false },
 		},
@@ -580,7 +590,9 @@ function registerMessageAgentTool(options: ToolRegistrationOptions): void {
 
 			const targetEmail = resolveAgentEmail(targetAgent);
 			if (!targetEmail) {
-				return toolError(`No email identity found for agent: ${args.agentName}`);
+				return toolError(
+					`No email identity found for agent: ${args.agentName}`,
+				);
 			}
 
 			const result = await context.client.post("/v1/messages/email", {
@@ -600,7 +612,8 @@ function registerCheckMessagesTool(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"Check Messages",
 		{
-			description: "Check inbound messages with optional unread-only filtering and compact formatting.",
+			description:
+				"Check inbound messages with optional unread-only filtering and compact formatting.",
 			inputSchema: checkMessagesInput.shape,
 			annotations: { readOnlyHint: true, destructiveHint: false },
 		},
@@ -630,7 +643,8 @@ function registerWaitForEmailTool(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"Wait for Email",
 		{
-			description: "Poll inbound messages until a matching email arrives or timeout expires.",
+			description:
+				"Poll inbound messages until a matching email arrives or timeout expires.",
 			inputSchema: waitForEmailInput.shape,
 			annotations: { readOnlyHint: true, destructiveHint: false },
 		},
@@ -667,7 +681,8 @@ function registerCallAgentTool(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"Call Agent",
 		{
-			description: "Send a synchronous request to another agent and wait for reply.",
+			description:
+				"Send a synchronous request to another agent and wait for reply.",
 			inputSchema: callAgentInput.shape,
 			annotations: { readOnlyHint: false, destructiveHint: false },
 		},
@@ -680,7 +695,9 @@ function registerCallAgentTool(options: ToolRegistrationOptions): void {
 
 			const targetEmail = resolveAgentEmail(targetAgent);
 			if (!targetEmail) {
-				return toolError(`No email identity found for agent: ${args.agentName}`);
+				return toolError(
+					`No email identity found for agent: ${args.agentName}`,
+				);
 			}
 
 			const requestSentAt = Date.now();
@@ -701,7 +718,9 @@ function registerCallAgentTool(options: ToolRegistrationOptions): void {
 					const messageObject = asObject(message);
 					if (!messageObject) return false;
 					const from = asString(messageObject.from) ?? "";
-					const fromMatches = from.toLowerCase().includes(targetEmail.toLowerCase());
+					const fromMatches = from
+						.toLowerCase()
+						.includes(targetEmail.toLowerCase());
 					const isNew = parseMessageTimestamp(message) >= requestSentAt;
 					return fromMatches && isNew;
 				});
@@ -734,7 +753,9 @@ function registerUpdateMetadataTool(options: ToolRegistrationOptions): void {
 			// delegated agent's ID. For user-bound grants and non-OAuth
 			// credentials there is no implicit "current agent" — point the
 			// caller at agent_update with an explicit ID instead of guessing.
-			const userinfo = await context.client.get("/v1/oauth/userinfo").catch(() => null);
+			const userinfo = await context.client
+				.get("/v1/oauth/userinfo")
+				.catch(() => null);
 			const userinfoObject = asObject(userinfo);
 			const animaContext = asObject(userinfoObject?.anima);
 			const agentId = asString(animaContext?.agentId);
@@ -759,13 +780,16 @@ function registerSetupEmailDomainTool(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"Setup Email Domain",
 		{
-			description: "Configure a custom email domain for account setup workflows.",
+			description:
+				"Configure a custom email domain for account setup workflows.",
 			inputSchema: setupEmailDomainInput.shape,
 			annotations: { readOnlyHint: false, destructiveHint: false },
 		},
 		withErrorHandling(async (args, context) => {
 			requireMasterKeyGuard(options.context);
-			const result = await context.client.post("/v1/domains", { domain: args.domain });
+			const result = await context.client.post("/v1/domains", {
+				domain: args.domain,
+			});
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -814,11 +838,16 @@ function registerManageSpamTool(options: ToolRegistrationOptions): void {
 			}
 
 			if (!args.messageId) {
-				return toolError("messageId is required when action is report or not_spam");
+				return toolError(
+					"messageId is required when action is report or not_spam",
+				);
 			}
 
 			if (args.action === "report") {
-				const result = await context.client.post(`/v1/messages/${args.messageId}/spam`, {});
+				const result = await context.client.post(
+					`/v1/messages/${args.messageId}/spam`,
+					{},
+				);
 				return toolSuccess(result);
 			}
 
@@ -837,7 +866,8 @@ function registerCheckTasksTool(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"Check Tasks",
 		{
-			description: "Fetch task-assignment messages filtered by metadata type and optional status.",
+			description:
+				"Fetch task-assignment messages filtered by metadata type and optional status.",
 			inputSchema: checkTasksInput.shape,
 			annotations: { readOnlyHint: true, destructiveHint: false },
 		},
@@ -858,7 +888,9 @@ function registerCheckTasksTool(options: ToolRegistrationOptions): void {
 			params.set("limit", String(args.limit ?? 20));
 			if (args.status) params.set("status", args.status);
 
-			const result = await context.client.get(`/v1/messages?${params.toString()}`);
+			const result = await context.client.get(
+				`/v1/messages?${params.toString()}`,
+			);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -871,7 +903,6 @@ export function registerUtilityTools(options: ToolRegistrationOptions): void {
 	registerWorkspaceHealthTool(options);
 	registerConceptsTool(options);
 	registerListCapabilitiesTool(options);
-	registerListAgentsTool(options);
 	registerManagePendingTool(options);
 	registerCheckFollowupsTool(options);
 	registerMessageAgentTool(options);
