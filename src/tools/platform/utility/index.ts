@@ -92,6 +92,12 @@ const manageSpamInput = z.object({
 
 const checkTasksInput = z.object({
 	status: z.string().optional().describe("Optional task status filter"),
+	limit: z
+		.number()
+		.int()
+		.positive()
+		.optional()
+		.describe("Max number of inbound messages to return (default 20)"),
 });
 
 type JsonObject = Record<string, unknown>;
@@ -640,8 +646,14 @@ function registerCheckTasksTool(options: ToolRegistrationOptions): void {
 			// so the API rejects the whole call with "Input validation
 			// failed". Drop it; callers that want true task-only filtering
 			// can post-process the inbound results client-side.
+			//
+			// Default limit=20 matches MessageListInput's pagination default
+			// upstream. Without this cap a busy inbox returned ~900KB of
+			// full message bodies + raw email headers and overflowed the
+			// MCP response token budget.
 			const params = new URLSearchParams();
 			params.set("direction", "INBOUND");
+			params.set("limit", String(args.limit ?? 20));
 			if (args.status) params.set("status", args.status);
 
 			const result = await context.client.get(`/v1/messages?${params.toString()}`);
