@@ -647,17 +647,23 @@ function registerCheckTasksTool(options: ToolRegistrationOptions): void {
 			// failed". Drop it; callers that want true task-only filtering
 			// can post-process the inbound results client-side.
 			//
-			// Default limit=20 matches MessageListInput's pagination default
-			// upstream. Without this cap a busy inbox returned ~900KB of
-			// full message bodies + raw email headers and overflowed the
-			// MCP response token budget.
+			// Even with the API's default pagination cap (~20 items), a
+			// busy inbox blew the MCP response budget because each item
+			// includes the full body + raw email headers (DKIM, ARC) and
+			// can be 50KB+. Mirror Check_Messages: trim each item to a
+			// summary shape (pickMessageFields) and bound the count.
 			const params = new URLSearchParams();
 			params.set("direction", "INBOUND");
 			params.set("limit", String(args.limit ?? 20));
 			if (args.status) params.set("status", args.status);
 
-			const result = await context.client.get(`/v1/messages?${params.toString()}`);
-			return toolSuccess(result);
+			const messagesResponse = await context.client.get<{ items?: unknown[] }>(
+				`/v1/messages?${params.toString()}`,
+			);
+			const messages = asArray(messagesResponse.items).map((message) =>
+				pickMessageFields(message),
+			);
+			return toolSuccess({ items: messages, count: messages.length });
 		}, options.context),
 	);
 }
