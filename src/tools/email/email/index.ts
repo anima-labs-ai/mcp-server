@@ -293,68 +293,9 @@ const emailDeleteSchema = z.object({
 	id: z.string().describe("Unique email ID to delete."),
 });
 
-const manageFoldersSchema = z.object({
-	action: z
-		.enum(["list", "create"])
-		.describe("Action to perform for email folders."),
-	name: z
-		.string()
-		.optional()
-		.describe("Folder name used when creating a folder."),
-});
-
-const manageContactsSchema = z.object({
-	action: z
-		.enum(["list", "create", "delete"])
-		.describe("Action to perform for contacts."),
-	email: z
-		.string()
-		.optional()
-		.describe("Contact email used when creating a contact."),
-	name: z
-		.string()
-		.optional()
-		.describe("Contact display name used when creating a contact."),
-	contactId: z
-		.string()
-		.optional()
-		.describe("Contact ID used when deleting a contact."),
-});
-
-const manageTemplatesSchema = z.object({
-	action: z
-		.enum(["list", "create", "delete"])
-		.describe("Action to perform for templates."),
-	templateId: z
-		.string()
-		.optional()
-		.describe("Template ID used when deleting a template."),
-	name: z
-		.string()
-		.optional()
-		.describe("Template name used when creating a template."),
-	subject: z
-		.string()
-		.optional()
-		.describe("Template subject used when creating a template."),
-	body: z
-		.string()
-		.optional()
-		.describe("Template body used when creating a template."),
-});
-
-const templateSendSchema = z.object({
-	templateId: z
-		.string()
-		.describe("Template ID to send from."),
-	to: z
-		.string()
-		.describe("Recipient email address for the template message."),
-	variables: z
-		.record(z.string())
-		.optional()
-		.describe("Optional template variables keyed by placeholder name."),
-});
+// manage_folders/contacts/templates + template_send schemas removed
+// alongside their tool registrations — see comment near the end of
+// registerEmailTools.
 
 export function registerEmailTools(options: ToolRegistrationOptions): void {
 	const { server } = options;
@@ -566,21 +507,31 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 			const items = extractEmailItems(result);
 
 			const digestItems = items.map((item, index) => {
-				const from = extractEmailAddress(item.from) ?? "unknown sender";
+				// API returns `fromAddress` (string) on EMAIL items. Some
+				// shapes nest under `from` (legacy), so accept both. Same
+				// for body/text/snippet and sentAt/receivedAt/createdAt
+				// for ordering — INBOUND messages have receivedAt, OUTBOUND
+				// have sentAt, both have createdAt as a fallback.
+				const from =
+					(typeof item.fromAddress === "string" ? item.fromAddress : undefined) ??
+					extractEmailAddress(item.from) ??
+					"unknown sender";
 				const subject =
-					typeof item.subject === "string" ? item.subject : "(no subject)";
+					typeof item.subject === "string" && item.subject.length > 0
+						? item.subject
+						: "(no subject)";
 				const date =
-					typeof item.date === "string"
-						? item.date
-						: typeof item.createdAt === "string"
-							? item.createdAt
-							: "unknown date";
-				const snippet =
-					typeof item.snippet === "string"
-						? item.snippet
-						: typeof item.text === "string"
-							? item.text.slice(0, 140)
-							: "";
+					(typeof item.sentAt === "string" ? item.sentAt : undefined) ??
+					(typeof item.receivedAt === "string" ? item.receivedAt : undefined) ??
+					(typeof item.createdAt === "string" ? item.createdAt : undefined) ??
+					(typeof item.date === "string" ? item.date : undefined) ??
+					"unknown date";
+				const rawBody =
+					(typeof item.body === "string" ? item.body : undefined) ??
+					(typeof item.snippet === "string" ? item.snippet : undefined) ??
+					(typeof item.text === "string" ? item.text : undefined) ??
+					"";
+				const snippet = rawBody.slice(0, 140);
 
 				return {
 					index: index + 1,
@@ -718,115 +669,10 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.registerTool(
-		"manage_folders",
-		{
-			description: "List existing folders or create a new email folder.",
-			inputSchema: manageFoldersSchema.shape,
-		},
-		withErrorHandling(async (args, context) => {
-			switch (args.action) {
-				case "list": {
-					const result = await context.client.get<unknown>("/v1/email/folders");
-					return toolSuccess(result);
-				}
-				case "create": {
-					if (!args.name) {
-						throw new Error("Folder name is required when action is 'create'.");
-					}
-					const result = await context.client.post<unknown>("/v1/email/folders", {
-						name: args.name,
-					});
-					return toolSuccess(result);
-				}
-			}
-		}, options.context),
-	);
-
-	server.registerTool(
-		"manage_contacts",
-		{
-			description: "List, create, or delete contacts used for email workflows.",
-			inputSchema: manageContactsSchema.shape,
-		},
-		withErrorHandling(async (args, context) => {
-			switch (args.action) {
-				case "list": {
-					const result = await context.client.get<unknown>("/v1/contacts");
-					return toolSuccess(result);
-				}
-				case "create": {
-					if (!args.email) {
-						throw new Error("Contact email is required when action is 'create'.");
-					}
-					const result = await context.client.post<unknown>("/v1/contacts", {
-						email: args.email,
-						name: args.name,
-					});
-					return toolSuccess(result);
-				}
-				case "delete": {
-					if (!args.contactId) {
-						throw new Error("Contact ID is required when action is 'delete'.");
-					}
-					const path = `/v1/contacts/${encodeURIComponent(args.contactId)}`;
-					const result = await context.client.delete<unknown>(path);
-					return toolSuccess(result);
-				}
-			}
-		}, options.context),
-	);
-
-	server.registerTool(
-		"manage_templates",
-		{
-			description: "List, create, or delete email templates.",
-			inputSchema: manageTemplatesSchema.shape,
-		},
-		withErrorHandling(async (args, context) => {
-			switch (args.action) {
-				case "list": {
-					const result = await context.client.get<unknown>("/v1/templates");
-					return toolSuccess(result);
-				}
-				case "create": {
-					if (!args.name || !args.subject || !args.body) {
-						throw new Error(
-							"Template name, subject, and body are required when action is 'create'.",
-						);
-					}
-					const result = await context.client.post<unknown>("/v1/templates", {
-						name: args.name,
-						subject: args.subject,
-						body: args.body,
-					});
-					return toolSuccess(result);
-				}
-				case "delete": {
-					if (!args.templateId) {
-						throw new Error("Template ID is required when action is 'delete'.");
-					}
-					const path = `/v1/templates/${encodeURIComponent(args.templateId)}`;
-					const result = await context.client.delete<unknown>(path);
-					return toolSuccess(result);
-				}
-			}
-		}, options.context),
-	);
-
-	server.registerTool(
-		"template_send",
-		{
-			description: "Send an email by rendering and dispatching a stored template.",
-			inputSchema: templateSendSchema.shape,
-		},
-		withErrorHandling(async (args, context) => {
-			const path = `/v1/templates/${encodeURIComponent(args.templateId)}/send`;
-			const result = await context.client.post<unknown>(path, {
-				to: args.to,
-				variables: args.variables,
-			});
-			return toolSuccess(result);
-		}, options.context),
-	);
+	// manage_folders / manage_contacts / manage_templates / template_send
+	// removed — the underlying API routes (/v1/email/folders, /v1/contacts,
+	// /v1/templates) don't exist on the Anima API. They were registered
+	// against speculative endpoints; calling any of them returned 404 and
+	// confused both LLMs and humans about whether the feature exists.
+	// Re-add when (if) the corresponding API surface ships.
 }

@@ -40,13 +40,35 @@ function toPhoneStatusList(payload: unknown): Array<{
 						: typeof entry.number === "string"
 							? entry.number
 							: "unknown";
+				// API doesn't expose a top-level `status` for phone numbers.
+				// Derive from tenDlcStatus (SMS-registration state) when
+				// present, otherwise treat any provisioned number as
+				// "active" — the previous "unknown" was misleading because
+				// every number is in fact provisioned and operational.
 				const status =
-					typeof entry.status === "string" ? entry.status : "unknown";
-				const capabilities = Array.isArray(entry.capabilities)
-					? entry.capabilities.filter(
+					typeof entry.status === "string"
+						? entry.status
+						: typeof entry.tenDlcStatus === "string"
+							? entry.tenDlcStatus.toLowerCase()
+							: phoneNumber !== "unknown"
+								? "active"
+								: "unknown";
+				// API returns capabilities as an object {sms, mms, voice}
+				// with boolean values, not a string array — converting an
+				// object to Array.isArray returned false and silently
+				// produced [].
+				const capabilities = (() => {
+					if (Array.isArray(entry.capabilities)) {
+						return entry.capabilities.filter(
 							(value): value is string => typeof value === "string",
-						)
-					: [];
+						);
+					}
+					const capObject = asRecord(entry.capabilities);
+					if (!capObject) return [];
+					return Object.entries(capObject)
+						.filter(([, v]) => v === true)
+						.map(([k]) => k);
+				})();
 
 				return { phoneNumber, status, capabilities };
 			});

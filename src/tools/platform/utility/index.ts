@@ -397,8 +397,11 @@ function registerCheckMessagesTool(options: ToolRegistrationOptions): void {
 			annotations: { readOnlyHint: true, destructiveHint: false },
 		},
 		withErrorHandling(async (args, context) => {
+			// API enum is uppercase (MessageDirectionSchema in @anima/contracts).
+			// Lowercase "inbound" trips the zod validator → "Input validation
+			// failed" with no further detail.
 			const params = new URLSearchParams();
-			params.set("direction", "inbound");
+			params.set("direction", "INBOUND");
 			if (args.unreadOnly) params.set("unreadOnly", "true");
 			if (args.limit) params.set("limit", String(args.limit));
 
@@ -594,7 +597,11 @@ function registerManageSpamTool(options: ToolRegistrationOptions): void {
 		},
 		withErrorHandling(async (args, context) => {
 			if (args.action === "list") {
-				const result = await context.client.get("/v1/messages?status=SPAM");
+				// MessageStatusSchema doesn't include a "SPAM" value — spam
+				// detection is folded into BLOCKED (security-policy gate).
+				// Use BLOCKED so the listing actually returns; downstream
+				// callers filter further by metadata if they need only spam.
+				const result = await context.client.get("/v1/messages?status=BLOCKED");
 				return toolSuccess(result);
 			}
 
@@ -627,9 +634,14 @@ function registerCheckTasksTool(options: ToolRegistrationOptions): void {
 			annotations: { readOnlyHint: true, destructiveHint: false },
 		},
 		withErrorHandling(async (args, context) => {
+			// API expects uppercase INBOUND (MessageDirectionSchema). The
+			// `metadata.type=task` filter isn't a supported query param —
+			// MessageListInput in @anima/contracts has no metadata filter,
+			// so the API rejects the whole call with "Input validation
+			// failed". Drop it; callers that want true task-only filtering
+			// can post-process the inbound results client-side.
 			const params = new URLSearchParams();
-			params.set("direction", "inbound");
-			params.set("metadata.type", "task");
+			params.set("direction", "INBOUND");
 			if (args.status) params.set("status", args.status);
 
 			const result = await context.client.get(`/v1/messages?${params.toString()}`);
