@@ -215,7 +215,7 @@ const agentEmailIdentityAddInput = z.object({
 		.string()
 		.email()
 		.describe(
-			"Full email address to attach. The parent domain MUST be verified for the workspace, or be one of the platform-managed defaults (anima.dev, agents.useanima.sh). Otherwise rejected with DOMAIN_NOT_VERIFIED.",
+			"Full email address to attach. The parent domain MUST be verified for the workspace, or be the platform-managed default `agents.useanima.sh`. Otherwise rejected with DOMAIN_NOT_VERIFIED.",
 		),
 	setAsPrimary: z
 		.boolean()
@@ -240,7 +240,7 @@ function registerAgentEmailIdentityAddTool(options: ToolRegistrationOptions): vo
 		"agent_email_identity_add",
 		{
 			description:
-				"Attach a new email identity to an existing agent. The parent domain MUST be verified for the workspace (or be a platform-managed default like anima.dev) — custom unverified domains are rejected with DOMAIN_NOT_VERIFIED so you don't end up with an agent that can't deliver mail. Use this to give an agent a workspace-domain identity (e.g. attach hello@brawz.ai to a digest agent that was auto-created with @anima.dev).",
+				"Attach a new email identity to an existing agent. The parent domain MUST be verified for the workspace (or be the platform-managed default `agents.useanima.sh`) — custom unverified domains are rejected with DOMAIN_NOT_VERIFIED so you don't end up with an agent that can't deliver mail. Use this to give an agent a workspace-domain identity (e.g. attach hello@brawz.ai to a digest agent that was auto-created on @agents.useanima.sh).",
 			inputSchema: agentEmailIdentityAddInput.shape,
 		},
 		withErrorHandling(async (args, context) => {
