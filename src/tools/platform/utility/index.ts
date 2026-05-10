@@ -10,6 +10,34 @@ import { drainFollowUps } from "../../../shared/pending-followup.js";
 
 const noInput = z.object({});
 
+/**
+ * Deploy identity exposed via Who_Am_I and Check_Health.
+ *
+ * Customer-suggested debugging affordance: when iterating tightly with an
+ * agent, "did my fix actually land?" is the highest-value first hypothesis
+ * after a no-op test result. Surfacing the running deploy's commit SHA +
+ * Cloud Run revision turns that 5-minute conversation into a one-tool-call
+ * check (call Who_Am_I, compare commitSha against `git rev-parse HEAD`).
+ *
+ * Sources:
+ *   - BUILD_SHA / BUILD_ID — set in cloudbuild.yaml on every deploy
+ *   - K_REVISION / K_SERVICE — Cloud Run injects automatically
+ *   - startedAt — captured at module load (one process lifetime per pod)
+ *
+ * Falls back to "dev" / "local" when running outside Cloud Run (local
+ * `bun run dev`), so the field is always present and never noisy.
+ */
+const STARTED_AT = new Date().toISOString();
+function getMcpServerInfo() {
+	return {
+		commitSha: process.env.BUILD_SHA?.trim() || "dev",
+		buildId: process.env.BUILD_ID?.trim() || "local",
+		revision: process.env.K_REVISION?.trim() || "local",
+		service: process.env.K_SERVICE?.trim() || "mcp-server-local",
+		startedAt: STARTED_AT,
+	};
+}
+
 const managePendingInput = z.object({
 	messageId: z.string().describe("Pending message ID"),
 	action: z
@@ -277,13 +305,16 @@ function registerWhoAmITool(options: ToolRegistrationOptions): void {
 		"Who Am I",
 		{
 			description:
-				"Return identity details for the current API credential. Use this to verify which account and scope the MCP server is operating under.",
+				"Return identity details for the current API credential, plus the running MCP server's deploy identity (commitSha, revision, buildId). Use to verify which account and scope you're operating under AND which version of the MCP server is actually serving you. The mcpServer block answers 'did my fix actually land?' in one call — compare commitSha against the merge commit you expected to deploy.",
 			inputSchema: noInput.shape,
 			annotations: { readOnlyHint: true, destructiveHint: false },
 		},
 		withErrorHandling(async (_args, context) => {
-			const result = await context.client.get("/v1/orgs/me");
-			return toolSuccess(result);
+			const result = await context.client.get<Record<string, unknown>>("/v1/orgs/me");
+			return toolSuccess({
+				...result,
+				mcpServer: getMcpServerInfo(),
+			});
 		}, options.context),
 	);
 }
@@ -295,13 +326,16 @@ function registerCheckHealthTool(options: ToolRegistrationOptions): void {
 		"Check Health",
 		{
 			description:
-				"Check API health status from the server health endpoint. Use this before troubleshooting tool failures to confirm service availability.",
+				"Check API health status from the server health endpoint, plus the MCP server's deploy identity. Returns api={...} (upstream API health) and mcpServer={commitSha, revision, buildId, startedAt}. Use this before troubleshooting tool failures to confirm BOTH service availability AND that you're hitting the deploy you think you are.",
 			inputSchema: noInput.shape,
 			annotations: { readOnlyHint: true, destructiveHint: false },
 		},
 		withErrorHandling(async (_args, context) => {
-			const result = await context.client.get("/health");
-			return toolSuccess(result);
+			const result = await context.client.get<Record<string, unknown>>("/health");
+			return toolSuccess({
+				api: result,
+				mcpServer: getMcpServerInfo(),
+			});
 		}, options.context),
 	);
 }
