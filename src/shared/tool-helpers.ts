@@ -182,6 +182,21 @@ export function requireMasterKeyGuard(context: ToolContext): void {
  *   We pay a small cost in tool-list bloat (the names show up twice in
  *   the catalog) but accept it because the alternative — model retries
  *   on a wrong-name guess — costs more in latency and tokens per turn.
+ *
+ * Deprecation flow:
+ *   When a tool is renamed (e.g. `anima_email_send` → `email_send`), pass
+ *   the old names in `aliases` AND set `deprecate: true`. Aliases will:
+ *     - Render with `[DEPRECATED — use <canonical>]` prefix in the
+ *       tool description so any consumer browsing tools/list sees the
+ *       migration path immediately.
+ *     - Log a structured warning to stderr on every invocation so we can
+ *       grep server logs for usage and decide when removal is safe.
+ *     - Otherwise behave identically to the canonical (same handler).
+ *
+ *   Removing aliases without a deprecation window is a breaking change for
+ *   every consumer that pinned to the old name in code, prompts, or docs
+ *   — exactly the kind of paper cut that erodes trust in early-product
+ *   APIs. Always go through this helper for renames.
  */
 // biome-ignore lint/suspicious/noExplicitAny: Mirrors McpServer.registerTool's overloaded signature; preserving stricter inference here would require copying ~80 lines of generics from the SDK.
 export function registerToolWithAliases(
@@ -192,6 +207,13 @@ export function registerToolWithAliases(
 		description: string;
 		// biome-ignore lint/suspicious/noExplicitAny: Same — Zod-shape passthrough.
 		inputSchema: any;
+		/**
+		 * When true, the listed aliases are treated as deprecated names
+		 * being kept around temporarily (after a rename) rather than
+		 * permanent natural-language alternatives. Aliases get a
+		 * `[DEPRECATED]` description prefix and log a warning on use.
+		 */
+		deprecate?: boolean;
 	},
 	// biome-ignore lint/suspicious/noExplicitAny: Same.
 	handler: any,
@@ -202,13 +224,28 @@ export function registerToolWithAliases(
 		handler,
 	);
 	for (const alias of aliases) {
+		const description = config.deprecate
+			? `[DEPRECATED — use \`${canonical}\`] ${config.description} This alias is kept for backward compatibility and will be removed in a future release.`
+			: `${config.description} (alias of \`${canonical}\`)`;
+
+		// biome-ignore lint/suspicious/noExplicitAny: Same — handler signature passthrough.
+		const wrappedHandler: any = config.deprecate
+			? // biome-ignore lint/suspicious/noExplicitAny: Same.
+				(...args: any[]) => {
+					// stderr (not stdout) so it doesn't clobber stdio MCP framing
+					// and so it shows up clearly in Cloud Run logs separately from
+					// normal trace output.
+					console.warn(
+						`[deprecated-tool] alias "${alias}" was invoked — migrate callers to "${canonical}". The alias will be removed in a future release.`,
+					);
+					return handler(...args);
+				}
+			: handler;
+
 		server.registerTool(
 			alias,
-			{
-				description: `${config.description} (alias of \`${canonical}\`)`,
-				inputSchema: config.inputSchema,
-			},
-			handler,
+			{ description, inputSchema: config.inputSchema },
+			wrappedHandler,
 		);
 	}
 }
