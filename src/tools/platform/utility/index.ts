@@ -394,7 +394,7 @@ function registerConceptsTool(options: ToolRegistrationOptions): void {
 						readiness:
 							"`verified` flips to true when the parent Domain is verified (PR #62 + email-identity-verification-worker). The Layer 3 send pre-flight refuses outbound on unverified identities.",
 						lifecycle:
-							"agent_create implicitly creates one on the platform default (anima.dev). agent_email_identity_add attaches more on workspace-verified domains.",
+							"agent_create implicitly creates one on the platform default (agents.useanima.sh). agent_email_identity_add attaches more on workspace-verified domains.",
 					},
 					PhoneIdentity: {
 						summary:
@@ -429,7 +429,7 @@ function registerConceptsTool(options: ToolRegistrationOptions): void {
 				},
 				typical_flows: {
 					"send first email": [
-						"agent_create with desired name (auto-creates @anima.dev EmailIdentity)",
+						"agent_create with desired name (auto-creates @agents.useanima.sh EmailIdentity)",
 						"Workspace_Health → check canSendEmail",
 						"if false: agent_email_identity_add with a workspace-verified-domain address (e.g. hello@brawz.ai)",
 						"agent_email_identity_set_primary on the new identity",
