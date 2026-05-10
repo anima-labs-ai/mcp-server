@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { ToolRegistrationOptions } from "../../../shared/index.js";
 import {
+	registerToolWithAliases,
 	requireMasterKeyGuard,
 	toolSuccess,
 	withErrorHandling,
@@ -295,69 +296,96 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 	// LLMs see them as 3 separate tools in tools/list, but they all hit
 	// the same handler — pure clutter. Canonical name only now.
 	//
-	// Removed from the catalog: send_email, anima.email.send, get_email,
-	// anima.email.get, list_emails, anima.email.list (6 tool entries).
+	// 2026-05-10 (customer round 4): a hard removal turned out to be a
+	// breaking API change — any consumer that pinned to the old names in
+	// prompts, docs, or tool-catalog caches broke instantly. Restored the
+	// 6 alias names with `deprecate: true` so they're visibly deprecated
+	// in tools/list (description prefix `[DEPRECATED — use email_send]`)
+	// and emit a stderr warning on every invocation. Plan: remove on the
+	// next major catalog change once usage logs go quiet.
+	//
+	// Restored names: send_email, anima.email.send (email_send) +
+	// get_email, anima.email.get (email_get) +
+	// list_emails, anima.email.list (email_list).
 
-	server.registerTool(
+	const emailSendHandler = withErrorHandling(async (args, context) => {
+		const body: Record<string, unknown> = {
+			agentId: args.agentId,
+			to: args.to,
+			subject: args.subject,
+			body: args.body,
+		};
+		if (args.fromIdentityId) body.fromIdentityId = args.fromIdentityId;
+		if (args.bodyHtml) body.bodyHtml = args.bodyHtml;
+		if (args.cc) body.cc = args.cc;
+		if (args.bcc) body.bcc = args.bcc;
+		if (args.inReplyTo) body.inReplyTo = args.inReplyTo;
+		if (args.references) body.references = args.references;
+		const result = await context.client.post<unknown>("/v1/email/send", body);
+		return toolSuccess(result);
+	}, options.context);
+
+	registerToolWithAliases(
+		server,
 		"email_send",
+		["send_email", "anima.email.send"],
 		{
 			description:
 				"Send a new outbound email from the agent mailbox. Use this when you need to compose and deliver a message with optional CC, threading headers.",
 			inputSchema: emailSendSchema.shape,
+			deprecate: true,
 		},
-		withErrorHandling(async (args, context) => {
-			const body: Record<string, unknown> = {
-				agentId: args.agentId,
-				to: args.to,
-				subject: args.subject,
-				body: args.body,
-			};
-			if (args.fromIdentityId) body.fromIdentityId = args.fromIdentityId;
-			if (args.bodyHtml) body.bodyHtml = args.bodyHtml;
-			if (args.cc) body.cc = args.cc;
-			if (args.bcc) body.bcc = args.bcc;
-			if (args.inReplyTo) body.inReplyTo = args.inReplyTo;
-			if (args.references) body.references = args.references;
-			const result = await context.client.post<unknown>("/v1/email/send", body);
-			return toolSuccess(result);
-		}, options.context),
+		emailSendHandler,
 	);
 
-	server.registerTool(
+	const emailGetHandler = withErrorHandling<z.infer<typeof emailGetSchema>>(
+		async (args, context) => {
+			const path = `/v1/email/${encodeURIComponent(args.id)}`;
+			const result = await context.client.get<unknown>(path);
+			return toolSuccess(result);
+		},
+		options.context,
+	);
+
+	registerToolWithAliases(
+		server,
 		"email_get",
+		["get_email", "anima.email.get"],
 		{
 			description:
 				"Retrieve one specific email by ID, including metadata and body fields. Use this before replying, forwarding, or inspecting message details.",
 			inputSchema: emailGetSchema.shape,
+			deprecate: true,
 		},
-		withErrorHandling<z.infer<typeof emailGetSchema>>(async (args, context) => {
-			const path = `/v1/email/${encodeURIComponent(args.id)}`;
-			const result = await context.client.get<unknown>(path);
-			return toolSuccess(result);
-		}, options.context),
+		emailGetHandler,
 	);
 
-	server.registerTool(
+	const emailListHandler = withErrorHandling<z.infer<typeof emailListSchema>>(
+		async (args, context) => {
+			const params = new URLSearchParams();
+			if (args.folder) params.set("folder", args.folder);
+			if (args.limit !== undefined) params.set("limit", String(args.limit));
+			if (args.offset !== undefined)
+				params.set("offset", String(args.offset));
+
+			const path = params.toString() ? `/v1/email?${params}` : "/v1/email";
+			const result = await context.client.get<unknown>(path);
+			return toolSuccess(result);
+		},
+		options.context,
+	);
+
+	registerToolWithAliases(
+		server,
 		"email_list",
+		["list_emails", "anima.email.list"],
 		{
 			description:
 				"List emails in inbox or another folder with pagination controls. Use this to browse recent messages and mailbox contents.",
 			inputSchema: emailListSchema.shape,
+			deprecate: true,
 		},
-		withErrorHandling<z.infer<typeof emailListSchema>>(
-			async (args, context) => {
-				const params = new URLSearchParams();
-				if (args.folder) params.set("folder", args.folder);
-				if (args.limit !== undefined) params.set("limit", String(args.limit));
-				if (args.offset !== undefined)
-					params.set("offset", String(args.offset));
-
-				const path = params.toString() ? `/v1/email?${params}` : "/v1/email";
-				const result = await context.client.get<unknown>(path);
-				return toolSuccess(result);
-			},
-			options.context,
-		),
+		emailListHandler,
 	);
 
 	server.registerTool(
