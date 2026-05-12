@@ -5,6 +5,23 @@ import {
 	toolSuccess,
 } from "../../../shared/index.js";
 
+// 2026-05-13: message_send_email, message_get, message_list flagged as
+// deprecated soft-aliases of email_send / email_get / email_list. Same
+// reasoning as the email_send/get/list aliases dropped on 2026-05-09 then
+// restored on 2026-05-10 — visible deprecation > hard removal so existing
+// consumers don't break instantly. Handlers stay pointed at /v1/messages/*
+// (not /v1/email/*) because the schemas differ enough that a silent
+// endpoint swap would change observed behavior. Remove on the next major
+// catalog change once usage logs go quiet.
+const DEPRECATED_PREFIX = (canonical: string) =>
+	`[DEPRECATED — use \`${canonical}\`]`;
+
+function warnDeprecated(alias: string, canonical: string): void {
+	console.warn(
+		`[deprecated-tool] alias "${alias}" was invoked — migrate callers to "${canonical}". The alias will be removed in a future release.`,
+	);
+}
+
 export function registerMessageTools(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
@@ -137,10 +154,17 @@ export function registerMessageTools(options: ToolRegistrationOptions): void {
 		"message_send_email",
 		{
 			title: "Message Send Email",
-			description: "Send an outbound email through the unified messaging API when your workflow should create a tracked message record. Use this for programmatic email delivery tied to an agent identity.",
+			description: `${DEPRECATED_PREFIX("email_send")} Send an outbound email through the unified messaging API when your workflow should create a tracked message record. Prefer \`email_send\` — it is the canonical email-send tool. This alias is kept for backward compatibility and will be removed in a future release.`,
 			inputSchema: messageSendEmailInput.shape,
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: false,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
+			warnDeprecated("message_send_email", "email_send");
 			const payload = {
 				agentId: args.agentId,
 				to: [args.to],
@@ -159,6 +183,12 @@ export function registerMessageTools(options: ToolRegistrationOptions): void {
 			title: "Message Send SMS",
 			description: "Send an outbound SMS through the unified messaging API and return the created message record. Use this for transactional texts or agent-driven mobile messaging.",
 			inputSchema: messageSendSmsInput.shape,
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: false,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.post("/v1/messages/sms", args);
@@ -170,10 +200,17 @@ export function registerMessageTools(options: ToolRegistrationOptions): void {
 		"message_get",
 		{
 			title: "Message Get",
-			description: "Fetch a specific message by ID, including channel metadata and delivery status. Use this when a workflow needs to inspect one message in detail.",
+			description: `${DEPRECATED_PREFIX("email_get")} Fetch a specific message by ID, including channel metadata and delivery status. Prefer \`email_get\` for emails; this tool also resolves SMS messages but will be removed in a future release.`,
 			inputSchema: messageGetInput.shape,
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
+			warnDeprecated("message_get", "email_get");
 			const result = await context.client.get(`/v1/messages/${args.id}`);
 			return toolSuccess(result);
 		}, options.context),
@@ -183,10 +220,17 @@ export function registerMessageTools(options: ToolRegistrationOptions): void {
 		"message_list",
 		{
 			title: "Message List",
-			description: "List messages with optional channel, direction, status, and pagination filters. Use this to browse recent traffic or build paged inbox/outbox views.",
+			description: `${DEPRECATED_PREFIX("email_list")} List messages with optional channel, direction, status, and pagination filters. Prefer \`email_list\` for emails; this tool also lists SMS but will be removed in a future release.`,
 			inputSchema: messageListInput.shape,
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
+			warnDeprecated("message_list", "email_list");
 			const params = new URLSearchParams();
 			if (args.channel) params.set("channel", args.channel);
 			if (args.direction) params.set("direction", args.direction);
@@ -205,8 +249,14 @@ export function registerMessageTools(options: ToolRegistrationOptions): void {
 		"message_search",
 		{
 			title: "Message Search",
-			description: "Run full-text search across messages with optional channel and date constraints. Use this to locate prior conversations or audit communication history quickly.",
+			description: "Run full-text search across messages on every channel (email and SMS) with optional channel and date constraints. Use this for cross-channel auditing; for email-only search use `email_search`.",
 			inputSchema: messageSearchInput.shape,
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			// API contract MessageSearchInput expects nested
@@ -241,6 +291,12 @@ export function registerMessageTools(options: ToolRegistrationOptions): void {
 			title: "Message Semantic Search",
 			description: "Search messages by semantic similarity using embeddings rather than exact keyword matching. Use this to find conceptually related messages even when wording differs.",
 			inputSchema: messageSemanticSearchInput.shape,
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.post("/v1/messages/search/semantic", {
@@ -259,6 +315,12 @@ export function registerMessageTools(options: ToolRegistrationOptions): void {
 			title: "Search Conversation",
 			description: "Search conversation threads by topic by combining semantic message retrieval with thread grouping. Use this to discover related discussions rather than individual messages.",
 			inputSchema: conversationSearchInput.shape,
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const semanticResult = await context.client.post<{
@@ -345,6 +407,12 @@ export function registerMessageTools(options: ToolRegistrationOptions): void {
 			title: "Message Upload Attachment",
 			description: "Upload an attachment for an existing message by ID so downstream delivery or processing can reference the file. Use this when adding files after message creation.",
 			inputSchema: messageUploadAttachmentInput.shape,
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: false,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const { messageId, ...body } = args;
@@ -362,6 +430,12 @@ export function registerMessageTools(options: ToolRegistrationOptions): void {
 			title: "Message Get Attachment",
 			description: "Retrieve a temporary download URL for a previously uploaded attachment. Use this when a client needs direct file access for preview or download.",
 			inputSchema: messageGetAttachmentInput.shape,
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.get(`/v1/attachments/${args.id}/download`);

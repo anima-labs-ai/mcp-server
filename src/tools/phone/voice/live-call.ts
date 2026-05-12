@@ -137,6 +137,7 @@ export function registerVoiceCallTool(
 				destructiveHint: false,
 				openWorldHint: true,
 				readOnlyHint: false,
+				idempotentHint: false,
 			},
 		},
 		async (args, extra) => {

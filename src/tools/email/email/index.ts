@@ -335,6 +335,12 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 				"Send a new outbound email from the agent mailbox. Use this when you need to compose and deliver a message with optional CC, threading headers.",
 			inputSchema: emailSendSchema.shape,
 			deprecate: true,
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: false,
+				openWorldHint: true,
+			},
 		},
 		emailSendHandler,
 	);
@@ -358,6 +364,12 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 				"Retrieve one specific email by ID, including metadata and body fields. Use this before replying, forwarding, or inspecting message details.",
 			inputSchema: emailGetSchema.shape,
 			deprecate: true,
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		emailGetHandler,
 	);
@@ -387,6 +399,12 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 				"List emails in inbox or another folder with pagination controls. Use this to browse recent messages and mailbox contents.",
 			inputSchema: emailListSchema.shape,
 			deprecate: true,
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		emailListHandler,
 	);
@@ -398,6 +416,12 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 			description:
 				"Reply to an existing email thread by first loading the original message and setting threading headers. Use this when you need a proper in-thread response.",
 			inputSchema: emailReplySchema.shape,
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: false,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			requireMasterKeyGuard(context);
@@ -473,6 +497,12 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 			description:
 				"Forward an existing email to another recipient by loading the original content first. Use this to share a prior message while preserving context.",
 			inputSchema: emailForwardSchema.shape,
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: false,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const originalPath = `/v1/email/${encodeURIComponent(args.originalId)}`;
@@ -525,8 +555,14 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 		{
 			title: "Search Email",
 			description:
-				"Search mailbox messages by query text and structured filters like sender, recipient, subject, and date bounds. Use this to locate specific conversations quickly.",
+				"Search mailbox emails (EMAIL channel only) by query text and structured filters like sender, recipient, subject, and date bounds. For cross-channel search (email + SMS) use `message_search`.",
 			inputSchema: emailSearchSchema.shape,
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			// API contract MessageSearchInput expects nested
@@ -562,6 +598,12 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 			description:
 				"Generate a compact digest of recent inbox messages with sender, subject, date, and snippet. Use this for quick triage without opening each email.",
 			inputSchema: inboxDigestSchema.shape,
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const params = new URLSearchParams();
@@ -630,6 +672,12 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 			title: "Mark Email Read",
 			description: "Mark a specific email message as read by ID.",
 			inputSchema: emailMarkReadSchema.shape,
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const path = `/v1/email/${encodeURIComponent(args.id)}/read`;
@@ -644,6 +692,12 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 			title: "Mark Email Unread",
 			description: "Mark a specific email message as unread by ID.",
 			inputSchema: emailMarkUnreadSchema.shape,
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const path = `/v1/email/${encodeURIComponent(args.id)}/unread`;
@@ -658,6 +712,12 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 			title: "Mark Batch Read",
 			description: "Mark multiple email messages as read in one operation.",
 			inputSchema: batchMarkReadSchema.shape,
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.post<unknown>(
@@ -676,6 +736,12 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 			title: "Mark Batch Unread",
 			description: "Mark multiple email messages as unread in one operation.",
 			inputSchema: batchMarkUnreadSchema.shape,
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.post<unknown>(
@@ -694,6 +760,12 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 			title: "Delete Batch",
 			description: "Delete multiple emails at once.",
 			inputSchema: batchDeleteSchema.shape,
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: true,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.post<unknown>(
@@ -712,6 +784,12 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 			title: "Move Batch",
 			description: "Move multiple emails to a specified folder.",
 			inputSchema: batchMoveSchema.shape,
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.post<unknown>(
@@ -731,6 +809,12 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 			title: "Move Email",
 			description: "Move a specific email message to a destination folder.",
 			inputSchema: emailMoveSchema.shape,
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const path = `/v1/email/${encodeURIComponent(args.id)}/move`;
@@ -748,6 +832,12 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 			title: "Delete Email",
 			description: "Delete a specific email message by ID.",
 			inputSchema: emailDeleteSchema.shape,
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: true,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const path = `/v1/email/${encodeURIComponent(args.id)}`;
