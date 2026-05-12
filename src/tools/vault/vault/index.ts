@@ -234,6 +234,12 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 			title: "Provision Vault",
 			description: "Provision a vault for an agent so credentials can be securely stored and managed. Use this before creating vault credentials for a newly onboarded agent.",
 			inputSchema: vaultProvisionSchema.shape,
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			requireMasterKeyGuard(context);
@@ -250,6 +256,12 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 			title: "Deprovision Vault",
 			description: "Deprovision an agent vault and remove its active vault assignment. Use this when retiring an agent or revoking vault access.",
 			inputSchema: vaultDeprovisionSchema.shape,
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: true,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			requireMasterKeyGuard(context);
@@ -266,6 +278,12 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 			title: "List Vault Credentials",
 			description: "List credentials in an agent vault with optional type and search filters. Use this to browse stored secrets before reading, updating, or deleting entries.",
 			inputSchema: vaultListCredentialsSchema.shape,
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const params = new URLSearchParams();
@@ -286,6 +304,12 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 			title: "Get Vault Credential",
 			description: "Get a single vault credential by ID. Sensitive fields (passwords, tokens) are masked for security. Use vault_create_token with scope 'autofill' or 'proxy' to access raw credential data securely.",
 			inputSchema: vaultCredentialIdSchema.shape,
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const params = new URLSearchParams();
@@ -302,6 +326,12 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 			title: "Create Vault Credential",
 			description: "Create a new credential in an agent vault with login, card, identity, or secure note content. Use this to store new secrets for agent automation tasks.",
 			inputSchema: vaultCreateCredentialSchema.shape,
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: false,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.post<unknown>("/v1/vault/credentials", args);
@@ -315,6 +345,12 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 			title: "Update Vault Credential",
 			description: "Update an existing vault credential by ID, including optional structured sections and metadata flags. Use this to rotate passwords or revise stored secret details.",
 			inputSchema: vaultUpdateCredentialSchema.shape,
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const { id, ...payload } = args;
@@ -331,6 +367,12 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 			title: "Delete Vault Credential",
 			description: "Delete a credential from vault storage by ID. Use this to remove obsolete or compromised secrets from an agent vault.",
 			inputSchema: vaultCredentialIdSchema.shape,
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: true,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const path = `/v1/vault/credentials/${encodeURIComponent(args.id)}`;
@@ -346,6 +388,12 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 			title: "Generate Vault Password",
 			description: "Generate a secure password using configurable character class options and length. Use this when creating or rotating login credentials in vault.",
 			inputSchema: vaultGeneratePasswordSchema.shape,
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: false,
+				openWorldHint: false,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.post<unknown>(
@@ -362,6 +410,12 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 			title: "Get Vault TOTP",
 			description: "Get the current TOTP code for a credential that has a TOTP secret configured. Use this for time-based one-time passcode login flows.",
 			inputSchema: vaultCredentialIdSchema.shape,
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: false,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const params = new URLSearchParams();
@@ -386,6 +440,12 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 			title: "Search Vault",
 			description: "Search vault credentials by keyword across names and content. Use this for targeted credential lookup when you know part of the name, URL, or username.",
 			inputSchema: vaultSearchSchema.shape,
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const params = new URLSearchParams();
@@ -409,6 +469,12 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 			title: "Sync Vault",
 			description: "Force a sync of an agent's vault to ensure local and remote credential state are consistent. Use this after bulk credential changes or when stale data is suspected.",
 			inputSchema: vaultSyncSchema.shape,
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.post<unknown>("/v1/vault/sync", {
@@ -424,6 +490,12 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 			title: "Vault Status",
 			description: "Get current vault status for an agent, including provisioning and readiness information. Use this to verify vault availability before secret operations.",
 			inputSchema: vaultStatusSchema.shape,
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const params = new URLSearchParams();
@@ -460,6 +532,12 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 			title: "Share Vault Credential",
 			description: "Share a vault credential with another agent at a specified permission level. Use this to grant cross-agent access to secrets for collaborative workflows.",
 			inputSchema: vaultShareSchema.shape,
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: false,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.post<unknown>("/v1/vault/share", args);
@@ -480,6 +558,12 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 			title: "List Vault Shares",
 			description: "List credential shares granted by or received by an agent. Use this to audit cross-agent secret access.",
 			inputSchema: vaultListSharesSchema.shape,
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const params = new URLSearchParams();
@@ -503,6 +587,12 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 			title: "Revoke Vault Share",
 			description: "Revoke a previously granted credential share by share ID. Use this to remove cross-agent access when it is no longer needed.",
 			inputSchema: vaultRevokeShareSchema.shape,
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: true,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.post<unknown>(
@@ -541,6 +631,12 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 			title: "Create Vault Token",
 			description: "Create a short-lived ephemeral token for a credential. The vtk_ token can be used in commands for CLI/extension auto-fill without exposing the raw secret to the LLM.",
 			inputSchema: vaultCreateTokenSchema.shape,
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: false,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.post<unknown>("/v1/vault/token", args);
@@ -562,6 +658,12 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 			title: "Exchange Vault Token",
 			description: "Exchange a vtk_ ephemeral token for the underlying credential data. Tokens are single-use and consumed on exchange. No auth header required.",
 			inputSchema: vaultExchangeTokenSchema.shape,
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: true,
+				idempotentHint: false,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.post<unknown>(
@@ -585,6 +687,12 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 			title: "Revoke Vault Tokens",
 			description: "Revoke all active ephemeral tokens for a credential. Use this to invalidate outstanding vtk_ tokens after a security event or credential rotation.",
 			inputSchema: vaultRevokeTokensSchema.shape,
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: true,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.post<unknown>(
@@ -614,6 +722,12 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 			title: "Reload Vault",
 			description: "Force the server-side vault snapshot to refresh from its backing store. Use after a secret has been rotated at the provider so the next access sees the new value. Atomic swap — last-known-good stays active if the refresh fails.",
 			inputSchema: vaultReloadSchema.shape,
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.post<unknown>("/v1/vault/reload", args);
@@ -640,6 +754,12 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 			title: "Vault Plan Exec",
 			description: "Plan a credential-injected subprocess run. Returns a plan the CLI (or orchestrator) can apply via `am vault exec` — the LLM describes which credentials go into which env vars, and a trusted local process does the resolution. This tool does NOT itself run anything; it's an orchestration primitive so the LLM can express intent without ever receiving plaintext.",
 			inputSchema: vaultPlanExecSchema.shape,
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: false,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.post<unknown>("/v1/vault/plan/exec", args);
@@ -662,6 +782,12 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 			title: "Vault Plan Proxy",
 			description: "Plan a local HTTPS proxy that injects a vault credential into outbound requests to an allowlist of hosts. Returns a planId the caller can pass to `am vault proxy --plan <id>`. The LLM specifies intent (which credential, which hosts, which header); a trusted local process does the injection. The LLM never receives the secret value.",
 			inputSchema: vaultPlanProxySchema.shape,
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: false,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.post<unknown>("/v1/vault/plan/proxy", args);
@@ -685,6 +811,12 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 			title: "Audit Vault Query",
 			description: "Query the vault audit log for a credential or agent. Use this to surface every access (including plaintext reveals via master key) with timestamps and actor metadata. Safe for LLM consumption — the audit log itself contains no plaintext secrets.",
 			inputSchema: vaultAuditQuerySchema.shape,
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.get<unknown>("/v1/vault/audit", args as Record<string, unknown>);

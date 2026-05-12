@@ -123,6 +123,12 @@ export function registerAddressTools(options: ToolRegistrationOptions): void {
 			title: "Create Address",
 			description: "Create a new postal address for an agent. Use this to register billing, shipping, mailing, or registered addresses.",
 			inputSchema: createAddressSchema.shape,
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: false,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			requireMasterKeyGuard(context);
@@ -137,6 +143,12 @@ export function registerAddressTools(options: ToolRegistrationOptions): void {
 			title: "List Addresses",
 			description: "List all addresses for an agent, optionally filtered by type. Use this to review the agent's registered addresses.",
 			inputSchema: listAddressesSchema.shape,
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const params = new URLSearchParams();
@@ -154,6 +166,12 @@ export function registerAddressTools(options: ToolRegistrationOptions): void {
 			title: "Get Address",
 			description: "Get full details for a specific address by ID. Use this to inspect a single address record.",
 			inputSchema: getAddressSchema.shape,
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const path = `/v1/addresses/${encodeURIComponent(args.id)}?agentId=${encodeURIComponent(args.agentId)}`;
@@ -168,6 +186,12 @@ export function registerAddressTools(options: ToolRegistrationOptions): void {
 			title: "Update Address",
 			description: "Update fields on an existing address. Use this to correct or change address details.",
 			inputSchema: updateAddressSchema.shape,
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			requireMasterKeyGuard(context);
@@ -184,6 +208,12 @@ export function registerAddressTools(options: ToolRegistrationOptions): void {
 			title: "Delete Address",
 			description: "Delete an address from an agent. Use this to remove addresses that are no longer needed.",
 			inputSchema: deleteAddressSchema.shape,
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: true,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			requireMasterKeyGuard(context);
@@ -199,6 +229,12 @@ export function registerAddressTools(options: ToolRegistrationOptions): void {
 			title: "Validate Address",
 			description: "Validate an existing address against postal standards. Use this to verify address accuracy before shipping or official registration.",
 			inputSchema: validateAddressSchema.shape,
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const path = `/v1/addresses/${encodeURIComponent(args.id)}/validate`;

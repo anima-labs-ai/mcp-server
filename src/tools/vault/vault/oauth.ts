@@ -28,6 +28,12 @@ export function registerOAuthTools(options: ToolRegistrationOptions): void {
 				.optional()
 				.describe("Filter by category (productivity, developer, communication, crm, etc.)"),
 		},
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const params = new URLSearchParams();
@@ -66,6 +72,12 @@ export function registerOAuthTools(options: ToolRegistrationOptions): void {
 				.optional()
 				.describe("URL to redirect to after authentication completes."),
 		},
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: false,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.post<unknown>(
@@ -86,6 +98,12 @@ export function registerOAuthTools(options: ToolRegistrationOptions): void {
 				.string()
 				.describe("The Connect Link token returned by vault_oauth_create_link."),
 		},
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.get<unknown>(
@@ -118,6 +136,12 @@ export function registerOAuthTools(options: ToolRegistrationOptions): void {
 				.optional()
 				.describe("Filter by connection status."),
 		},
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const params = new URLSearchParams();
@@ -147,6 +171,12 @@ export function registerOAuthTools(options: ToolRegistrationOptions): void {
 				.string()
 				.describe("Connected account ID to disconnect."),
 		},
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: true,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.delete<unknown>(
@@ -174,6 +204,12 @@ export function registerOAuthTools(options: ToolRegistrationOptions): void {
 				.string()
 				.describe("Service slug to check (e.g. google, github, slack)."),
 		},
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.post<unknown>(

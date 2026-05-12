@@ -33,6 +33,12 @@ export function registerIdentityTools(options: ToolRegistrationOptions): void {
 			title: "Get DID",
 			description: "Get the DID document for an agent. Use this to retrieve an agent's decentralized identifier.",
 			inputSchema: agentIdSchema.shape,
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.get<unknown>(`/v1/agents/${encodeURIComponent(args.agentId)}/did`);
@@ -46,6 +52,12 @@ export function registerIdentityTools(options: ToolRegistrationOptions): void {
 			title: "Resolve DID",
 			description: "Resolve a DID to its DID document. Use this to look up any DID regardless of which agent owns it.",
 			inputSchema: resolveDidSchema.shape,
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.get<unknown>(`/v1/identity/did/${encodeURIComponent(args.did)}`);
@@ -57,8 +69,14 @@ export function registerIdentityTools(options: ToolRegistrationOptions): void {
 		"rotate_keys",
 		{
 			title: "Rotate Keys",
-			description: "Rotate the cryptographic keys for an agent's DID. Use this to update key material for security.",
+			description: "Rotate the cryptographic keys for an agent's DID. Use this to update key material for security. Invalidates the previous key pair.",
 			inputSchema: agentIdSchema.shape,
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: true,
+				idempotentHint: false,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			requireMasterKeyGuard(context);
@@ -73,6 +91,12 @@ export function registerIdentityTools(options: ToolRegistrationOptions): void {
 			title: "List Credentials",
 			description: "List all verifiable credentials for an agent. Use this to see what credentials an agent holds.",
 			inputSchema: agentIdSchema.shape,
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.get<unknown>(`/v1/agents/${encodeURIComponent(args.agentId)}/credentials`);
@@ -86,6 +110,12 @@ export function registerIdentityTools(options: ToolRegistrationOptions): void {
 			title: "Verify Credential",
 			description: "Verify a JWT-encoded verifiable credential. Use this to check if a credential is valid and authentic.",
 			inputSchema: verifyCredentialSchema.shape,
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.post<unknown>("/v1/identity/verify", { jwtVc: args.jwtVc });
@@ -99,6 +129,12 @@ export function registerIdentityTools(options: ToolRegistrationOptions): void {
 			title: "Get Agent Card",
 			description: "Get the public agent card for an agent. Use this to retrieve the agent's public profile and capabilities.",
 			inputSchema: agentIdSchema.shape,
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.get<unknown>(`/v1/agents/${encodeURIComponent(args.agentId)}/card`);

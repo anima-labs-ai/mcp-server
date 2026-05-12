@@ -79,6 +79,12 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 				"List available AI voices for phone calls. Filter by tier (basic for low-latency, premium for natural voices), gender, or language. Returns voice IDs needed for voice_create_call.",
 			inputSchema: voiceCatalogSchema.shape,
 			deprecate: true,
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		voiceCatalogHandler,
 	);
@@ -89,7 +95,7 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 		"voice_create_call",
 		{
 			title: "Create Voice Call",
-			description: "Initiate an outbound voice call from an agent. The agent must have a provisioned phone number. Returns a callId — connect via WebSocket for real-time conversation.",
+			description: "Initiate an outbound voice call from an agent. The agent must have a provisioned phone number. Returns a callId — connect via WebSocket for real-time conversation. For LLM-driven live conversations within the tool call, use `voice_call` instead.",
 			inputSchema: {
 			agentId: z.string().optional()
 				.describe("Agent ID to call from (defaults to current agent if using agent key)."),
@@ -100,6 +106,12 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 			fromNumber: z.string().optional()
 				.describe("Source number to call from (defaults to agent's primary number)."),
 		},
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: false,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const body: Record<string, unknown> = { to: args.to };
@@ -130,6 +142,12 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 			offset: z.number().int().nonnegative().optional()
 				.describe("Offset for pagination."),
 		},
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const params = new URLSearchParams();
@@ -155,6 +173,12 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 			callId: z.string()
 				.describe("The call ID to retrieve."),
 		},
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.get<unknown>(`/v1/voice/calls/${args.callId}`);
@@ -173,6 +197,12 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 			callId: z.string()
 				.describe("The call ID to get the transcript for."),
 		},
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.get<unknown>(`/v1/voice/calls/${args.callId}/transcript`);
@@ -191,6 +221,12 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 			callId: z.string()
 				.describe("The call ID to get the recording for."),
 		},
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.get<unknown>(`/v1/voice/calls/${args.callId}/recording`);
@@ -209,6 +245,12 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 			callId: z.string()
 				.describe("The call ID to get the summary for."),
 		},
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.get<unknown>(`/v1/voice/calls/${args.callId}/summary`);
@@ -227,6 +269,12 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 			callId: z.string()
 				.describe("The call ID to get the score for."),
 		},
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.get<unknown>(`/v1/voice/calls/${args.callId}/score`);
@@ -255,6 +303,12 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 			threshold: z.number().min(0).max(1).optional()
 				.describe("Similarity threshold 0-1 (default: 0.7). Lower = more results."),
 		},
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const body: Record<string, unknown> = { query: args.query };
@@ -279,6 +333,12 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 			callId: z.string()
 				.describe("The call ID to get security scan results for."),
 		},
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.get<unknown>(`/v1/voice/calls/${args.callId}/security`);
