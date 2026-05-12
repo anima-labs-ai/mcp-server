@@ -360,6 +360,36 @@ function registerCheckHealthTool(options: ToolRegistrationOptions): void {
 	);
 }
 
+/**
+ * Map workspace-health error codes to the canonical MCP tool that resolves
+ * them. Kept here (not on the API) because the relevant tool name is an
+ * MCP-layer concern — other API consumers (CLI, SDKs, the dashboard) have
+ * their own remediation surfaces. Forward-compatible: codes not in this
+ * map pass through with the original {code, hint} shape only, so adding
+ * a new blocker on the API side doesn't break Workspace_Health responses.
+ *
+ * Customer feedback: "Concepts already documents typed_error_codes.
+ * Workspace_Health blockers should carry the next tool to call, not just
+ * a hint string — closes the gap between diagnosis and remediation."
+ */
+const BLOCKER_REMEDIATION: Record<
+	string,
+	{ tool: string; toolHint: string }
+> = {
+	NO_VERIFIED_EMAIL_IDENTITY: {
+		tool: "agent_email_identity_add",
+		toolHint:
+			"Call agent_email_identity_add with an address on a workspace-verified domain. The verification worker flips identities to verified within ~60s of SES confirming.",
+	},
+	NO_VERIFIED_DOMAIN: {
+		tool: "domain_verify",
+		toolHint:
+			"After publishing the DNS records (domain_dns_records), call domain_verify to ask SES to re-check.",
+	},
+	// ORG_SUSPENDED intentionally has no tool — the only remediation is to
+	// contact support@useanima.sh, which is a human action, not an MCP call.
+};
+
 function registerWorkspaceHealthTool(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
@@ -370,14 +400,30 @@ function registerWorkspaceHealthTool(options: ToolRegistrationOptions): void {
 		{
 			title: "Workspace Health",
 			description:
-				"Workspace-level self-diagnosis: returns canSendEmail, canSendSms, current credential context, inventory counts (agents, domains, phones), and a list of typed blockers. Callable by ANY authenticated credential — agent-key, master, or admin:full OAuth — no escalation required. Use this before non-trivial workflows to check 'can I do X right now?' without paying a real send/call to find out. Closes the gap that check_health (server-only health) and who_am_i (identity only) leave open.",
+				"Workspace-level self-diagnosis: returns canSendEmail, canSendSms, current credential context, inventory counts (agents, domains, phones), and a list of typed blockers. Each blocker carries `tool` (the canonical MCP tool that resolves it) and `toolHint` (how to call it) when an automated remediation exists — so you can go from diagnosis to action in one round-trip. Callable by ANY authenticated credential — agent-key, master, or admin:full OAuth — no escalation required. Use this before non-trivial workflows to check 'can I do X right now?' without paying a real send/call to find out. Closes the gap that check_health (server-only health) and who_am_i (identity only) leave open.",
 			inputSchema: noInput.shape,
 			annotations: { readOnlyHint: true, destructiveHint: false },
 			deprecate: true,
 		},
 		withErrorHandling(async (_args, context) => {
-			const result = await context.client.get("/v1/orgs/me/workspace-health");
-			return toolSuccess(result);
+			const result = await context.client.get<Record<string, unknown>>(
+				"/v1/orgs/me/workspace-health",
+			);
+
+			// Defensive: the API contract says blockers is an array, but we
+			// shouldn't crash the whole response if a future contract change
+			// drops the field or returns null. Preserve everything else.
+			const rawBlockers = Array.isArray(result.blockers)
+				? (result.blockers as Array<{ code: string; hint: string }>)
+				: [];
+
+			const enrichedBlockers = rawBlockers.map((b) => {
+				const remediation = BLOCKER_REMEDIATION[b.code];
+				if (!remediation) return b;
+				return { ...b, tool: remediation.tool, toolHint: remediation.toolHint };
+			});
+
+			return toolSuccess({ ...result, blockers: enrichedBlockers });
 		}, options.context),
 	);
 }

@@ -1002,7 +1002,7 @@ Get resource usage metrics for a pod. Use this to monitor CPU, memory, storage, 
 | `update_metadata` | Update metadata for the current agent identity. | +2aliases |
 | `wait_for_email` | Poll inbound messages until a matching email arrives or timeout expires. | +2aliases |
 | `who_am_i` | Return identity details for the current API credential, plus the running MCP ser… | +2aliases |
-| `workspace_health` | Workspace-level self-diagnosis: returns canSendEmail, canSendSms, current creden… | +2aliases |
+| `workspace_health` |  | +2aliases |
 
 ### `anima_discover`
 
@@ -1018,7 +1018,7 @@ Send a synchronous request to another agent and wait for reply.
 
 **Input schema:** `callAgentInput` — see source for fields.
 
-**Source:** `src/tools/platform/utility/index.ts:770`
+**Source:** `src/tools/platform/utility/index.ts:820`
 
 ### `check_followups`
 *Aliases:* `Check Followups`, `Check_Followups`
@@ -1027,7 +1027,7 @@ Drain and return queued follow-up reminders for blocked messages. Use this to po
 
 **Input schema:** `noInput` — see source for fields.
 
-**Source:** `src/tools/platform/utility/index.ts:629`
+**Source:** `src/tools/platform/utility/index.ts:679`
 
 ### `check_health`
 *Aliases:* `Check Health`, `Check_Health`
@@ -1044,7 +1044,7 @@ Check inbound messages with optional unread-only filtering and compact formattin
 
 **Input schema:** `checkMessagesInput` — see source for fields.
 
-**Source:** `src/tools/platform/utility/index.ts:693`
+**Source:** `src/tools/platform/utility/index.ts:743`
 
 ### `check_tasks`
 *Aliases:* `Check Tasks`, `Check_Tasks`
@@ -1053,7 +1053,7 @@ Fetch task-assignment messages filtered by metadata type and optional status.
 
 **Input schema:** `checkTasksInput` — see source for fields.
 
-**Source:** `src/tools/platform/utility/index.ts:975`
+**Source:** `src/tools/platform/utility/index.ts:1025`
 
 ### `Concepts`
 
@@ -1061,7 +1061,7 @@ Return a short conceptual map of the Anima platform: how Agents, EmailIdentities
 
 **Input schema:** `noInput` — see source for fields.
 
-**Source:** `src/tools/platform/utility/index.ts:388`
+**Source:** `src/tools/platform/utility/index.ts:438`
 
 ### `List_Capabilities`
 
@@ -1069,7 +1069,7 @@ Return what the CURRENT credential can do — auth tier + tool families that wor
 
 **Input schema:** `noInput` — see source for fields.
 
-**Source:** `src/tools/platform/utility/index.ts:494`
+**Source:** `src/tools/platform/utility/index.ts:544`
 
 ### `manage_pending`
 *Aliases:* `Manage Pending`, `Manage_Pending`
@@ -1078,7 +1078,7 @@ Approve or reject a pending message requiring manual decision. Use this to unblo
 
 **Input schema:** `managePendingInput` — see source for fields.
 
-**Source:** `src/tools/platform/utility/index.ts:594`
+**Source:** `src/tools/platform/utility/index.ts:644`
 
 ### `manage_spam`
 *Aliases:* `Manage Spam`, `Manage_Spam`
@@ -1087,7 +1087,7 @@ List, report, and unmark spam messages.
 
 **Input schema:** `manageSpamInput` — see source for fields.
 
-**Source:** `src/tools/platform/utility/index.ts:928`
+**Source:** `src/tools/platform/utility/index.ts:978`
 
 ### `message_agent`
 *Aliases:* `Message Agent`, `Message_Agent`
@@ -1096,7 +1096,7 @@ Send an email message to another agent by agent name.
 
 **Input schema:** `messageAgentInput` — see source for fields.
 
-**Source:** `src/tools/platform/utility/index.ts:651`
+**Source:** `src/tools/platform/utility/index.ts:701`
 
 ### `send_test_email`
 *Aliases:* `Send Test Email`, `Send_Test_Email`
@@ -1105,7 +1105,7 @@ Send a simple test email for setup verification.
 
 **Input schema:** `sendTestEmailInput` — see source for fields.
 
-**Source:** `src/tools/platform/utility/index.ts:902`
+**Source:** `src/tools/platform/utility/index.ts:952`
 
 ### `setup_email_domain`
 *Aliases:* `Setup Email Domain`, `Setup_Email_Domain`
@@ -1114,7 +1114,7 @@ Configure a custom email domain for account setup workflows.
 
 **Input schema:** `setupEmailDomainInput` — see source for fields.
 
-**Source:** `src/tools/platform/utility/index.ts:877`
+**Source:** `src/tools/platform/utility/index.ts:927`
 
 ### `update_metadata`
 *Aliases:* `Update Metadata`, `Update_Metadata`
@@ -1123,7 +1123,7 @@ Update metadata for the current agent identity.
 
 **Input schema:** `updateMetadataInput` — see source for fields.
 
-**Source:** `src/tools/platform/utility/index.ts:836`
+**Source:** `src/tools/platform/utility/index.ts:886`
 
 ### `wait_for_email`
 *Aliases:* `Wait for Email`, `Wait_for_Email`
@@ -1132,7 +1132,7 @@ Poll inbound messages until a matching email arrives or timeout expires.
 
 **Input schema:** `waitForEmailInput` — see source for fields.
 
-**Source:** `src/tools/platform/utility/index.ts:728`
+**Source:** `src/tools/platform/utility/index.ts:778`
 
 ### `who_am_i`
 *Aliases:* `Who Am I`, `Who_Am_I`
@@ -1146,11 +1146,11 @@ Return identity details for the current API credential, plus the running MCP ser
 ### `workspace_health`
 *Aliases:* `Workspace Health`, `Workspace_Health`
 
-Workspace-level self-diagnosis: returns canSendEmail, canSendSms, current credential context, inventory counts (agents, domains, phones), and a list of typed blockers. Callable by ANY authenticated credential — agent-key, master, or admin:full OAuth — no escalation required. Use this before non-trivial workflows to check
+_(no description in source)_
 
 **Input schema:** `noInput` — see source for fields.
 
-**Source:** `src/tools/platform/utility/index.ts:366`
+**Source:** `src/tools/platform/utility/index.ts:396`
 
 ## platform / webhook
 
