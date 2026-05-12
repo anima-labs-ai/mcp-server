@@ -10,8 +10,8 @@ change to keep this in sync. Do NOT edit by hand.*
 | Metric | Value |
 |---|---|
 | Total registered tools | 162 |
-| Tools with aliases | 6 |
-| Total callable names (incl. aliases) | 174 |
+| Tools with aliases | 32 |
+| Total callable names (incl. aliases) | 226 |
 | Master-key required | 0 |
 | Read-only | 0 |
 
@@ -911,60 +911,66 @@ Semantic search across all call transcripts using natural language. Uses vector 
 
 | Name | Description | Flags |
 |---|---|---|
-| `Create Pod` | Create a new compute pod for an agent. Use this to provision a container that ru… | — |
-| `Delete Pod` | Delete a compute pod. Use this to tear down a pod that is no longer needed. | — |
-| `Get Pod` | Get details for a specific pod. Use this to check pod status, resources, and con… | — |
-| `List Pods` | List all compute pods, optionally filtered by agent. Use this to see running and… | — |
-| `Pod Usage` | Get resource usage metrics for a pod. Use this to monitor CPU, memory, storage, … | — |
-| `Update Pod` | Update a pod | — |
+| `pod_create` | Create a new compute pod for an agent. Use this to provision a container that ru… | +2aliases |
+| `pod_delete` | Delete a compute pod. Use this to tear down a pod that is no longer needed. | +2aliases |
+| `pod_get` | Get details for a specific pod. Use this to check pod status, resources, and con… | +2aliases |
+| `pod_list` | List all compute pods, optionally filtered by agent. Use this to see running and… | +2aliases |
+| `pod_update` | Update a pod | +2aliases |
+| `pod_usage` | Get resource usage metrics for a pod. Use this to monitor CPU, memory, storage, … | +2aliases |
 
-### `Create Pod`
+### `pod_create`
+*Aliases:* `Create Pod`, `Create_Pod`
 
 Create a new compute pod for an agent. Use this to provision a container that runs alongside the agent.
 
 **Input schema:** `createPodSchema` — see source for fields.
 
-**Source:** `src/tools/platform/pod/index.ts:79`
+**Source:** `src/tools/platform/pod/index.ts:87`
 
-### `Delete Pod`
+### `pod_delete`
+*Aliases:* `Delete Pod`, `Delete_Pod`
 
 Delete a compute pod. Use this to tear down a pod that is no longer needed.
 
 **Input schema:** `podIdSchema` — see source for fields.
 
-**Source:** `src/tools/platform/pod/index.ts:138`
+**Source:** `src/tools/platform/pod/index.ts:162`
 
-### `Get Pod`
+### `pod_get`
+*Aliases:* `Get Pod`, `Get_Pod`
 
 Get details for a specific pod. Use this to check pod status, resources, and configuration.
 
 **Input schema:** `podIdSchema` — see source for fields.
 
-**Source:** `src/tools/platform/pod/index.ts:110`
+**Source:** `src/tools/platform/pod/index.ts:126`
 
-### `List Pods`
+### `pod_list`
+*Aliases:* `List Pods`, `List_Pods`
 
 List all compute pods, optionally filtered by agent. Use this to see running and stopped pods.
 
 **Input schema:** `listPodsSchema` — see source for fields.
 
-**Source:** `src/tools/platform/pod/index.ts:93`
+**Source:** `src/tools/platform/pod/index.ts:105`
 
-### `Pod Usage`
-
-Get resource usage metrics for a pod. Use this to monitor CPU, memory, storage, and network usage.
-
-**Input schema:** `podIdSchema` — see source for fields.
-
-**Source:** `src/tools/platform/pod/index.ts:152`
-
-### `Update Pod`
+### `pod_update`
+*Aliases:* `Update Pod`, `Update_Pod`
 
 Update a pod
 
 **Input schema:** `updatePodSchema` — see source for fields.
 
-**Source:** `src/tools/platform/pod/index.ts:123`
+**Source:** `src/tools/platform/pod/index.ts:143`
+
+### `pod_usage`
+*Aliases:* `Pod Usage`, `Pod_Usage`
+
+Get resource usage metrics for a pod. Use this to monitor CPU, memory, storage, and network usage.
+
+**Input schema:** `podIdSchema` — see source for fields.
+
+**Source:** `src/tools/platform/pod/index.ts:180`
 
 ## platform / utility
 
@@ -973,20 +979,20 @@ Update a pod
 | Name | Description | Flags |
 |---|---|---|
 | `anima_discover` | Find the right Anima MCP tool for an intent in plain English. Use this when you … | — |
-| `Call Agent` | Send a synchronous request to another agent and wait for reply. | — |
-| `Check Followups` | Drain and return queued follow-up reminders for blocked messages. Use this to po… | — |
-| `Check Messages` | Check inbound messages with optional unread-only filtering and compact formattin… | — |
-| `Check Tasks` | Fetch task-assignment messages filtered by metadata type and optional status. | — |
+| `call_agent` | Send a synchronous request to another agent and wait for reply. | +2aliases |
+| `check_followups` | Drain and return queued follow-up reminders for blocked messages. Use this to po… | +2aliases |
 | `check_health` | Check API health status from the server health endpoint, plus the MCP server | +2aliases |
+| `check_messages` | Check inbound messages with optional unread-only filtering and compact formattin… | +2aliases |
+| `check_tasks` | Fetch task-assignment messages filtered by metadata type and optional status. | +2aliases |
 | `Concepts` | Return a short conceptual map of the Anima platform: how Agents, EmailIdentities… | — |
 | `List_Capabilities` | Return what the CURRENT credential can do — auth tier + tool families that work … | — |
-| `Manage Pending` | Approve or reject a pending message requiring manual decision. Use this to unblo… | — |
-| `Manage Spam` | List, report, and unmark spam messages. | — |
-| `Message Agent` | Send an email message to another agent by agent name. | — |
-| `Send Test Email` | Send a simple test email for setup verification. | — |
-| `Setup Email Domain` | Configure a custom email domain for account setup workflows. | — |
-| `Update Metadata` | Update metadata for the current agent identity. | — |
-| `Wait for Email` | Poll inbound messages until a matching email arrives or timeout expires. | — |
+| `manage_pending` | Approve or reject a pending message requiring manual decision. Use this to unblo… | +2aliases |
+| `manage_spam` | List, report, and unmark spam messages. | +2aliases |
+| `message_agent` | Send an email message to another agent by agent name. | +2aliases |
+| `send_test_email` | Send a simple test email for setup verification. | +2aliases |
+| `setup_email_domain` | Configure a custom email domain for account setup workflows. | +2aliases |
+| `update_metadata` | Update metadata for the current agent identity. | +2aliases |
+| `wait_for_email` | Poll inbound messages until a matching email arrives or timeout expires. | +2aliases |
 | `who_am_i` | Return identity details for the current API credential, plus the running MCP ser… | +2aliases |
 | `workspace_health` | Workspace-level self-diagnosis: returns canSendEmail, canSendSms, current creden… | +2aliases |
 
@@ -997,37 +1003,23 @@ Find the right Anima MCP tool for an intent in plain English. Use this when you 
 
 **Source:** `src/tools/platform/utility/index.ts:254`
 
-### `Call Agent`
+### `call_agent`
+*Aliases:* `Call Agent`, `Call_Agent`
 
 Send a synchronous request to another agent and wait for reply.
 
 **Input schema:** `callAgentInput` — see source for fields.
 
-**Source:** `src/tools/platform/utility/index.ts:739`
+**Source:** `src/tools/platform/utility/index.ts:770`
 
-### `Check Followups`
+### `check_followups`
+*Aliases:* `Check Followups`, `Check_Followups`
 
 Drain and return queued follow-up reminders for blocked messages. Use this to poll reminders generated by the pending follow-up scheduler.
 
 **Input schema:** `noInput` — see source for fields.
 
-**Source:** `src/tools/platform/utility/index.ts:617`
-
-### `Check Messages`
-
-Check inbound messages with optional unread-only filtering and compact formatting.
-
-**Input schema:** `checkMessagesInput` — see source for fields.
-
-**Source:** `src/tools/platform/utility/index.ts:670`
-
-### `Check Tasks`
-
-Fetch task-assignment messages filtered by metadata type and optional status.
-
-**Input schema:** `checkTasksInput` — see source for fields.
-
-**Source:** `src/tools/platform/utility/index.ts:924`
+**Source:** `src/tools/platform/utility/index.ts:629`
 
 ### `check_health`
 *Aliases:* `Check Health`, `Check_Health`
@@ -1036,6 +1028,24 @@ Check API health status from the server health endpoint, plus the MCP server
 
 
 **Source:** `src/tools/platform/utility/index.ts:341`
+
+### `check_messages`
+*Aliases:* `Check Messages`, `Check_Messages`
+
+Check inbound messages with optional unread-only filtering and compact formatting.
+
+**Input schema:** `checkMessagesInput` — see source for fields.
+
+**Source:** `src/tools/platform/utility/index.ts:693`
+
+### `check_tasks`
+*Aliases:* `Check Tasks`, `Check_Tasks`
+
+Fetch task-assignment messages filtered by metadata type and optional status.
+
+**Input schema:** `checkTasksInput` — see source for fields.
+
+**Source:** `src/tools/platform/utility/index.ts:975`
 
 ### `Concepts`
 
@@ -1053,61 +1063,68 @@ Return what the CURRENT credential can do — auth tier + tool families that wor
 
 **Source:** `src/tools/platform/utility/index.ts:494`
 
-### `Manage Pending`
+### `manage_pending`
+*Aliases:* `Manage Pending`, `Manage_Pending`
 
 Approve or reject a pending message requiring manual decision. Use this to unblock held messages with an explicit action and optional reason.
 
 **Input schema:** `managePendingInput` — see source for fields.
 
-**Source:** `src/tools/platform/utility/index.ts:589`
+**Source:** `src/tools/platform/utility/index.ts:594`
 
-### `Manage Spam`
+### `manage_spam`
+*Aliases:* `Manage Spam`, `Manage_Spam`
 
 List, report, and unmark spam messages.
 
 **Input schema:** `manageSpamInput` — see source for fields.
 
-**Source:** `src/tools/platform/utility/index.ts:881`
+**Source:** `src/tools/platform/utility/index.ts:928`
 
-### `Message Agent`
+### `message_agent`
+*Aliases:* `Message Agent`, `Message_Agent`
 
 Send an email message to another agent by agent name.
 
 **Input schema:** `messageAgentInput` — see source for fields.
 
-**Source:** `src/tools/platform/utility/index.ts:635`
+**Source:** `src/tools/platform/utility/index.ts:651`
 
-### `Send Test Email`
+### `send_test_email`
+*Aliases:* `Send Test Email`, `Send_Test_Email`
 
 Send a simple test email for setup verification.
 
 **Input schema:** `sendTestEmailInput` — see source for fields.
 
-**Source:** `src/tools/platform/utility/index.ts:859`
+**Source:** `src/tools/platform/utility/index.ts:902`
 
-### `Setup Email Domain`
+### `setup_email_domain`
+*Aliases:* `Setup Email Domain`, `Setup_Email_Domain`
 
 Configure a custom email domain for account setup workflows.
 
 **Input schema:** `setupEmailDomainInput` — see source for fields.
 
-**Source:** `src/tools/platform/utility/index.ts:838`
+**Source:** `src/tools/platform/utility/index.ts:877`
 
-### `Update Metadata`
+### `update_metadata`
+*Aliases:* `Update Metadata`, `Update_Metadata`
 
 Update metadata for the current agent identity.
 
 **Input schema:** `updateMetadataInput` — see source for fields.
 
-**Source:** `src/tools/platform/utility/index.ts:801`
+**Source:** `src/tools/platform/utility/index.ts:836`
 
-### `Wait for Email`
+### `wait_for_email`
+*Aliases:* `Wait for Email`, `Wait_for_Email`
 
 Poll inbound messages until a matching email arrives or timeout expires.
 
 **Input schema:** `waitForEmailInput` — see source for fields.
 
-**Source:** `src/tools/platform/utility/index.ts:701`
+**Source:** `src/tools/platform/utility/index.ts:728`
 
 ### `who_am_i`
 *Aliases:* `Who Am I`, `Who_Am_I`
@@ -1133,87 +1150,96 @@ Workspace-level self-diagnosis: returns canSendEmail, canSendSms, current creden
 
 | Name | Description | Flags |
 |---|---|---|
-| `Create Webhook` | Create a new webhook endpoint with subscribed event types so external systems ca… | — |
-| `Delete Webhook` | Delete a webhook endpoint by ID so it no longer receives event deliveries. Use t… | — |
-| `Get Webhook` | Fetch full details for a specific webhook by ID, including URL, events, and stat… | — |
-| `List Webhook Deliveries` | List delivery attempts for a specific webhook, including retry and response deta… | — |
-| `List Webhooks` | List webhooks with optional agent scope and cursor pagination. Use this to audit… | — |
-| `Re-enable Webhook` | Test a disabled webhook endpoint and re-enable it if the test delivery succeeds.… | — |
-| `Test Webhook` | Trigger a test event delivery for a webhook to verify endpoint reachability and … | — |
-| `Update Webhook` | Update an existing webhook | — |
-| `Webhook Stats` | Get aggregate delivery statistics for a webhook, including total deliveries, suc… | — |
+| `webhook_create` | Create a new webhook endpoint with subscribed event types so external systems ca… | +2aliases |
+| `webhook_delete` | Delete a webhook endpoint by ID so it no longer receives event deliveries. Use t… | +2aliases |
+| `webhook_deliveries_list` | List delivery attempts for a specific webhook, including retry and response deta… | +2aliases |
+| `webhook_get` | Fetch full details for a specific webhook by ID, including URL, events, and stat… | +2aliases |
+| `webhook_list` | List webhooks with optional agent scope and cursor pagination. Use this to audit… | +2aliases |
+| `webhook_reenable` | Test a disabled webhook endpoint and re-enable it if the test delivery succeeds.… | +2aliases |
+| `webhook_stats` | Get aggregate delivery statistics for a webhook, including total deliveries, suc… | +2aliases |
+| `webhook_test` | Trigger a test event delivery for a webhook to verify endpoint reachability and … | +2aliases |
+| `webhook_update` | Update an existing webhook | +2aliases |
 
-### `Create Webhook`
+### `webhook_create`
+*Aliases:* `Create Webhook`, `Create_Webhook`
 
 Create a new webhook endpoint with subscribed event types so external systems can receive Anima events. Use this when integrating downstream processors or automations.
 
 **Input schema:** `webhookCreateInput` — see source for fields.
 
-**Source:** `src/tools/platform/webhook/index.ts:83`
+**Source:** `src/tools/platform/webhook/index.ts:99`
 
-### `Delete Webhook`
+### `webhook_delete`
+*Aliases:* `Delete Webhook`, `Delete_Webhook`
 
 Delete a webhook endpoint by ID so it no longer receives event deliveries. Use this when retiring integrations or removing invalid destinations.
 
 **Input schema:** `webhookDeleteInput` — see source for fields.
 
-**Source:** `src/tools/platform/webhook/index.ts:127`
+**Source:** `src/tools/platform/webhook/index.ts:167`
 
-### `Get Webhook`
-
-Fetch full details for a specific webhook by ID, including URL, events, and status fields. Use this when validating an existing webhook configuration.
-
-**Input schema:** `webhookGetInput` — see source for fields.
-
-**Source:** `src/tools/platform/webhook/index.ts:96`
-
-### `List Webhook Deliveries`
+### `webhook_deliveries_list`
+*Aliases:* `List Webhook Deliveries`, `List_Webhook_Deliveries`
 
 List delivery attempts for a specific webhook, including retry and response details when available. Use this to troubleshoot failed or delayed webhook calls.
 
 **Input schema:** `webhookListDeliveriesInput` — see source for fields.
 
-**Source:** `src/tools/platform/webhook/index.ts:174`
+**Source:** `src/tools/platform/webhook/index.ts:238`
 
-### `List Webhooks`
+### `webhook_get`
+*Aliases:* `Get Webhook`, `Get_Webhook`
+
+Fetch full details for a specific webhook by ID, including URL, events, and status fields. Use this when validating an existing webhook configuration.
+
+**Input schema:** `webhookGetInput` — see source for fields.
+
+**Source:** `src/tools/platform/webhook/index.ts:120`
+
+### `webhook_list`
+*Aliases:* `List Webhooks`, `List_Webhooks`
 
 List webhooks with optional agent scope and cursor pagination. Use this to audit currently configured endpoints across your workspace.
 
 **Input schema:** `webhookListInput` — see source for fields.
 
-**Source:** `src/tools/platform/webhook/index.ts:140`
+**Source:** `src/tools/platform/webhook/index.ts:188`
 
-### `Re-enable Webhook`
+### `webhook_reenable`
+*Aliases:* `Re-enable Webhook`, `Re-enable_Webhook`
 
 Test a disabled webhook endpoint and re-enable it if the test delivery succeeds. Use this after fixing a webhook endpoint that was auto-disabled due to consecutive failures.
 
 **Input schema:** `webhookReenableInput` — see source for fields.
 
-**Source:** `src/tools/platform/webhook/index.ts:197`
+**Source:** `src/tools/platform/webhook/index.ts:269`
 
-### `Test Webhook`
-
-Trigger a test event delivery for a webhook to verify endpoint reachability and signature handling. Use this before enabling production event flows.
-
-**Input schema:** `webhookTestInput` — see source for fields.
-
-**Source:** `src/tools/platform/webhook/index.ts:159`
-
-### `Update Webhook`
-
-Update an existing webhook
-
-**Input schema:** `webhookUpdateInput` — see source for fields.
-
-**Source:** `src/tools/platform/webhook/index.ts:109`
-
-### `Webhook Stats`
+### `webhook_stats`
+*Aliases:* `Webhook Stats`, `Webhook_Stats`
 
 Get aggregate delivery statistics for a webhook, including total deliveries, success rate, and failure counts. Use this for monitoring webhook health.
 
 **Input schema:** `webhookStatsInput` — see source for fields.
 
-**Source:** `src/tools/platform/webhook/index.ts:214`
+**Source:** `src/tools/platform/webhook/index.ts:293`
+
+### `webhook_test`
+*Aliases:* `Test Webhook`, `Test_Webhook`
+
+Trigger a test event delivery for a webhook to verify endpoint reachability and signature handling. Use this before enabling production event flows.
+
+**Input schema:** `webhookTestInput` — see source for fields.
+
+**Source:** `src/tools/platform/webhook/index.ts:215`
+
+### `webhook_update`
+*Aliases:* `Update Webhook`, `Update_Webhook`
+
+Update an existing webhook
+
+**Input schema:** `webhookUpdateInput` — see source for fields.
+
+**Source:** `src/tools/platform/webhook/index.ts:141`
 
 ## vault / security
 
