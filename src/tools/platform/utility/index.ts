@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { ToolRegistrationOptions } from "../../../shared/index.js";
 import {
+	registerToolWithAliases,
 	requireMasterKeyGuard,
 	toolError,
 	toolSuccess,
@@ -298,16 +299,31 @@ function registerDiscoverTool(options: ToolRegistrationOptions): void {
 	);
 }
 
+// 2026-05-12: renamed Who Am I / Check Health / Workspace Health from
+// space-separated names to lower_snake_case to fix MCP SDK identifier
+// warnings ("Tool name contains spaces, which may cause parsing issues").
+// Each keeps the old space-name AND the underscore-normalized form
+// ("Who_Am_I") as deprecated aliases — clients pin to one or the other
+// depending on their tools/list normalization rules, so both must
+// remain callable until usage logs go quiet.
+// Added MCP-spec `title` field so clients render the human-readable
+// label in pickers — customer feedback: "names should be human like
+// `email_send` → `Send Email`".
+
 function registerWhoAmITool(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
-	server.registerTool(
-		"Who Am I",
+	registerToolWithAliases(
+		server,
+		"who_am_i",
+		["Who Am I", "Who_Am_I"],
 		{
+			title: "Who Am I",
 			description:
 				"Return identity details for the current API credential, plus the running MCP server's deploy identity (commitSha, revision, buildId). Use to verify which account and scope you're operating under AND which version of the MCP server is actually serving you. The mcpServer block answers 'did my fix actually land?' in one call — compare commitSha against the merge commit you expected to deploy.",
 			inputSchema: noInput.shape,
 			annotations: { readOnlyHint: true, destructiveHint: false },
+			deprecate: true,
 		},
 		withErrorHandling(async (_args, context) => {
 			const result = await context.client.get<Record<string, unknown>>("/v1/orgs/me");
@@ -322,13 +338,17 @@ function registerWhoAmITool(options: ToolRegistrationOptions): void {
 function registerCheckHealthTool(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
-	server.registerTool(
-		"Check Health",
+	registerToolWithAliases(
+		server,
+		"check_health",
+		["Check Health", "Check_Health"],
 		{
+			title: "Check Health",
 			description:
 				"Check API health status from the server health endpoint, plus the MCP server's deploy identity. Returns api={...} (upstream API health) and mcpServer={commitSha, revision, buildId, startedAt}. Use this before troubleshooting tool failures to confirm BOTH service availability AND that you're hitting the deploy you think you are.",
 			inputSchema: noInput.shape,
 			annotations: { readOnlyHint: true, destructiveHint: false },
+			deprecate: true,
 		},
 		withErrorHandling(async (_args, context) => {
 			const result = await context.client.get<Record<string, unknown>>("/health");
@@ -343,13 +363,17 @@ function registerCheckHealthTool(options: ToolRegistrationOptions): void {
 function registerWorkspaceHealthTool(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
-	server.registerTool(
-		"Workspace Health",
+	registerToolWithAliases(
+		server,
+		"workspace_health",
+		["Workspace Health", "Workspace_Health"],
 		{
+			title: "Workspace Health",
 			description:
-				"Workspace-level self-diagnosis: returns canSendEmail, canSendSms, current credential context, inventory counts (agents, domains, phones), and a list of typed blockers. Callable by ANY authenticated credential — agent-key, master, or admin:full OAuth — no escalation required. Use this before non-trivial workflows to check 'can I do X right now?' without paying a real send/call to find out. Closes the gap that Check_Health (server-only health) and Who_Am_I (identity only) leave open.",
+				"Workspace-level self-diagnosis: returns canSendEmail, canSendSms, current credential context, inventory counts (agents, domains, phones), and a list of typed blockers. Callable by ANY authenticated credential — agent-key, master, or admin:full OAuth — no escalation required. Use this before non-trivial workflows to check 'can I do X right now?' without paying a real send/call to find out. Closes the gap that check_health (server-only health) and who_am_i (identity only) leave open.",
 			inputSchema: noInput.shape,
 			annotations: { readOnlyHint: true, destructiveHint: false },
+			deprecate: true,
 		},
 		withErrorHandling(async (_args, context) => {
 			const result = await context.client.get("/v1/orgs/me/workspace-health");
