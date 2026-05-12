@@ -16,7 +16,11 @@
 
 import { z } from "zod";
 import type { ToolRegistrationOptions } from "../../../shared/index.js";
-import { withErrorHandling, toolSuccess } from "../../../shared/index.js";
+import {
+	registerToolWithAliases,
+	withErrorHandling,
+	toolSuccess,
+} from "../../../shared/index.js";
 import { registerVoiceCallTool } from "./live-call.js";
 
 export function registerVoiceTools(options: ToolRegistrationOptions): void {
@@ -26,30 +30,56 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 	// notifications, which the other tools in this file don't need).
 	registerVoiceCallTool(server, options.context);
 
-	// ── voice_catalog ──
+	// ── voice_catalog (canonical) + voice_list_voices (deprecated alias) ──
+	//
+	// Both used to be registered as standalone tools (here and in
+	// tools/phone/phone/index.ts) calling the same /v1/voice/catalog
+	// endpoint with the same params. Customer feedback flagged the
+	// duplicate; collapsing under voice_catalog (matches the API endpoint
+	// path, shortest name) and keeping voice_list_voices as a deprecated
+	// alias so existing prompts/scripts that pinned to the old name keep
+	// working. Plan: remove the alias once usage logs go quiet.
 
-	server.registerTool(
+	const voiceCatalogSchema = z.object({
+		tier: z
+			.enum(["basic", "premium"])
+			.optional()
+			.describe("Filter by pricing tier."),
+		gender: z
+			.enum(["male", "female", "neutral"])
+			.optional()
+			.describe("Filter by voice gender."),
+		language: z
+			.string()
+			.optional()
+			.describe("Filter by language code (e.g. 'en-US', 'fr-FR')."),
+	});
+
+	const voiceCatalogHandler = withErrorHandling<
+		z.infer<typeof voiceCatalogSchema>
+	>(async (args, context) => {
+		const params = new URLSearchParams();
+		if (args.tier) params.set("tier", args.tier);
+		if (args.gender) params.set("gender", args.gender);
+		if (args.language) params.set("language", args.language);
+		const path = params.toString()
+			? `/v1/voice/catalog?${params}`
+			: "/v1/voice/catalog";
+		const result = await context.client.get<unknown>(path);
+		return toolSuccess(result);
+	}, options.context);
+
+	registerToolWithAliases(
+		server,
 		"voice_catalog",
+		["voice_list_voices"],
 		{
-			description: "List available AI voices for phone calls. Filter by tier (basic for low-latency, premium for natural voices), gender, or language. Returns voice IDs needed for voice_create_call.",
-			inputSchema: {
-			tier: z.enum(["basic", "premium"]).optional()
-				.describe("Filter by pricing tier."),
-			gender: z.enum(["male", "female", "neutral"]).optional()
-				.describe("Filter by voice gender."),
-			language: z.string().optional()
-				.describe("Filter by language code (e.g. 'en-US', 'fr-FR')."),
+			description:
+				"List available AI voices for phone calls. Filter by tier (basic for low-latency, premium for natural voices), gender, or language. Returns voice IDs needed for voice_create_call.",
+			inputSchema: voiceCatalogSchema.shape,
+			deprecate: true,
 		},
-		},
-		withErrorHandling(async (args, context) => {
-			const params = new URLSearchParams();
-			if (args.tier) params.set("tier", args.tier);
-			if (args.gender) params.set("gender", args.gender);
-			if (args.language) params.set("language", args.language);
-			const path = params.toString() ? `/v1/voice/catalog?${params}` : "/v1/voice/catalog";
-			const result = await context.client.get<unknown>(path);
-			return toolSuccess(result);
-		}, options.context),
+		voiceCatalogHandler,
 	);
 
 	// ── voice_create_call ──
