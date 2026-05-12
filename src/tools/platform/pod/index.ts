@@ -1,10 +1,18 @@
 import { z } from "zod";
 import type { ToolRegistrationOptions } from "../../../shared/index.js";
 import {
+	registerToolWithAliases,
 	withErrorHandling,
 	toolSuccess,
 	requireMasterKeyGuard,
 } from "../../../shared/index.js";
+
+// 2026-05-12: renamed Create/Get/List/Update/Delete Pod + Pod Usage from
+// space-separated to lower_snake_case (resource_verb to match agent_*,
+// domain_*, vault_* families). Old names kept as deprecated aliases —
+// both the space form ("Create Pod") AND the underscore-normalized form
+// ("Create_Pod") because different clients normalize differently before
+// pinning. Added MCP-spec `title` for clients that render display labels.
 
 const createPodSchema = z.object({
 	agentId: z
@@ -76,28 +84,36 @@ const updatePodSchema = z.object({
 export function registerPodTools(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
-	server.registerTool(
-		"Create Pod",
+	registerToolWithAliases(
+		server,
+		"pod_create",
+		["Create Pod", "Create_Pod"],
 		{
+			title: "Create Pod",
 			description: "Create a new compute pod for an agent. Use this to provision a container that runs alongside the agent.",
 			inputSchema: createPodSchema.shape,
 			annotations: { readOnlyHint: false, destructiveHint: false },
+			deprecate: true,
 		},
-		withErrorHandling(async (args, context) => {
+		withErrorHandling<z.infer<typeof createPodSchema>>(async (args, context) => {
 			requireMasterKeyGuard(context);
 			const result = await context.client.post<unknown>("/v1/pods", args);
 			return toolSuccess(result);
 		}, options.context),
 	);
 
-	server.registerTool(
-		"List Pods",
+	registerToolWithAliases(
+		server,
+		"pod_list",
+		["List Pods", "List_Pods"],
 		{
+			title: "List Pods",
 			description: "List all compute pods, optionally filtered by agent. Use this to see running and stopped pods.",
 			inputSchema: listPodsSchema.shape,
 			annotations: { readOnlyHint: true, destructiveHint: false },
+			deprecate: true,
 		},
-		withErrorHandling(async (args, context) => {
+		withErrorHandling<z.infer<typeof listPodsSchema>>(async (args, context) => {
 			const params = new URLSearchParams();
 			if (args.agentId) params.set("agentId", args.agentId);
 			const qs = params.toString();
@@ -107,27 +123,35 @@ export function registerPodTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.registerTool(
-		"Get Pod",
+	registerToolWithAliases(
+		server,
+		"pod_get",
+		["Get Pod", "Get_Pod"],
 		{
+			title: "Get Pod",
 			description: "Get details for a specific pod. Use this to check pod status, resources, and configuration.",
 			inputSchema: podIdSchema.shape,
 			annotations: { readOnlyHint: true, destructiveHint: false },
+			deprecate: true,
 		},
-		withErrorHandling(async (args, context) => {
+		withErrorHandling<z.infer<typeof podIdSchema>>(async (args, context) => {
 			const result = await context.client.get<unknown>(`/v1/pods/${encodeURIComponent(args.id)}`);
 			return toolSuccess(result);
 		}, options.context),
 	);
 
-	server.registerTool(
-		"Update Pod",
+	registerToolWithAliases(
+		server,
+		"pod_update",
+		["Update Pod", "Update_Pod"],
 		{
+			title: "Update Pod",
 			description: "Update a pod's configuration. Use this to change resources, environment variables, or metadata.",
 			inputSchema: updatePodSchema.shape,
 			annotations: { readOnlyHint: false, destructiveHint: false },
+			deprecate: true,
 		},
-		withErrorHandling(async (args, context) => {
+		withErrorHandling<z.infer<typeof updatePodSchema>>(async (args, context) => {
 			requireMasterKeyGuard(context);
 			const { id, ...body } = args;
 			const result = await context.client.put<unknown>(`/v1/pods/${encodeURIComponent(id)}`, body);
@@ -135,28 +159,36 @@ export function registerPodTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.registerTool(
-		"Delete Pod",
+	registerToolWithAliases(
+		server,
+		"pod_delete",
+		["Delete Pod", "Delete_Pod"],
 		{
+			title: "Delete Pod",
 			description: "Delete a compute pod. Use this to tear down a pod that is no longer needed.",
 			inputSchema: podIdSchema.shape,
 			annotations: { readOnlyHint: false, destructiveHint: true },
+			deprecate: true,
 		},
-		withErrorHandling(async (args, context) => {
+		withErrorHandling<z.infer<typeof podIdSchema>>(async (args, context) => {
 			requireMasterKeyGuard(context);
 			const result = await context.client.delete<unknown>(`/v1/pods/${encodeURIComponent(args.id)}`);
 			return toolSuccess(result);
 		}, options.context),
 	);
 
-	server.registerTool(
-		"Pod Usage",
+	registerToolWithAliases(
+		server,
+		"pod_usage",
+		["Pod Usage", "Pod_Usage"],
 		{
+			title: "Pod Usage",
 			description: "Get resource usage metrics for a pod. Use this to monitor CPU, memory, storage, and network usage.",
 			inputSchema: podIdSchema.shape,
 			annotations: { readOnlyHint: true, destructiveHint: false },
+			deprecate: true,
 		},
-		withErrorHandling(async (args, context) => {
+		withErrorHandling<z.infer<typeof podIdSchema>>(async (args, context) => {
 			const result = await context.client.get<unknown>(`/v1/pods/${encodeURIComponent(args.id)}/usage`);
 			return toolSuccess(result);
 		}, options.context),
