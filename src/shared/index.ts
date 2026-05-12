@@ -6,3 +6,4 @@ export * from "./circuit-breaker.js";
 export * from "./session-registry.js";
 export * from "./metrics.js";
 export * from "./pending-followup.js";
+export * from "./voice-socket.js";

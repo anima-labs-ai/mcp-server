@@ -176,6 +176,20 @@ export class ApiClient {
 	hasMasterKey(): boolean {
 		return !!this.masterKey;
 	}
+
+	/**
+	 * Return the bearer token used for API auth, plus the base URL.
+	 *
+	 * Exposed so tools that need to open their own connections (e.g. a
+	 * WebSocket to /ws/voice for live calls) can reuse the same credential
+	 * the rest of the client uses, without duplicating env-var lookups or
+	 * the per-request auth-resolution that happens in transport/http.ts.
+	 * The token is opaque to the MCP server — the upstream API is the only
+	 * party that decides whether it's master / agent / oauth tier.
+	 */
+	getAuth(): { token: string; baseUrl: string } {
+		return { token: this.apiKey, baseUrl: this.baseUrl };
+	}
 }
 
 /**

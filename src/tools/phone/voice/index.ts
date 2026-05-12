@@ -17,9 +17,14 @@
 import { z } from "zod";
 import type { ToolRegistrationOptions } from "../../../shared/index.js";
 import { withErrorHandling, toolSuccess } from "../../../shared/index.js";
+import { registerVoiceCallTool } from "./live-call.js";
 
 export function registerVoiceTools(options: ToolRegistrationOptions): void {
 	const { server } = options;
+
+	// Live Claude-driven call (separate file — uses elicitation + progress
+	// notifications, which the other tools in this file don't need).
+	registerVoiceCallTool(server, options.context);
 
 	// ── voice_catalog ──
 
