@@ -74,6 +74,7 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 		"voice_catalog",
 		["voice_list_voices"],
 		{
+			title: "Voice Catalog",
 			description:
 				"List available AI voices for phone calls. Filter by tier (basic for low-latency, premium for natural voices), gender, or language. Returns voice IDs needed for voice_create_call.",
 			inputSchema: voiceCatalogSchema.shape,
@@ -87,6 +88,7 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"voice_create_call",
 		{
+			title: "Create Voice Call",
 			description: "Initiate an outbound voice call from an agent. The agent must have a provisioned phone number. Returns a callId — connect via WebSocket for real-time conversation.",
 			inputSchema: {
 			agentId: z.string().optional()
@@ -114,6 +116,7 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"voice_list_calls",
 		{
+			title: "List Voice Calls",
 			description: "List voice calls with optional filters. Returns call history with status, direction, duration, and tier info.",
 			inputSchema: {
 			agentId: z.string().optional()
@@ -146,6 +149,7 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"voice_get_call",
 		{
+			title: "Get Voice Call",
 			description: "Get detailed information about a specific voice call including status, duration, participants, and tier.",
 			inputSchema: {
 			callId: z.string()
@@ -163,6 +167,7 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"voice_get_transcript",
 		{
+			title: "Get Voice Transcript",
 			description: "Get the full transcript of a voice call with speaker labels, timestamps, and confidence scores. Available after the call ends and transcription completes.",
 			inputSchema: {
 			callId: z.string()
@@ -180,6 +185,7 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"voice_get_recording",
 		{
+			title: "Get Voice Recording",
 			description: "Get a time-limited download URL for a call recording (WAV format). The URL expires after 1 hour. Recording must have been enabled during the call.",
 			inputSchema: {
 			callId: z.string()
@@ -197,6 +203,7 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"voice_get_summary",
 		{
+			title: "Get Voice Summary",
 			description: "Get an AI-generated summary of a call including one-liner, topics, action items, decisions, open questions, next steps, intent, and outcome. Available after post-call processing completes.",
 			inputSchema: {
 			callId: z.string()
@@ -214,6 +221,7 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"voice_get_score",
 		{
+			title: "Get Voice Score",
 			description: "Get the quality score of a call with composite score (0-100), sub-scores (resolution, sentiment, efficiency, engagement, latency, compliance), and detailed metrics (speaking time, dead air, response latency).",
 			inputSchema: {
 			callId: z.string()
@@ -231,6 +239,7 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"voice_search_calls",
 		{
+			title: "Search Voice Calls",
 			description: "Semantic search across all call transcripts using natural language. Uses vector similarity to find relevant call segments. Great for finding specific conversations or topics discussed.",
 			inputSchema: {
 			query: z.string()
@@ -264,6 +273,7 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"voice_get_security_scan",
 		{
+			title: "Get Voice Security Scan",
 			description: "Get security scan results for a call including detected threats (PII leakage, prompt injection, social engineering), compliance pass/fail, and risk score (0-100). Available after post-call security analysis.",
 			inputSchema: {
 			callId: z.string()

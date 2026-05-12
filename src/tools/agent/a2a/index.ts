@@ -44,6 +44,7 @@ function registerDiscoverAgentTool(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"discover_agent",
 		{
+			title: "Discover Agent",
 			description: "Fetch an agent's Agent Card from its well-known URL (/.well-known/agent.json). Use this to discover an agent's capabilities, supported task types, and endpoints before sending tasks.",
 			inputSchema: discoverAgentInput.shape,
 		},
@@ -65,6 +66,7 @@ function registerSubmitA2aTaskTool(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"submit_a2a_task",
 		{
+			title: "Submit A2A Task",
 			description: "Submit a task to an agent via the A2A protocol. The agent will process the task asynchronously. Use discover_agent first to check supported task types.",
 			inputSchema: submitA2aTaskInput.shape,
 		},
@@ -82,6 +84,7 @@ function registerGetA2aTaskTool(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"get_a2a_task",
 		{
+			title: "Get A2A Task",
 			description: "Get the current status and output of an A2A task. Use this to poll for task completion after submitting a task.",
 			inputSchema: getA2aTaskInput.shape,
 		},
@@ -98,6 +101,7 @@ function registerListA2aTasksTool(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"list_a2a_tasks",
 		{
+			title: "List A2A Tasks",
 			description: "List A2A tasks for an agent with optional status filtering and pagination. Use this to see all tasks submitted to or by an agent.",
 			inputSchema: listA2aTasksInput.shape,
 		},
@@ -120,6 +124,7 @@ function registerCancelA2aTaskTool(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"cancel_a2a_task",
 		{
+			title: "Cancel A2A Task",
 			description: "Cancel a running A2A task. The task must be in SUBMITTED or WORKING status to be cancelable.",
 			inputSchema: cancelA2aTaskInput.shape,
 		},

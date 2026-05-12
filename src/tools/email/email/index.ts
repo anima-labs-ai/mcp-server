@@ -330,6 +330,7 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 		"email_send",
 		["send_email", "anima.email.send"],
 		{
+			title: "Send Email",
 			description:
 				"Send a new outbound email from the agent mailbox. Use this when you need to compose and deliver a message with optional CC, threading headers.",
 			inputSchema: emailSendSchema.shape,
@@ -352,6 +353,7 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 		"email_get",
 		["get_email", "anima.email.get"],
 		{
+			title: "Get Email",
 			description:
 				"Retrieve one specific email by ID, including metadata and body fields. Use this before replying, forwarding, or inspecting message details.",
 			inputSchema: emailGetSchema.shape,
@@ -380,6 +382,7 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 		"email_list",
 		["list_emails", "anima.email.list"],
 		{
+			title: "List Email",
 			description:
 				"List emails in inbox or another folder with pagination controls. Use this to browse recent messages and mailbox contents.",
 			inputSchema: emailListSchema.shape,
@@ -391,6 +394,7 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"email_reply",
 		{
+			title: "Reply Email",
 			description:
 				"Reply to an existing email thread by first loading the original message and setting threading headers. Use this when you need a proper in-thread response.",
 			inputSchema: emailReplySchema.shape,
@@ -465,6 +469,7 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"email_forward",
 		{
+			title: "Forward Email",
 			description:
 				"Forward an existing email to another recipient by loading the original content first. Use this to share a prior message while preserving context.",
 			inputSchema: emailForwardSchema.shape,
@@ -518,6 +523,7 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"email_search",
 		{
+			title: "Search Email",
 			description:
 				"Search mailbox messages by query text and structured filters like sender, recipient, subject, and date bounds. Use this to locate specific conversations quickly.",
 			inputSchema: emailSearchSchema.shape,
@@ -552,6 +558,7 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"inbox_digest",
 		{
+			title: "Inbox Digest",
 			description:
 				"Generate a compact digest of recent inbox messages with sender, subject, date, and snippet. Use this for quick triage without opening each email.",
 			inputSchema: inboxDigestSchema.shape,
@@ -620,6 +627,7 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"email_mark_read",
 		{
+			title: "Mark Email Read",
 			description: "Mark a specific email message as read by ID.",
 			inputSchema: emailMarkReadSchema.shape,
 		},
@@ -633,6 +641,7 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"email_mark_unread",
 		{
+			title: "Mark Email Unread",
 			description: "Mark a specific email message as unread by ID.",
 			inputSchema: emailMarkUnreadSchema.shape,
 		},
@@ -646,6 +655,7 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"batch_mark_read",
 		{
+			title: "Mark Batch Read",
 			description: "Mark multiple email messages as read in one operation.",
 			inputSchema: batchMarkReadSchema.shape,
 		},
@@ -663,6 +673,7 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"batch_mark_unread",
 		{
+			title: "Mark Batch Unread",
 			description: "Mark multiple email messages as unread in one operation.",
 			inputSchema: batchMarkUnreadSchema.shape,
 		},
@@ -680,6 +691,7 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"batch_delete",
 		{
+			title: "Delete Batch",
 			description: "Delete multiple emails at once.",
 			inputSchema: batchDeleteSchema.shape,
 		},
@@ -697,6 +709,7 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"batch_move",
 		{
+			title: "Move Batch",
 			description: "Move multiple emails to a specified folder.",
 			inputSchema: batchMoveSchema.shape,
 		},
@@ -715,6 +728,7 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"email_move",
 		{
+			title: "Move Email",
 			description: "Move a specific email message to a destination folder.",
 			inputSchema: emailMoveSchema.shape,
 		},
@@ -731,6 +745,7 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"email_delete",
 		{
+			title: "Delete Email",
 			description: "Delete a specific email message by ID.",
 			inputSchema: emailDeleteSchema.shape,
 		},

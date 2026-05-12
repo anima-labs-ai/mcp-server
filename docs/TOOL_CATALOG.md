@@ -52,7 +52,7 @@ Cancel a running A2A task. The task must be in SUBMITTED or WORKING status to be
 
 **Input schema:** `cancelA2aTaskInput` — see source for fields.
 
-**Source:** `src/tools/agent/a2a/index.ts:120`
+**Source:** `src/tools/agent/a2a/index.ts:124`
 
 ### `discover_agent`
 
@@ -68,7 +68,7 @@ Get the current status and output of an A2A task. Use this to poll for task comp
 
 **Input schema:** `getA2aTaskInput` — see source for fields.
 
-**Source:** `src/tools/agent/a2a/index.ts:82`
+**Source:** `src/tools/agent/a2a/index.ts:84`
 
 ### `list_a2a_tasks`
 
@@ -76,7 +76,7 @@ List A2A tasks for an agent with optional status filtering and pagination. Use t
 
 **Input schema:** `listA2aTasksInput` — see source for fields.
 
-**Source:** `src/tools/agent/a2a/index.ts:98`
+**Source:** `src/tools/agent/a2a/index.ts:101`
 
 ### `submit_a2a_task`
 
@@ -84,7 +84,7 @@ Submit a task to an agent via the A2A protocol. The agent will process the task 
 
 **Input schema:** `submitA2aTaskInput` — see source for fields.
 
-**Source:** `src/tools/agent/a2a/index.ts:65`
+**Source:** `src/tools/agent/a2a/index.ts:66`
 
 ## agent / agent
 
@@ -118,7 +118,7 @@ Delete an agent by ID. Use this to remove deprecated or compromised agents that 
 
 **Input schema:** `agentDeleteInput` — see source for fields.
 
-**Source:** `src/tools/agent/agent/index.ts:176`
+**Source:** `src/tools/agent/agent/index.ts:180`
 
 ### `agent_email_identity_add`
 
@@ -126,7 +126,7 @@ Attach a new email identity to an existing agent. The parent domain MUST be veri
 
 **Input schema:** `agentEmailIdentityAddInput` — see source for fields.
 
-**Source:** `src/tools/agent/agent/index.ts:239`
+**Source:** `src/tools/agent/agent/index.ts:245`
 
 ### `agent_email_identity_delete`
 
@@ -134,7 +134,7 @@ Remove an email identity from an agent. Refuses on the agent
 
 **Input schema:** `agentEmailIdentityActionInput` — see source for fields.
 
-**Source:** `src/tools/agent/agent/index.ts:315`
+**Source:** `src/tools/agent/agent/index.ts:325`
 
 ### `agent_email_identity_list`
 
@@ -142,7 +142,7 @@ List all email identities attached to an agent (primary first, then by creation 
 
 **Input schema:** `agentEmailIdentityListInput` — see source for fields.
 
-**Source:** `src/tools/agent/agent/index.ts:259`
+**Source:** `src/tools/agent/agent/index.ts:266`
 
 ### `agent_email_identity_set_primary`
 
@@ -150,7 +150,7 @@ Promote an email identity to be the agent
 
 **Input schema:** `agentEmailIdentityActionInput` — see source for fields.
 
-**Source:** `src/tools/agent/agent/index.ts:277`
+**Source:** `src/tools/agent/agent/index.ts:285`
 
 ### `agent_email_identity_verify`
 
@@ -158,7 +158,7 @@ Surface the current verification state for an email identity. The platform
 
 **Input schema:** `agentEmailIdentityActionInput` — see source for fields.
 
-**Source:** `src/tools/agent/agent/index.ts:296`
+**Source:** `src/tools/agent/agent/index.ts:305`
 
 ### `agent_get`
 
@@ -166,7 +166,7 @@ Fetch one agent by ID. Use this to inspect current settings, metadata, and statu
 
 **Input schema:** `agentGetInput` — see source for fields.
 
-**Source:** `src/tools/agent/agent/index.ts:123`
+**Source:** `src/tools/agent/agent/index.ts:124`
 
 ### `agent_list`
 
@@ -174,7 +174,7 @@ List agents with optional cursor pagination. Use this to discover agents availab
 
 **Input schema:** `agentListInput` — see source for fields.
 
-**Source:** `src/tools/agent/agent/index.ts:139`
+**Source:** `src/tools/agent/agent/index.ts:141`
 
 ### `agent_rotate_key`
 
@@ -182,7 +182,7 @@ Rotate an agent API key and return the new key material. Use this when rotating 
 
 **Input schema:** `agentRotateKeyInput` — see source for fields.
 
-**Source:** `src/tools/agent/agent/index.ts:192`
+**Source:** `src/tools/agent/agent/index.ts:197`
 
 ### `agent_update`
 
@@ -190,7 +190,7 @@ Update an agent
 
 **Input schema:** `agentUpdateInput` — see source for fields.
 
-**Source:** `src/tools/agent/agent/index.ts:159`
+**Source:** `src/tools/agent/agent/index.ts:162`
 
 ## agent / identity
 
@@ -211,7 +211,7 @@ Get the public agent card for an agent. Use this to retrieve the agent
 
 **Input schema:** `agentIdSchema` — see source for fields.
 
-**Source:** `src/tools/agent/identity/index.ts:91`
+**Source:** `src/tools/agent/identity/index.ts:96`
 
 ### `get_did`
 
@@ -227,7 +227,7 @@ List all verifiable credentials for an agent. Use this to see what credentials a
 
 **Input schema:** `agentIdSchema` — see source for fields.
 
-**Source:** `src/tools/agent/identity/index.ts:67`
+**Source:** `src/tools/agent/identity/index.ts:70`
 
 ### `resolve_did`
 
@@ -235,7 +235,7 @@ Resolve a DID to its DID document. Use this to look up any DID regardless of whi
 
 **Input schema:** `resolveDidSchema` — see source for fields.
 
-**Source:** `src/tools/agent/identity/index.ts:42`
+**Source:** `src/tools/agent/identity/index.ts:43`
 
 ### `rotate_keys`
 
@@ -243,7 +243,7 @@ Rotate the cryptographic keys for an agent
 
 **Input schema:** `agentIdSchema` — see source for fields.
 
-**Source:** `src/tools/agent/identity/index.ts:54`
+**Source:** `src/tools/agent/identity/index.ts:56`
 
 ### `verify_credential`
 
@@ -251,7 +251,7 @@ Verify a JWT-encoded verifiable credential. Use this to check if a credential is
 
 **Input schema:** `verifyCredentialSchema` — see source for fields.
 
-**Source:** `src/tools/agent/identity/index.ts:79`
+**Source:** `src/tools/agent/identity/index.ts:83`
 
 ## agent / organization
 
@@ -280,7 +280,7 @@ Delete an organization permanently by ID. Use this only for irreversible cleanup
 
 **Input schema:** `orgDeleteInput` — see source for fields.
 
-**Source:** `src/tools/agent/organization/index.ts:103`
+**Source:** `src/tools/agent/organization/index.ts:106`
 
 ### `org_get`
 
@@ -288,7 +288,7 @@ Fetch one organization by ID. Use this to inspect current organization configura
 
 **Input schema:** `orgGetInput` — see source for fields.
 
-**Source:** `src/tools/agent/organization/index.ts:70`
+**Source:** `src/tools/agent/organization/index.ts:71`
 
 ### `org_list`
 
@@ -296,7 +296,7 @@ List organizations with optional cursor pagination. Use this to browse all tenan
 
 **Input schema:** `orgListInput` — see source for fields.
 
-**Source:** `src/tools/agent/organization/index.ts:141`
+**Source:** `src/tools/agent/organization/index.ts:146`
 
 ### `org_rotate_key`
 
@@ -304,7 +304,7 @@ Rotate the API key for an organization and return the new credential material. U
 
 **Input schema:** `orgRotateKeyInput` — see source for fields.
 
-**Source:** `src/tools/agent/organization/index.ts:122`
+**Source:** `src/tools/agent/organization/index.ts:126`
 
 ### `org_update`
 
@@ -312,7 +312,7 @@ Update organization name or metadata fields. Use this when organization settings
 
 **Input schema:** `orgUpdateInput` — see source for fields.
 
-**Source:** `src/tools/agent/organization/index.ts:86`
+**Source:** `src/tools/agent/organization/index.ts:88`
 
 ## agent / registry
 
@@ -332,7 +332,7 @@ Look up a specific agent in the registry by DID. Use this to get full details ab
 
 **Input schema:** `didSchema` — see source for fields.
 
-**Source:** `src/tools/agent/registry/index.ts:115`
+**Source:** `src/tools/agent/registry/index.ts:117`
 
 ### `register_agent`
 
@@ -348,7 +348,7 @@ Search the agent registry to discover agents. Use this to find agents by name, d
 
 **Input schema:** `searchRegistrySchema` — see source for fields.
 
-**Source:** `src/tools/agent/registry/index.ts:100`
+**Source:** `src/tools/agent/registry/index.ts:101`
 
 ### `unlist_agent`
 
@@ -356,7 +356,7 @@ Remove an agent from the public registry. Use this to make an agent no longer di
 
 **Input schema:** `didSchema` — see source for fields.
 
-**Source:** `src/tools/agent/registry/index.ts:141`
+**Source:** `src/tools/agent/registry/index.ts:145`
 
 ### `update_registry`
 
@@ -364,7 +364,7 @@ Update an agent
 
 **Input schema:** `updateRegistrySchema` — see source for fields.
 
-**Source:** `src/tools/agent/registry/index.ts:127`
+**Source:** `src/tools/agent/registry/index.ts:130`
 
 ## email / address
 
@@ -393,7 +393,7 @@ Delete an address from an agent. Use this to remove addresses that are no longer
 
 **Input schema:** `deleteAddressSchema` — see source for fields.
 
-**Source:** `src/tools/email/address/index.ts:177`
+**Source:** `src/tools/email/address/index.ts:181`
 
 ### `get_address`
 
@@ -401,7 +401,7 @@ Get full details for a specific address by ID. Use this to inspect a single addr
 
 **Input schema:** `getAddressSchema` — see source for fields.
 
-**Source:** `src/tools/email/address/index.ts:149`
+**Source:** `src/tools/email/address/index.ts:151`
 
 ### `list_addresses`
 
@@ -409,7 +409,7 @@ List all addresses for an agent, optionally filtered by type. Use this to review
 
 **Input schema:** `listAddressesSchema` — see source for fields.
 
-**Source:** `src/tools/email/address/index.ts:133`
+**Source:** `src/tools/email/address/index.ts:134`
 
 ### `update_address`
 
@@ -417,7 +417,7 @@ Update fields on an existing address. Use this to correct or change address deta
 
 **Input schema:** `updateAddressSchema` — see source for fields.
 
-**Source:** `src/tools/email/address/index.ts:162`
+**Source:** `src/tools/email/address/index.ts:165`
 
 ### `validate_address`
 
@@ -425,7 +425,7 @@ Validate an existing address against postal standards. Use this to verify addres
 
 **Input schema:** `validateAddressSchema` — see source for fields.
 
-**Source:** `src/tools/email/address/index.ts:191`
+**Source:** `src/tools/email/address/index.ts:196`
 
 ## email / domain
 
@@ -457,7 +457,7 @@ Delete a domain from the workspace when it is no longer needed. Use this to remo
 
 **Input schema:** `domainIdSchema` — see source for fields.
 
-**Source:** `src/tools/email/domain/index.ts:76`
+**Source:** `src/tools/email/domain/index.ts:80`
 
 ### `domain_deliverability`
 
@@ -465,7 +465,7 @@ Check domain deliverability diagnostics and readiness for outbound email. Use th
 
 **Input schema:** `domainIdSchema` — see source for fields.
 
-**Source:** `src/tools/email/domain/index.ts:129`
+**Source:** `src/tools/email/domain/index.ts:136`
 
 ### `domain_dns_records`
 
@@ -473,7 +473,7 @@ Get the exact DNS records required to complete domain onboarding. Use this to co
 
 **Input schema:** `domainIdSchema` — see source for fields.
 
-**Source:** `src/tools/email/domain/index.ts:90`
+**Source:** `src/tools/email/domain/index.ts:95`
 
 ### `domain_get`
 
@@ -481,7 +481,7 @@ Fetch full details for a single domain, including verification and configuration
 
 **Input schema:** `domainIdSchema` — see source for fields.
 
-**Source:** `src/tools/email/domain/index.ts:51`
+**Source:** `src/tools/email/domain/index.ts:53`
 
 ### `domain_list`
 
@@ -489,7 +489,7 @@ List all domains connected to the current workspace. Use this to audit configure
 
 **Input schema:** `emptySchema` — see source for fields.
 
-**Source:** `src/tools/email/domain/index.ts:64`
+**Source:** `src/tools/email/domain/index.ts:67`
 
 ### `domain_update`
 
@@ -497,7 +497,7 @@ Update configuration for a domain, such as catch-all behavior or auto-verify set
 
 **Input schema:** `domainUpdateSchema` — see source for fields.
 
-**Source:** `src/tools/email/domain/index.ts:115`
+**Source:** `src/tools/email/domain/index.ts:121`
 
 ### `domain_verify`
 
@@ -505,7 +505,7 @@ Trigger a verification check for a domain after DNS records are configured. Use 
 
 **Input schema:** `domainIdSchema` — see source for fields.
 
-**Source:** `src/tools/email/domain/index.ts:37`
+**Source:** `src/tools/email/domain/index.ts:38`
 
 ### `domain_zone_file`
 
@@ -513,7 +513,7 @@ Get the full DNS zone file for a domain. Use this for complete DNS export or to 
 
 **Input schema:** `domainIdSchema` — see source for fields.
 
-**Source:** `src/tools/email/domain/index.ts:142`
+**Source:** `src/tools/email/domain/index.ts:150`
 
 ## email / email
 
@@ -543,7 +543,7 @@ Delete multiple emails at once.
 
 **Input schema:** `batchDeleteSchema` — see source for fields.
 
-**Source:** `src/tools/email/email/index.ts:680`
+**Source:** `src/tools/email/email/index.ts:691`
 
 ### `batch_mark_read`
 
@@ -551,7 +551,7 @@ Mark multiple email messages as read in one operation.
 
 **Input schema:** `batchMarkReadSchema` — see source for fields.
 
-**Source:** `src/tools/email/email/index.ts:646`
+**Source:** `src/tools/email/email/index.ts:655`
 
 ### `batch_mark_unread`
 
@@ -559,7 +559,7 @@ Mark multiple email messages as unread in one operation.
 
 **Input schema:** `batchMarkUnreadSchema` — see source for fields.
 
-**Source:** `src/tools/email/email/index.ts:663`
+**Source:** `src/tools/email/email/index.ts:673`
 
 ### `batch_move`
 
@@ -567,7 +567,7 @@ Move multiple emails to a specified folder.
 
 **Input schema:** `batchMoveSchema` — see source for fields.
 
-**Source:** `src/tools/email/email/index.ts:697`
+**Source:** `src/tools/email/email/index.ts:709`
 
 ### `email_delete`
 
@@ -575,7 +575,7 @@ Delete a specific email message by ID.
 
 **Input schema:** `emailDeleteSchema` — see source for fields.
 
-**Source:** `src/tools/email/email/index.ts:731`
+**Source:** `src/tools/email/email/index.ts:745`
 
 ### `email_forward`
 
@@ -583,7 +583,7 @@ Forward an existing email to another recipient by loading the original content f
 
 **Input schema:** `emailForwardSchema` — see source for fields.
 
-**Source:** `src/tools/email/email/index.ts:465`
+**Source:** `src/tools/email/email/index.ts:469`
 
 ### `email_get`
 *Aliases:* `get_email`, `anima.email.get`
@@ -592,7 +592,7 @@ Retrieve one specific email by ID, including metadata and body fields. Use this 
 
 **Input schema:** `emailGetSchema` — see source for fields.
 
-**Source:** `src/tools/email/email/index.ts:350`
+**Source:** `src/tools/email/email/index.ts:351`
 
 ### `email_list`
 *Aliases:* `list_emails`, `anima.email.list`
@@ -601,7 +601,7 @@ List emails in inbox or another folder with pagination controls. Use this to bro
 
 **Input schema:** `emailListSchema` — see source for fields.
 
-**Source:** `src/tools/email/email/index.ts:378`
+**Source:** `src/tools/email/email/index.ts:380`
 
 ### `email_mark_read`
 
@@ -609,7 +609,7 @@ Mark a specific email message as read by ID.
 
 **Input schema:** `emailMarkReadSchema` — see source for fields.
 
-**Source:** `src/tools/email/email/index.ts:620`
+**Source:** `src/tools/email/email/index.ts:627`
 
 ### `email_mark_unread`
 
@@ -617,7 +617,7 @@ Mark a specific email message as unread by ID.
 
 **Input schema:** `emailMarkUnreadSchema` — see source for fields.
 
-**Source:** `src/tools/email/email/index.ts:633`
+**Source:** `src/tools/email/email/index.ts:641`
 
 ### `email_move`
 
@@ -625,7 +625,7 @@ Move a specific email message to a destination folder.
 
 **Input schema:** `emailMoveSchema` — see source for fields.
 
-**Source:** `src/tools/email/email/index.ts:715`
+**Source:** `src/tools/email/email/index.ts:728`
 
 ### `email_reply`
 
@@ -633,7 +633,7 @@ Reply to an existing email thread by first loading the original message and sett
 
 **Input schema:** `emailReplySchema` — see source for fields.
 
-**Source:** `src/tools/email/email/index.ts:391`
+**Source:** `src/tools/email/email/index.ts:394`
 
 ### `email_search`
 
@@ -641,7 +641,7 @@ Search mailbox messages by query text and structured filters like sender, recipi
 
 **Input schema:** `emailSearchSchema` — see source for fields.
 
-**Source:** `src/tools/email/email/index.ts:518`
+**Source:** `src/tools/email/email/index.ts:523`
 
 ### `email_send`
 *Aliases:* `send_email`, `anima.email.send`
@@ -658,7 +658,7 @@ Generate a compact digest of recent inbox messages with sender, subject, date, a
 
 **Input schema:** `inboxDigestSchema` — see source for fields.
 
-**Source:** `src/tools/email/email/index.ts:552`
+**Source:** `src/tools/email/email/index.ts:558`
 
 ## email / message
 
@@ -682,7 +682,7 @@ Search conversation threads by topic by combining semantic message retrieval wit
 
 **Input schema:** `conversationSearchInput` — see source for fields.
 
-**Source:** `src/tools/email/message/index.ts:250`
+**Source:** `src/tools/email/message/index.ts:256`
 
 ### `message_get`
 
@@ -690,7 +690,7 @@ Fetch a specific message by ID, including channel metadata and delivery status. 
 
 **Input schema:** `messageGetInput` — see source for fields.
 
-**Source:** `src/tools/email/message/index.ts:167`
+**Source:** `src/tools/email/message/index.ts:169`
 
 ### `message_get_attachment`
 
@@ -698,7 +698,7 @@ Retrieve a temporary download URL for a previously uploaded attachment. Use this
 
 **Input schema:** `messageGetAttachmentInput` — see source for fields.
 
-**Source:** `src/tools/email/message/index.ts:351`
+**Source:** `src/tools/email/message/index.ts:359`
 
 ### `message_list`
 
@@ -706,7 +706,7 @@ List messages with optional channel, direction, status, and pagination filters. 
 
 **Input schema:** `messageListInput` — see source for fields.
 
-**Source:** `src/tools/email/message/index.ts:179`
+**Source:** `src/tools/email/message/index.ts:182`
 
 ### `message_search`
 
@@ -714,7 +714,7 @@ Run full-text search across messages with optional channel and date constraints.
 
 **Input schema:** `messageSearchInput` — see source for fields.
 
-**Source:** `src/tools/email/message/index.ts:200`
+**Source:** `src/tools/email/message/index.ts:204`
 
 ### `message_semantic_search`
 
@@ -722,7 +722,7 @@ Search messages by semantic similarity using embeddings rather than exact keywor
 
 **Input schema:** `messageSemanticSearchInput` — see source for fields.
 
-**Source:** `src/tools/email/message/index.ts:233`
+**Source:** `src/tools/email/message/index.ts:238`
 
 ### `message_send_email`
 
@@ -738,7 +738,7 @@ Send an outbound SMS through the unified messaging API and return the created me
 
 **Input schema:** `messageSendSmsInput` — see source for fields.
 
-**Source:** `src/tools/email/message/index.ts:155`
+**Source:** `src/tools/email/message/index.ts:156`
 
 ### `message_upload_attachment`
 
@@ -746,7 +746,7 @@ Upload an attachment for an existing message by ID so downstream delivery or pro
 
 **Input schema:** `messageUploadAttachmentInput` — see source for fields.
 
-**Source:** `src/tools/email/message/index.ts:335`
+**Source:** `src/tools/email/message/index.ts:342`
 
 ## phone / phone
 
@@ -767,7 +767,7 @@ List all phone numbers assigned to a specific agent. Use this to review active i
 
 **Input schema:** `phoneListSchema` — see source for fields.
 
-**Source:** `src/tools/phone/phone/index.ts:206`
+**Source:** `src/tools/phone/phone/index.ts:209`
 
 ### `phone_provision`
 
@@ -775,7 +775,7 @@ Provision a selected phone number for the agent and assign optional capabilities
 
 **Input schema:** `phoneProvisionSchema` — see source for fields.
 
-**Source:** `src/tools/phone/phone/index.ts:170`
+**Source:** `src/tools/phone/phone/index.ts:171`
 
 ### `phone_release`
 
@@ -783,7 +783,7 @@ Release a previously provisioned phone number so it is no longer assigned. Use t
 
 **Input schema:** `phoneReleaseSchema` — see source for fields.
 
-**Source:** `src/tools/phone/phone/index.ts:187`
+**Source:** `src/tools/phone/phone/index.ts:189`
 
 ### `phone_search`
 
@@ -799,7 +799,7 @@ Send an SMS or MMS message to a destination phone number. Use this for outbound 
 
 **Input schema:** `phoneSendSmsSchema` — see source for fields.
 
-**Source:** `src/tools/phone/phone/index.ts:220`
+**Source:** `src/tools/phone/phone/index.ts:224`
 
 ### `phone_status`
 
@@ -807,7 +807,7 @@ Get a status-oriented view of provisioned numbers including capability flags. Us
 
 **Input schema:** `phoneStatusSchema` — see source for fields.
 
-**Source:** `src/tools/phone/phone/index.ts:253`
+**Source:** `src/tools/phone/phone/index.ts:258`
 
 ## phone / voice
 
@@ -848,63 +848,63 @@ List available AI voices for phone calls. Filter by tier (basic for low-latency,
 Initiate an outbound voice call from an agent. The agent must have a provisioned phone number. Returns a callId — connect via WebSocket for real-time conversation.
 
 
-**Source:** `src/tools/phone/voice/index.ts:87`
+**Source:** `src/tools/phone/voice/index.ts:88`
 
 ### `voice_get_call`
 
 Get detailed information about a specific voice call including status, duration, participants, and tier.
 
 
-**Source:** `src/tools/phone/voice/index.ts:146`
+**Source:** `src/tools/phone/voice/index.ts:149`
 
 ### `voice_get_recording`
 
 Get a time-limited download URL for a call recording (WAV format). The URL expires after 1 hour. Recording must have been enabled during the call.
 
 
-**Source:** `src/tools/phone/voice/index.ts:180`
+**Source:** `src/tools/phone/voice/index.ts:185`
 
 ### `voice_get_score`
 
 Get the quality score of a call with composite score (0-100), sub-scores (resolution, sentiment, efficiency, engagement, latency, compliance), and detailed metrics (speaking time, dead air, response latency).
 
 
-**Source:** `src/tools/phone/voice/index.ts:214`
+**Source:** `src/tools/phone/voice/index.ts:221`
 
 ### `voice_get_security_scan`
 
 Get security scan results for a call including detected threats (PII leakage, prompt injection, social engineering), compliance pass/fail, and risk score (0-100). Available after post-call security analysis.
 
 
-**Source:** `src/tools/phone/voice/index.ts:264`
+**Source:** `src/tools/phone/voice/index.ts:273`
 
 ### `voice_get_summary`
 
 Get an AI-generated summary of a call including one-liner, topics, action items, decisions, open questions, next steps, intent, and outcome. Available after post-call processing completes.
 
 
-**Source:** `src/tools/phone/voice/index.ts:197`
+**Source:** `src/tools/phone/voice/index.ts:203`
 
 ### `voice_get_transcript`
 
 Get the full transcript of a voice call with speaker labels, timestamps, and confidence scores. Available after the call ends and transcription completes.
 
 
-**Source:** `src/tools/phone/voice/index.ts:163`
+**Source:** `src/tools/phone/voice/index.ts:167`
 
 ### `voice_list_calls`
 
 List voice calls with optional filters. Returns call history with status, direction, duration, and tier info.
 
 
-**Source:** `src/tools/phone/voice/index.ts:114`
+**Source:** `src/tools/phone/voice/index.ts:116`
 
 ### `voice_search_calls`
 
 Semantic search across all call transcripts using natural language. Uses vector similarity to find relevant call segments. Great for finding specific conversations or topics discussed.
 
 
-**Source:** `src/tools/phone/voice/index.ts:231`
+**Source:** `src/tools/phone/voice/index.ts:239`
 
 ## platform / pod
 
@@ -1011,7 +1011,7 @@ Send a synchronous request to another agent and wait for reply.
 
 **Input schema:** `callAgentInput` — see source for fields.
 
-**Source:** `src/tools/platform/utility/index.ts:816`
+**Source:** `src/tools/platform/utility/index.ts:817`
 
 ### `check_followups`
 *Aliases:* `Check Followups`, `Check_Followups`
@@ -1020,7 +1020,7 @@ Drain and return queued follow-up reminders for blocked messages. Use this to po
 
 **Input schema:** `noInput` — see source for fields.
 
-**Source:** `src/tools/platform/utility/index.ts:675`
+**Source:** `src/tools/platform/utility/index.ts:676`
 
 ### `check_health`
 *Aliases:* `Check Health`, `Check_Health`
@@ -1028,7 +1028,7 @@ Drain and return queued follow-up reminders for blocked messages. Use this to po
 Check API health status from the server health endpoint, plus the MCP server
 
 
-**Source:** `src/tools/platform/utility/index.ts:341`
+**Source:** `src/tools/platform/utility/index.ts:342`
 
 ### `check_messages`
 *Aliases:* `Check Messages`, `Check_Messages`
@@ -1037,7 +1037,7 @@ Check inbound messages with optional unread-only filtering and compact formattin
 
 **Input schema:** `checkMessagesInput` — see source for fields.
 
-**Source:** `src/tools/platform/utility/index.ts:739`
+**Source:** `src/tools/platform/utility/index.ts:740`
 
 ### `check_tasks`
 *Aliases:* `Check Tasks`, `Check_Tasks`
@@ -1046,7 +1046,7 @@ Fetch task-assignment messages filtered by metadata type and optional status.
 
 **Input schema:** `checkTasksInput` — see source for fields.
 
-**Source:** `src/tools/platform/utility/index.ts:1021`
+**Source:** `src/tools/platform/utility/index.ts:1022`
 
 ### `Concepts`
 
@@ -1054,7 +1054,7 @@ Return a short conceptual map of the Anima platform: how Agents, EmailIdentities
 
 **Input schema:** `noInput` — see source for fields.
 
-**Source:** `src/tools/platform/utility/index.ts:434`
+**Source:** `src/tools/platform/utility/index.ts:435`
 
 ### `List_Capabilities`
 
@@ -1062,7 +1062,7 @@ Return what the CURRENT credential can do — auth tier + tool families that wor
 
 **Input schema:** `noInput` — see source for fields.
 
-**Source:** `src/tools/platform/utility/index.ts:540`
+**Source:** `src/tools/platform/utility/index.ts:541`
 
 ### `manage_pending`
 *Aliases:* `Manage Pending`, `Manage_Pending`
@@ -1071,7 +1071,7 @@ Approve or reject a pending message requiring manual decision. Use this to unblo
 
 **Input schema:** `managePendingInput` — see source for fields.
 
-**Source:** `src/tools/platform/utility/index.ts:640`
+**Source:** `src/tools/platform/utility/index.ts:641`
 
 ### `manage_spam`
 *Aliases:* `Manage Spam`, `Manage_Spam`
@@ -1080,7 +1080,7 @@ List, report, and unmark spam messages.
 
 **Input schema:** `manageSpamInput` — see source for fields.
 
-**Source:** `src/tools/platform/utility/index.ts:974`
+**Source:** `src/tools/platform/utility/index.ts:975`
 
 ### `message_agent`
 *Aliases:* `Message Agent`, `Message_Agent`
@@ -1089,7 +1089,7 @@ Send an email message to another agent by agent name.
 
 **Input schema:** `messageAgentInput` — see source for fields.
 
-**Source:** `src/tools/platform/utility/index.ts:697`
+**Source:** `src/tools/platform/utility/index.ts:698`
 
 ### `send_test_email`
 *Aliases:* `Send Test Email`, `Send_Test_Email`
@@ -1098,7 +1098,7 @@ Send a simple test email for setup verification.
 
 **Input schema:** `sendTestEmailInput` — see source for fields.
 
-**Source:** `src/tools/platform/utility/index.ts:948`
+**Source:** `src/tools/platform/utility/index.ts:949`
 
 ### `setup_email_domain`
 *Aliases:* `Setup Email Domain`, `Setup_Email_Domain`
@@ -1107,7 +1107,7 @@ Configure a custom email domain for account setup workflows.
 
 **Input schema:** `setupEmailDomainInput` — see source for fields.
 
-**Source:** `src/tools/platform/utility/index.ts:923`
+**Source:** `src/tools/platform/utility/index.ts:924`
 
 ### `update_metadata`
 *Aliases:* `Update Metadata`, `Update_Metadata`
@@ -1116,7 +1116,7 @@ Update metadata for the current agent identity.
 
 **Input schema:** `updateMetadataInput` — see source for fields.
 
-**Source:** `src/tools/platform/utility/index.ts:882`
+**Source:** `src/tools/platform/utility/index.ts:883`
 
 ### `wait_for_email`
 *Aliases:* `Wait for Email`, `Wait_for_Email`
@@ -1125,7 +1125,7 @@ Poll inbound messages until a matching email arrives or timeout expires.
 
 **Input schema:** `waitForEmailInput` — see source for fields.
 
-**Source:** `src/tools/platform/utility/index.ts:774`
+**Source:** `src/tools/platform/utility/index.ts:775`
 
 ### `who_am_i`
 *Aliases:* `Who Am I`, `Who_Am_I`
@@ -1134,7 +1134,7 @@ Return identity details for the current API credential, plus the running MCP ser
 
 **Input schema:** `noInput` — see source for fields.
 
-**Source:** `src/tools/platform/utility/index.ts:316`
+**Source:** `src/tools/platform/utility/index.ts:317`
 
 ### `workspace_health`
 *Aliases:* `Workspace Health`, `Workspace_Health`
@@ -1143,7 +1143,7 @@ Workspace-level self-diagnosis: returns canSendEmail, canSendSms, current creden
 
 **Input schema:** `noInput` — see source for fields.
 
-**Source:** `src/tools/platform/utility/index.ts:396`
+**Source:** `src/tools/platform/utility/index.ts:397`
 
 ## platform / webhook
 
@@ -1268,7 +1268,7 @@ Fetch the active security policy for an agent, including scan level and domain c
 
 **Input schema:** `securityGetPolicyInput` — see source for fields.
 
-**Source:** `src/tools/vault/security/index.ts:179`
+**Source:** `src/tools/vault/security/index.ts:181`
 
 ### `security_list_events`
 
@@ -1276,7 +1276,7 @@ List security events for an organization with optional agent and event-type filt
 
 **Input schema:** `securityListEventsInput` — see source for fields.
 
-**Source:** `src/tools/vault/security/index.ts:159`
+**Source:** `src/tools/vault/security/index.ts:160`
 
 ### `security_scan_content`
 
@@ -1284,7 +1284,7 @@ Dry-run scan message content for likely PII or injection issues without sending 
 
 **Input schema:** `securityScanContentInput` — see source for fields.
 
-**Source:** `src/tools/vault/security/index.ts:215`
+**Source:** `src/tools/vault/security/index.ts:219`
 
 ### `security_update_policy`
 
@@ -1292,7 +1292,7 @@ Update an agent security policy to tune scanning strictness, domain allow-lists,
 
 **Input schema:** `securityUpdatePolicyInput` — see source for fields.
 
-**Source:** `src/tools/vault/security/index.ts:193`
+**Source:** `src/tools/vault/security/index.ts:196`
 
 ## vault / vault
 
@@ -1335,7 +1335,7 @@ Query the vault audit log for a credential or agent. Use this to surface every a
 
 **Input schema:** `vaultAuditQuerySchema` — see source for fields.
 
-**Source:** `src/tools/vault/vault/index.ts:661`
+**Source:** `src/tools/vault/vault/index.ts:682`
 
 ### `vault_create_credential`
 
@@ -1343,7 +1343,7 @@ Create a new credential in an agent vault with login, card, identity, or secure 
 
 **Input schema:** `vaultCreateCredentialSchema` — see source for fields.
 
-**Source:** `src/tools/vault/vault/index.ts:295`
+**Source:** `src/tools/vault/vault/index.ts:299`
 
 ### `vault_create_token`
 
@@ -1351,7 +1351,7 @@ Create a short-lived ephemeral token for a credential. The vtk_ token can be use
 
 **Input schema:** `vaultCreateTokenSchema` — see source for fields.
 
-**Source:** `src/tools/vault/vault/index.ts:523`
+**Source:** `src/tools/vault/vault/index.ts:538`
 
 ### `vault_delete_credential`
 
@@ -1359,7 +1359,7 @@ Delete a credential from vault storage by ID. Use this to remove obsolete or com
 
 **Input schema:** `vaultCredentialIdSchema` — see source for fields.
 
-**Source:** `src/tools/vault/vault/index.ts:322`
+**Source:** `src/tools/vault/vault/index.ts:328`
 
 ### `vault_deprovision`
 
@@ -1367,7 +1367,7 @@ Deprovision an agent vault and remove its active vault assignment. Use this when
 
 **Input schema:** `vaultDeprovisionSchema` — see source for fields.
 
-**Source:** `src/tools/vault/vault/index.ts:246`
+**Source:** `src/tools/vault/vault/index.ts:247`
 
 ### `vault_exchange_token`
 
@@ -1375,7 +1375,7 @@ Exchange a vtk_ ephemeral token for the underlying credential data. Tokens are s
 
 **Input schema:** `vaultExchangeTokenSchema` — see source for fields.
 
-**Source:** `src/tools/vault/vault/index.ts:543`
+**Source:** `src/tools/vault/vault/index.ts:559`
 
 ### `vault_generate_password`
 
@@ -1383,7 +1383,7 @@ Generate a secure password using configurable character class options and length
 
 **Input schema:** `vaultGeneratePasswordSchema` — see source for fields.
 
-**Source:** `src/tools/vault/vault/index.ts:336`
+**Source:** `src/tools/vault/vault/index.ts:343`
 
 ### `vault_get_credential`
 
@@ -1391,7 +1391,7 @@ Get a single vault credential by ID. Sensitive fields (passwords, tokens) are ma
 
 **Input schema:** `vaultCredentialIdSchema` — see source for fields.
 
-**Source:** `src/tools/vault/vault/index.ts:280`
+**Source:** `src/tools/vault/vault/index.ts:283`
 
 ### `vault_get_totp`
 
@@ -1399,7 +1399,7 @@ Get the current TOTP code for a credential that has a TOTP secret configured. Us
 
 **Input schema:** `vaultCredentialIdSchema` — see source for fields.
 
-**Source:** `src/tools/vault/vault/index.ts:351`
+**Source:** `src/tools/vault/vault/index.ts:359`
 
 ### `vault_list_credentials`
 
@@ -1407,7 +1407,7 @@ List credentials in an agent vault with optional type and search filters. Use th
 
 **Input schema:** `vaultListCredentialsSchema` — see source for fields.
 
-**Source:** `src/tools/vault/vault/index.ts:261`
+**Source:** `src/tools/vault/vault/index.ts:263`
 
 ### `vault_list_shares`
 
@@ -1415,35 +1415,35 @@ List credential shares granted by or received by an agent. Use this to audit cro
 
 **Input schema:** `vaultListSharesSchema` — see source for fields.
 
-**Source:** `src/tools/vault/vault/index.ts:464`
+**Source:** `src/tools/vault/vault/index.ts:477`
 
 ### `vault_oauth_create_link`
 
 Create a Connect Link — a hosted URL where a user can authenticate with an OAuth service. Share this link with the user; once they complete authentication, their tokens are stored securely in the vault.
 
 
-**Source:** `src/tools/vault/vault/oauth.ts:42`
+**Source:** `src/tools/vault/vault/oauth.ts:43`
 
 ### `vault_oauth_disconnect`
 
 Disconnect an OAuth account, revoking access and deleting stored tokens. Use this when an agent no longer needs access to a service.
 
 
-**Source:** `src/tools/vault/vault/oauth.ts:132`
+**Source:** `src/tools/vault/vault/oauth.ts:136`
 
 ### `vault_oauth_link_status`
 
 Check the status of a Connect Link. Poll this after creating a link to know when the user has completed authentication. Returns PENDING, COMPLETED, EXPIRED, or FAILED.
 
 
-**Source:** `src/tools/vault/vault/oauth.ts:77`
+**Source:** `src/tools/vault/vault/oauth.ts:79`
 
 ### `vault_oauth_list_accounts`
 
 List all connected OAuth accounts for an agent, optionally filtered by user or service. Shows connection status, granted scopes, and token expiry.
 
 
-**Source:** `src/tools/vault/vault/oauth.ts:95`
+**Source:** `src/tools/vault/vault/oauth.ts:98`
 
 ### `vault_oauth_list_apps`
 
@@ -1457,7 +1457,7 @@ List available OAuth services that agents can connect to. Shows service name, au
 Check if a service is authenticated for an agent/user. If authenticated, returns the connected account. If not, generates and returns a Connect Link URL. Use this for inline auth — present the link to the user when they need to connect a service.
 
 
-**Source:** `src/tools/vault/vault/oauth.ts:154`
+**Source:** `src/tools/vault/vault/oauth.ts:159`
 
 ### `vault_plan_exec`
 
@@ -1465,7 +1465,7 @@ Plan a credential-injected subprocess run. Returns a plan the CLI (or orchestrat
 
 **Input schema:** `vaultPlanExecSchema` — see source for fields.
 
-**Source:** `src/tools/vault/vault/index.ts:618`
+**Source:** `src/tools/vault/vault/index.ts:637`
 
 ### `vault_plan_proxy`
 
@@ -1473,7 +1473,7 @@ Plan a local HTTPS proxy that injects a vault credential into outbound requests 
 
 **Input schema:** `vaultPlanProxySchema` — see source for fields.
 
-**Source:** `src/tools/vault/vault/index.ts:639`
+**Source:** `src/tools/vault/vault/index.ts:659`
 
 ### `vault_provision`
 
@@ -1489,7 +1489,7 @@ Force the server-side vault snapshot to refresh from its backing store. Use afte
 
 **Input schema:** `vaultReloadSchema` — see source for fields.
 
-**Source:** `src/tools/vault/vault/index.ts:593`
+**Source:** `src/tools/vault/vault/index.ts:611`
 
 ### `vault_revoke_share`
 
@@ -1497,7 +1497,7 @@ Revoke a previously granted credential share by share ID. Use this to remove cro
 
 **Input schema:** `vaultRevokeShareSchema` — see source for fields.
 
-**Source:** `src/tools/vault/vault/index.ts:486`
+**Source:** `src/tools/vault/vault/index.ts:500`
 
 ### `vault_revoke_tokens`
 
@@ -1505,7 +1505,7 @@ Revoke all active ephemeral tokens for a credential. Use this to invalidate outs
 
 **Input schema:** `vaultRevokeTokensSchema` — see source for fields.
 
-**Source:** `src/tools/vault/vault/index.ts:565`
+**Source:** `src/tools/vault/vault/index.ts:582`
 
 ### `vault_search`
 
@@ -1513,7 +1513,7 @@ Search vault credentials by keyword across names and content. Use this for targe
 
 **Input schema:** `vaultSearchSchema` — see source for fields.
 
-**Source:** `src/tools/vault/vault/index.ts:374`
+**Source:** `src/tools/vault/vault/index.ts:383`
 
 ### `vault_share_credential`
 
@@ -1521,7 +1521,7 @@ Share a vault credential with another agent at a specified permission level. Use
 
 **Input schema:** `vaultShareSchema` — see source for fields.
 
-**Source:** `src/tools/vault/vault/index.ts:445`
+**Source:** `src/tools/vault/vault/index.ts:457`
 
 ### `vault_status`
 
@@ -1529,7 +1529,7 @@ Get current vault status for an agent, including provisioning and readiness info
 
 **Input schema:** `vaultStatusSchema` — see source for fields.
 
-**Source:** `src/tools/vault/vault/index.ts:410`
+**Source:** `src/tools/vault/vault/index.ts:421`
 
 ### `vault_sync`
 
@@ -1537,7 +1537,7 @@ Force a sync of an agent
 
 **Input schema:** `vaultSyncSchema` — see source for fields.
 
-**Source:** `src/tools/vault/vault/index.ts:396`
+**Source:** `src/tools/vault/vault/index.ts:406`
 
 ### `vault_update_credential`
 
@@ -1545,7 +1545,7 @@ Update an existing vault credential by ID, including optional structured section
 
 **Input schema:** `vaultUpdateCredentialSchema` — see source for fields.
 
-**Source:** `src/tools/vault/vault/index.ts:307`
+**Source:** `src/tools/vault/vault/index.ts:312`
 
 ## wallet
 
@@ -1575,7 +1575,7 @@ Freeze an agent
 
 **Input schema:** `agentIdSchema` — see source for fields.
 
-**Source:** `src/tools/wallet/index.ts:161`
+**Source:** `src/tools/wallet/index.ts:166`
 
 ### `get_wallet`
 
@@ -1583,7 +1583,7 @@ Get wallet details for an agent including balance. Use this to check an agent
 
 **Input schema:** `agentIdSchema` — see source for fields.
 
-**Source:** `src/tools/wallet/index.ts:105`
+**Source:** `src/tools/wallet/index.ts:106`
 
 ### `unfreeze_wallet`
 
@@ -1591,7 +1591,7 @@ Unfreeze an agent
 
 **Input schema:** `agentIdSchema` — see source for fields.
 
-**Source:** `src/tools/wallet/index.ts:174`
+**Source:** `src/tools/wallet/index.ts:180`
 
 ### `wallet_pay`
 
@@ -1599,7 +1599,7 @@ Send a payment from an agent
 
 **Input schema:** `walletPaySchema` — see source for fields.
 
-**Source:** `src/tools/wallet/index.ts:117`
+**Source:** `src/tools/wallet/index.ts:119`
 
 ### `wallet_transactions`
 
@@ -1607,7 +1607,7 @@ List wallet transactions for an agent. Use this to review payment history.
 
 **Input schema:** `walletTransactionsSchema` — see source for fields.
 
-**Source:** `src/tools/wallet/index.ts:145`
+**Source:** `src/tools/wallet/index.ts:149`
 
 ### `wallet_x402_fetch`
 
@@ -1615,7 +1615,7 @@ Fetch a URL with automatic x402 payment negotiation via the agent
 
 **Input schema:** `x402FetchSchema` — see source for fields.
 
-**Source:** `src/tools/wallet/index.ts:131`
+**Source:** `src/tools/wallet/index.ts:134`
 
 ## x402
 

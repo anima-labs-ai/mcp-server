@@ -91,6 +91,7 @@ export function registerWalletTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"create_wallet",
 		{
+			title: "Create Wallet",
 			description: "Create a new wallet for an agent. Use this to provision a payment wallet for agent-to-agent transactions.",
 			inputSchema: createWalletSchema.shape,
 		},
@@ -105,6 +106,7 @@ export function registerWalletTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"get_wallet",
 		{
+			title: "Get Wallet",
 			description: "Get wallet details for an agent including balance. Use this to check an agent's wallet status and balance.",
 			inputSchema: agentIdSchema.shape,
 		},
@@ -117,6 +119,7 @@ export function registerWalletTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"wallet_pay",
 		{
+			title: "Pay Wallet",
 			description: "Send a payment from an agent's wallet. Use this to transfer funds to another agent or address.",
 			inputSchema: walletPaySchema.shape,
 		},
@@ -131,6 +134,7 @@ export function registerWalletTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"wallet_x402_fetch",
 		{
+			title: "Fetch Wallet x402",
 			description: "Fetch a URL with automatic x402 payment negotiation via the agent's wallet API. Use this to access paid APIs and content.",
 			inputSchema: x402FetchSchema.shape,
 		},
@@ -145,6 +149,7 @@ export function registerWalletTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"wallet_transactions",
 		{
+			title: "Wallet Transactions",
 			description: "List wallet transactions for an agent. Use this to review payment history.",
 			inputSchema: walletTransactionsSchema.shape,
 		},
@@ -161,6 +166,7 @@ export function registerWalletTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"freeze_wallet",
 		{
+			title: "Freeze Wallet",
 			description: "Freeze an agent's wallet to prevent transactions. Use this to temporarily disable payments.",
 			inputSchema: agentIdSchema.shape,
 		},
@@ -174,6 +180,7 @@ export function registerWalletTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"unfreeze_wallet",
 		{
+			title: "Unfreeze Wallet",
 			description: "Unfreeze an agent's wallet to re-enable transactions. Use this to restore payment capability.",
 			inputSchema: agentIdSchema.shape,
 		},
