@@ -136,6 +136,7 @@ export function registerMessageTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"message_send_email",
 		{
+			title: "Message Send Email",
 			description: "Send an outbound email through the unified messaging API when your workflow should create a tracked message record. Use this for programmatic email delivery tied to an agent identity.",
 			inputSchema: messageSendEmailInput.shape,
 		},
@@ -155,6 +156,7 @@ export function registerMessageTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"message_send_sms",
 		{
+			title: "Message Send SMS",
 			description: "Send an outbound SMS through the unified messaging API and return the created message record. Use this for transactional texts or agent-driven mobile messaging.",
 			inputSchema: messageSendSmsInput.shape,
 		},
@@ -167,6 +169,7 @@ export function registerMessageTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"message_get",
 		{
+			title: "Message Get",
 			description: "Fetch a specific message by ID, including channel metadata and delivery status. Use this when a workflow needs to inspect one message in detail.",
 			inputSchema: messageGetInput.shape,
 		},
@@ -179,6 +182,7 @@ export function registerMessageTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"message_list",
 		{
+			title: "Message List",
 			description: "List messages with optional channel, direction, status, and pagination filters. Use this to browse recent traffic or build paged inbox/outbox views.",
 			inputSchema: messageListInput.shape,
 		},
@@ -200,6 +204,7 @@ export function registerMessageTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"message_search",
 		{
+			title: "Message Search",
 			description: "Run full-text search across messages with optional channel and date constraints. Use this to locate prior conversations or audit communication history quickly.",
 			inputSchema: messageSearchInput.shape,
 		},
@@ -233,6 +238,7 @@ export function registerMessageTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"message_semantic_search",
 		{
+			title: "Message Semantic Search",
 			description: "Search messages by semantic similarity using embeddings rather than exact keyword matching. Use this to find conceptually related messages even when wording differs.",
 			inputSchema: messageSemanticSearchInput.shape,
 		},
@@ -250,6 +256,7 @@ export function registerMessageTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"conversation_search",
 		{
+			title: "Search Conversation",
 			description: "Search conversation threads by topic by combining semantic message retrieval with thread grouping. Use this to discover related discussions rather than individual messages.",
 			inputSchema: conversationSearchInput.shape,
 		},
@@ -335,6 +342,7 @@ export function registerMessageTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"message_upload_attachment",
 		{
+			title: "Message Upload Attachment",
 			description: "Upload an attachment for an existing message by ID so downstream delivery or processing can reference the file. Use this when adding files after message creation.",
 			inputSchema: messageUploadAttachmentInput.shape,
 		},
@@ -351,6 +359,7 @@ export function registerMessageTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"message_get_attachment",
 		{
+			title: "Message Get Attachment",
 			description: "Retrieve a temporary download URL for a previously uploaded attachment. Use this when a client needs direct file access for preview or download.",
 			inputSchema: messageGetAttachmentInput.shape,
 		},

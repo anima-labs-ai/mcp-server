@@ -87,6 +87,7 @@ export function registerRegistryTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"register_agent",
 		{
+			title: "Register Agent",
 			description: "Register an agent in the public registry for discovery. Use this to make an agent discoverable by other agents.",
 			inputSchema: registerAgentSchema.shape,
 		},
@@ -100,6 +101,7 @@ export function registerRegistryTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"search_registry",
 		{
+			title: "Search Registry",
 			description: "Search the agent registry to discover agents. Use this to find agents by name, description, or category.",
 			inputSchema: searchRegistrySchema.shape,
 		},
@@ -115,6 +117,7 @@ export function registerRegistryTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"lookup_agent",
 		{
+			title: "Lookup Agent",
 			description: "Look up a specific agent in the registry by DID. Use this to get full details about a registered agent.",
 			inputSchema: didSchema.shape,
 		},
@@ -127,6 +130,7 @@ export function registerRegistryTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"update_registry",
 		{
+			title: "Update Registry",
 			description: "Update an agent's registry entry. Use this to change the public profile of a registered agent.",
 			inputSchema: updateRegistrySchema.shape,
 		},
@@ -141,6 +145,7 @@ export function registerRegistryTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"unlist_agent",
 		{
+			title: "Unlist Agent",
 			description: "Remove an agent from the public registry. Use this to make an agent no longer discoverable.",
 			inputSchema: didSchema.shape,
 		},

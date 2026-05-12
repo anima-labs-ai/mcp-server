@@ -26,6 +26,7 @@ export function registerX402Tools(
   server.registerTool(
     "x402_fetch",
     {
+    	title: "Fetch x402",
       description: "Fetch an x402-protected resource using challenge-response settlement flow.",
       inputSchema: x402FetchSchema.shape,
     },

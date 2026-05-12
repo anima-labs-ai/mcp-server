@@ -147,6 +147,7 @@ export function registerPhoneTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"phone_search",
 		{
+			title: "Search Phone",
 			description: "Search available phone numbers for provisioning by geography or digit pattern. Use this to find suitable numbers before provisioning.",
 			inputSchema: phoneSearchSchema.shape,
 		},
@@ -170,6 +171,7 @@ export function registerPhoneTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"phone_provision",
 		{
+			title: "Provision Phone",
 			description: "Provision a selected phone number for the agent and assign optional capabilities. Use this after choosing a number from phone_search.",
 			inputSchema: phoneProvisionSchema.shape,
 		},
@@ -187,6 +189,7 @@ export function registerPhoneTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"phone_release",
 		{
+			title: "Release Phone",
 			description: "Release a previously provisioned phone number so it is no longer assigned. Use this when cleaning up unused or temporary numbers.",
 			inputSchema: phoneReleaseSchema.shape,
 		},
@@ -206,6 +209,7 @@ export function registerPhoneTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"phone_list",
 		{
+			title: "List Phone",
 			description: "List all phone numbers assigned to a specific agent. Use this to review active inventory and assigned capabilities.",
 			inputSchema: phoneListSchema.shape,
 		},
@@ -220,6 +224,7 @@ export function registerPhoneTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"phone_send_sms",
 		{
+			title: "Send Phone SMS",
 			description: "Send an SMS or MMS message to a destination phone number. Use this for outbound notifications or conversational messaging.",
 			inputSchema: phoneSendSmsSchema.shape,
 		},
@@ -253,6 +258,7 @@ export function registerPhoneTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"phone_status",
 		{
+			title: "Phone Status",
 			description: "Get a status-oriented view of provisioned numbers including capability flags. Use this to verify readiness and operational state for messaging workflows.",
 			inputSchema: phoneStatusSchema.shape,
 		},

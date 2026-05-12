@@ -94,6 +94,7 @@ function registerAgentCreateTool(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"agent_create",
 		{
+			title: "Create Agent",
 			description:
 				"Create a new agent with optional metadata and return the created record. Use this when provisioning a new sending identity or automation actor. Pass idempotencyKey to make retries safe — same key + same body returns the original response, same key + different body returns IDEMPOTENCY_BODY_MISMATCH 409.",
 			inputSchema: agentCreateInput.shape,
@@ -123,6 +124,7 @@ function registerAgentGetTool(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"agent_get",
 		{
+			title: "Get Agent",
 			description: "Fetch one agent by ID. Use this to inspect current settings, metadata, and status for a single agent.",
 			inputSchema: agentGetInput.shape,
 		},
@@ -139,6 +141,7 @@ function registerAgentListTool(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"agent_list",
 		{
+			title: "List Agent",
 			description: "List agents with optional cursor pagination. Use this to discover agents available in the current account context.",
 			inputSchema: agentListInput.shape,
 		},
@@ -159,6 +162,7 @@ function registerAgentUpdateTool(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"agent_update",
 		{
+			title: "Update Agent",
 			description: "Update an agent's name or metadata by ID. Use this when an agent needs renaming or profile metadata changes.",
 			inputSchema: agentUpdateInput.shape,
 		},
@@ -176,6 +180,7 @@ function registerAgentDeleteTool(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"agent_delete",
 		{
+			title: "Delete Agent",
 			description: "Delete an agent by ID. Use this to remove deprecated or compromised agents that should no longer send messages.",
 			inputSchema: agentDeleteInput.shape,
 		},
@@ -192,6 +197,7 @@ function registerAgentRotateKeyTool(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"agent_rotate_key",
 		{
+			title: "Rotate Agent Key",
 			description: "Rotate an agent API key and return the new key material. Use this when rotating credentials for security hygiene or after suspected exposure.",
 			inputSchema: agentRotateKeyInput.shape,
 		},
@@ -239,6 +245,7 @@ function registerAgentEmailIdentityAddTool(options: ToolRegistrationOptions): vo
 	server.registerTool(
 		"agent_email_identity_add",
 		{
+			title: "Add Agent Email Identity",
 			description:
 				"Attach a new email identity to an existing agent. The parent domain MUST be verified for the workspace (or be the platform-managed default `agents.useanima.sh`) — custom unverified domains are rejected with DOMAIN_NOT_VERIFIED so you don't end up with an agent that can't deliver mail. Use this to give an agent a workspace-domain identity (e.g. attach hello@brawz.ai to a digest agent that was auto-created on @agents.useanima.sh).",
 			inputSchema: agentEmailIdentityAddInput.shape,
@@ -259,6 +266,7 @@ function registerAgentEmailIdentityListTool(options: ToolRegistrationOptions): v
 	server.registerTool(
 		"agent_email_identity_list",
 		{
+			title: "List Agent Email Identity",
 			description:
 				"List all email identities attached to an agent (primary first, then by creation order). Use this to discover what addresses the agent can send from before choosing one for fromIdentityId on email_send.",
 			inputSchema: agentEmailIdentityListInput.shape,
@@ -277,6 +285,7 @@ function registerAgentEmailIdentitySetPrimaryTool(options: ToolRegistrationOptio
 	server.registerTool(
 		"agent_email_identity_set_primary",
 		{
+			title: "Set Agent Email Identity Primary",
 			description:
 				"Promote an email identity to be the agent's primary. Atomically demotes the existing primary in the same transaction so there is never a moment with two primaries. Use this after attaching a verified-domain identity to switch the agent's default sending address.",
 			inputSchema: agentEmailIdentityActionInput.shape,
@@ -296,6 +305,7 @@ function registerAgentEmailIdentityVerifyTool(options: ToolRegistrationOptions):
 	server.registerTool(
 		"agent_email_identity_verify",
 		{
+			title: "Verify Agent Email Identity",
 			description:
 				"Surface the current verification state for an email identity. The platform's background SES verification worker flips identity.verified=true when SES confirms; this tool is your poll point for that transition. Use it after attaching a new identity (or when an existing one's verification went stale) to see if it's ready for outbound sending yet.",
 			inputSchema: agentEmailIdentityActionInput.shape,
@@ -315,6 +325,7 @@ function registerAgentEmailIdentityDeleteTool(options: ToolRegistrationOptions):
 	server.registerTool(
 		"agent_email_identity_delete",
 		{
+			title: "Delete Agent Email Identity",
 			description:
 				"Remove an email identity from an agent. Refuses on the agent's only remaining identity (would leave the agent unable to send or receive) or on a primary without an explicit successor (call agent_email_identity_set_primary on another identity first to make the choice deliberate).",
 			inputSchema: agentEmailIdentityActionInput.shape,

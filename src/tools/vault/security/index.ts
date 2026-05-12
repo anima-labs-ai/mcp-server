@@ -139,6 +139,7 @@ export function registerSecurityTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"security_approve",
 		{
+			title: "Approve Security",
 			description: "Approve or reject a message that is waiting in pending-review state. Use this to unblock compliant outbound content or explicitly reject risky messages.",
 			inputSchema: securityApproveInput.shape,
 		},
@@ -159,6 +160,7 @@ export function registerSecurityTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"security_list_events",
 		{
+			title: "List Security Events",
 			description: "List security events for an organization with optional agent and event-type filters. Use this for incident triage, compliance review, and audit timelines.",
 			inputSchema: securityListEventsInput.shape,
 		},
@@ -179,6 +181,7 @@ export function registerSecurityTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"security_get_policy",
 		{
+			title: "Get Security Policy",
 			description: "Fetch the active security policy for an agent, including scan level and domain constraints. Use this before changing enforcement behavior or diagnosing blocked messages.",
 			inputSchema: securityGetPolicyInput.shape,
 		},
@@ -193,6 +196,7 @@ export function registerSecurityTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"security_update_policy",
 		{
+			title: "Update Security Policy",
 			description: "Update an agent security policy to tune scanning strictness, domain allow-lists, and blocking patterns. Use this to harden or relax outbound message controls.",
 			inputSchema: securityUpdatePolicyInput.shape,
 		},
@@ -215,6 +219,7 @@ export function registerSecurityTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"security_scan_content",
 		{
+			title: "Scan Security Content",
 			description: "Dry-run scan message content for likely PII or injection issues without sending any outbound message. Use this as a preflight safety check before calling message send tools.",
 			inputSchema: securityScanContentInput.shape,
 		},

@@ -254,6 +254,7 @@ function registerDiscoverTool(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"anima_discover",
 		{
+			title: "Discover Anima",
 			description:
 				"Find the right Anima MCP tool for an intent in plain English. Use this when you don't remember the exact tool name. Returns a ranked list of {name, description, why} so you can pick. Falls back to keyword matching when the platform's pgvector index is unavailable.",
 			inputSchema: discoverInput.shape,
