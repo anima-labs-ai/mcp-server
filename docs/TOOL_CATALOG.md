@@ -9,9 +9,9 @@ change to keep this in sync. Do NOT edit by hand.*
 
 | Metric | Value |
 |---|---|
-| Total registered tools | 162 |
+| Total registered tools | 163 |
 | Tools with aliases | 32 |
-| Total callable names (incl. aliases) | 226 |
+| Total callable names (incl. aliases) | 227 |
 | Master-key required | 0 |
 | Read-only | 0 |
 
@@ -820,10 +820,11 @@ List available voices for AI agent phone calls. Filter by tier (basic/premium), 
 
 ## phone / voice
 
-10 tools.
+11 tools.
 
 | Name | Description | Flags |
 |---|---|---|
+| `voice_call` | Place a live phone call and have a real conversation. The tool stays open for th… | — |
 | `voice_catalog` | List available AI voices for phone calls. Filter by tier (basic for low-latency,… | — |
 | `voice_create_call` | Initiate an outbound voice call from an agent. The agent must have a provisioned… | — |
 | `voice_get_call` | Get detailed information about a specific voice call including status, duration,… | — |
@@ -835,75 +836,82 @@ List available voices for AI agent phone calls. Filter by tier (basic/premium), 
 | `voice_list_calls` | List voice calls with optional filters. Returns call history with status, direct… | — |
 | `voice_search_calls` | Semantic search across all call transcripts using natural language. Uses vector … | — |
 
+### `voice_call`
+
+Place a live phone call and have a real conversation. The tool stays open for the entire call duration. As the caller speaks, you receive live transcript chunks via progress notifications; when the caller finishes a turn (server emits isFinal: true), an elicitation prompt asks you what the agent should say next. You respond with
+
+
+**Source:** `src/tools/phone/voice/live-call.ts:129`
+
 ### `voice_catalog`
 
 List available AI voices for phone calls. Filter by tier (basic for low-latency, premium for natural voices), gender, or language. Returns voice IDs needed for voice_create_call.
 
 
-**Source:** `src/tools/phone/voice/index.ts:26`
+**Source:** `src/tools/phone/voice/index.ts:31`
 
 ### `voice_create_call`
 
 Initiate an outbound voice call from an agent. The agent must have a provisioned phone number. Returns a callId — connect via WebSocket for real-time conversation.
 
 
-**Source:** `src/tools/phone/voice/index.ts:52`
+**Source:** `src/tools/phone/voice/index.ts:57`
 
 ### `voice_get_call`
 
 Get detailed information about a specific voice call including status, duration, participants, and tier.
 
 
-**Source:** `src/tools/phone/voice/index.ts:111`
+**Source:** `src/tools/phone/voice/index.ts:116`
 
 ### `voice_get_recording`
 
 Get a time-limited download URL for a call recording (WAV format). The URL expires after 1 hour. Recording must have been enabled during the call.
 
 
-**Source:** `src/tools/phone/voice/index.ts:145`
+**Source:** `src/tools/phone/voice/index.ts:150`
 
 ### `voice_get_score`
 
 Get the quality score of a call with composite score (0-100), sub-scores (resolution, sentiment, efficiency, engagement, latency, compliance), and detailed metrics (speaking time, dead air, response latency).
 
 
-**Source:** `src/tools/phone/voice/index.ts:179`
+**Source:** `src/tools/phone/voice/index.ts:184`
 
 ### `voice_get_security_scan`
 
 Get security scan results for a call including detected threats (PII leakage, prompt injection, social engineering), compliance pass/fail, and risk score (0-100). Available after post-call security analysis.
 
 
-**Source:** `src/tools/phone/voice/index.ts:229`
+**Source:** `src/tools/phone/voice/index.ts:234`
 
 ### `voice_get_summary`
 
 Get an AI-generated summary of a call including one-liner, topics, action items, decisions, open questions, next steps, intent, and outcome. Available after post-call processing completes.
 
 
-**Source:** `src/tools/phone/voice/index.ts:162`
+**Source:** `src/tools/phone/voice/index.ts:167`
 
 ### `voice_get_transcript`
 
 Get the full transcript of a voice call with speaker labels, timestamps, and confidence scores. Available after the call ends and transcription completes.
 
 
-**Source:** `src/tools/phone/voice/index.ts:128`
+**Source:** `src/tools/phone/voice/index.ts:133`
 
 ### `voice_list_calls`
 
 List voice calls with optional filters. Returns call history with status, direction, duration, and tier info.
 
 
-**Source:** `src/tools/phone/voice/index.ts:79`
+**Source:** `src/tools/phone/voice/index.ts:84`
 
 ### `voice_search_calls`
 
 Semantic search across all call transcripts using natural language. Uses vector similarity to find relevant call segments. Great for finding specific conversations or topics discussed.
 
 
-**Source:** `src/tools/phone/voice/index.ts:196`
+**Source:** `src/tools/phone/voice/index.ts:201`
 
 ## platform / pod
 
