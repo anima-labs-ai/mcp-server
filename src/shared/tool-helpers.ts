@@ -204,9 +204,24 @@ export function registerToolWithAliases(
 	canonical: string,
 	aliases: readonly string[],
 	config: {
+		/**
+		 * Optional human-readable display label per MCP spec 2025-11-25.
+		 * Clients that support `title` show this in UI (Cursor, Claude Code);
+		 * clients that don't fall back to `canonical`. Applied to the
+		 * canonical registration only — aliases keep their own derivation.
+		 */
+		title?: string;
 		description: string;
 		// biome-ignore lint/suspicious/noExplicitAny: Same — Zod-shape passthrough.
 		inputSchema: any;
+		/**
+		 * Behavioral hints surfaced to MCP clients (readOnlyHint,
+		 * destructiveHint, idempotentHint, openWorldHint). Passed through
+		 * to both canonical + alias registrations so deprecated aliases
+		 * keep the same client-side behavior gates as the canonical.
+		 */
+		// biome-ignore lint/suspicious/noExplicitAny: Pass-through; ToolAnnotations is structural.
+		annotations?: any;
 		/**
 		 * When true, the listed aliases are treated as deprecated names
 		 * being kept around temporarily (after a rename) rather than
@@ -220,7 +235,12 @@ export function registerToolWithAliases(
 ): void {
 	server.registerTool(
 		canonical,
-		{ description: config.description, inputSchema: config.inputSchema },
+		{
+			...(config.title ? { title: config.title } : {}),
+			description: config.description,
+			inputSchema: config.inputSchema,
+			...(config.annotations ? { annotations: config.annotations } : {}),
+		},
 		handler,
 	);
 	for (const alias of aliases) {
@@ -244,7 +264,11 @@ export function registerToolWithAliases(
 
 		server.registerTool(
 			alias,
-			{ description, inputSchema: config.inputSchema },
+			{
+				description,
+				inputSchema: config.inputSchema,
+				...(config.annotations ? { annotations: config.annotations } : {}),
+			},
 			wrappedHandler,
 		);
 	}
