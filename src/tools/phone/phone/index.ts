@@ -237,42 +237,12 @@ export function registerPhoneTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	// ── Voice catalog tool ──
-
-	const voiceListSchema = z.object({
-		tier: z
-			.enum(["basic", "premium"])
-			.optional()
-			.describe("Filter by voice tier (basic or premium)."),
-		gender: z
-			.enum(["male", "female", "neutral"])
-			.optional()
-			.describe("Filter by voice gender."),
-		language: z
-			.string()
-			.optional()
-			.describe("Filter by language code or prefix (e.g. 'en', 'en-US', 'fr-FR')."),
-	});
-
-	server.registerTool(
-		"voice_list_voices",
-		{
-			description: "List available voices for AI agent phone calls. Filter by tier (basic/premium), gender, or language. Use this to find the right voice for an agent's personality.",
-			inputSchema: voiceListSchema.shape,
-		},
-		withErrorHandling(async (args, context) => {
-			const params = new URLSearchParams();
-			if (args.tier) params.set("tier", args.tier);
-			if (args.gender) params.set("gender", args.gender);
-			if (args.language) params.set("language", args.language);
-
-			const path = params.toString()
-				? `/v1/voice/catalog?${params}`
-				: "/v1/voice/catalog";
-			const result = await context.client.get<unknown>(path);
-			return toolSuccess(result);
-		}, options.context),
-	);
+	// voice_list_voices used to be registered here as a duplicate of
+	// voice_catalog (identical params, identical /v1/voice/catalog endpoint).
+	// It now lives in tools/phone/voice/index.ts as a deprecated alias of
+	// voice_catalog, registered via registerToolWithAliases with the
+	// `[DEPRECATED — use voice_catalog]` description prefix + stderr warning
+	// on every invocation. Will be removed once log usage goes quiet.
 
 	const phoneStatusSchema = z.object({
 		agentId: z

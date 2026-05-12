@@ -9,8 +9,8 @@ change to keep this in sync. Do NOT edit by hand.*
 
 | Metric | Value |
 |---|---|
-| Total registered tools | 163 |
-| Tools with aliases | 32 |
+| Total registered tools | 162 |
+| Tools with aliases | 33 |
 | Total callable names (incl. aliases) | 227 |
 | Master-key required | 0 |
 | Read-only | 0 |
@@ -750,7 +750,7 @@ Upload an attachment for an existing message by ID so downstream delivery or pro
 
 ## phone / phone
 
-7 tools.
+6 tools.
 
 | Name | Description | Flags |
 |---|---|---|
@@ -760,7 +760,6 @@ Upload an attachment for an existing message by ID so downstream delivery or pro
 | `phone_search` | Search available phone numbers for provisioning by geography or digit pattern. U… | — |
 | `phone_send_sms` | Send an SMS or MMS message to a destination phone number. Use this for outbound … | — |
 | `phone_status` | Get a status-oriented view of provisioned numbers including capability flags. Us… | — |
-| `voice_list_voices` | List available voices for AI agent phone calls. Filter by tier (basic/premium), … | — |
 
 ### `phone_list`
 
@@ -808,15 +807,7 @@ Get a status-oriented view of provisioned numbers including capability flags. Us
 
 **Input schema:** `phoneStatusSchema` — see source for fields.
 
-**Source:** `src/tools/phone/phone/index.ts:283`
-
-### `voice_list_voices`
-
-List available voices for AI agent phone calls. Filter by tier (basic/premium), gender, or language. Use this to find the right voice for an agent
-
-**Input schema:** `voiceListSchema` — see source for fields.
-
-**Source:** `src/tools/phone/phone/index.ts:257`
+**Source:** `src/tools/phone/phone/index.ts:253`
 
 ## phone / voice
 
@@ -825,7 +816,7 @@ List available voices for AI agent phone calls. Filter by tier (basic/premium), 
 | Name | Description | Flags |
 |---|---|---|
 | `voice_call` | Place a live phone call and have a real conversation. The tool stays open for th… | — |
-| `voice_catalog` | List available AI voices for phone calls. Filter by tier (basic for low-latency,… | — |
+| `voice_catalog` | List available AI voices for phone calls. Filter by tier (basic for low-latency,… | +1aliases |
 | `voice_create_call` | Initiate an outbound voice call from an agent. The agent must have a provisioned… | — |
 | `voice_get_call` | Get detailed information about a specific voice call including status, duration,… | — |
 | `voice_get_recording` | Get a time-limited download URL for a call recording (WAV format). The URL expir… | — |
@@ -844,74 +835,76 @@ Place a live phone call and have a real conversation. The tool stays open for th
 **Source:** `src/tools/phone/voice/live-call.ts:129`
 
 ### `voice_catalog`
+*Aliases:* `voice_list_voices`
 
 List available AI voices for phone calls. Filter by tier (basic for low-latency, premium for natural voices), gender, or language. Returns voice IDs needed for voice_create_call.
 
+**Input schema:** `voiceCatalogSchema` — see source for fields.
 
-**Source:** `src/tools/phone/voice/index.ts:31`
+**Source:** `src/tools/phone/voice/index.ts:72`
 
 ### `voice_create_call`
 
 Initiate an outbound voice call from an agent. The agent must have a provisioned phone number. Returns a callId — connect via WebSocket for real-time conversation.
 
 
-**Source:** `src/tools/phone/voice/index.ts:57`
+**Source:** `src/tools/phone/voice/index.ts:87`
 
 ### `voice_get_call`
 
 Get detailed information about a specific voice call including status, duration, participants, and tier.
 
 
-**Source:** `src/tools/phone/voice/index.ts:116`
+**Source:** `src/tools/phone/voice/index.ts:146`
 
 ### `voice_get_recording`
 
 Get a time-limited download URL for a call recording (WAV format). The URL expires after 1 hour. Recording must have been enabled during the call.
 
 
-**Source:** `src/tools/phone/voice/index.ts:150`
+**Source:** `src/tools/phone/voice/index.ts:180`
 
 ### `voice_get_score`
 
 Get the quality score of a call with composite score (0-100), sub-scores (resolution, sentiment, efficiency, engagement, latency, compliance), and detailed metrics (speaking time, dead air, response latency).
 
 
-**Source:** `src/tools/phone/voice/index.ts:184`
+**Source:** `src/tools/phone/voice/index.ts:214`
 
 ### `voice_get_security_scan`
 
 Get security scan results for a call including detected threats (PII leakage, prompt injection, social engineering), compliance pass/fail, and risk score (0-100). Available after post-call security analysis.
 
 
-**Source:** `src/tools/phone/voice/index.ts:234`
+**Source:** `src/tools/phone/voice/index.ts:264`
 
 ### `voice_get_summary`
 
 Get an AI-generated summary of a call including one-liner, topics, action items, decisions, open questions, next steps, intent, and outcome. Available after post-call processing completes.
 
 
-**Source:** `src/tools/phone/voice/index.ts:167`
+**Source:** `src/tools/phone/voice/index.ts:197`
 
 ### `voice_get_transcript`
 
 Get the full transcript of a voice call with speaker labels, timestamps, and confidence scores. Available after the call ends and transcription completes.
 
 
-**Source:** `src/tools/phone/voice/index.ts:133`
+**Source:** `src/tools/phone/voice/index.ts:163`
 
 ### `voice_list_calls`
 
 List voice calls with optional filters. Returns call history with status, direction, duration, and tier info.
 
 
-**Source:** `src/tools/phone/voice/index.ts:84`
+**Source:** `src/tools/phone/voice/index.ts:114`
 
 ### `voice_search_calls`
 
 Semantic search across all call transcripts using natural language. Uses vector similarity to find relevant call segments. Great for finding specific conversations or topics discussed.
 
 
-**Source:** `src/tools/phone/voice/index.ts:201`
+**Source:** `src/tools/phone/voice/index.ts:231`
 
 ## platform / pod
 
@@ -1002,7 +995,7 @@ Get resource usage metrics for a pod. Use this to monitor CPU, memory, storage, 
 | `update_metadata` | Update metadata for the current agent identity. | +2aliases |
 | `wait_for_email` | Poll inbound messages until a matching email arrives or timeout expires. | +2aliases |
 | `who_am_i` | Return identity details for the current API credential, plus the running MCP ser… | +2aliases |
-| `workspace_health` |  | +2aliases |
+| `workspace_health` | Workspace-level self-diagnosis: returns canSendEmail, canSendSms, current creden… | +2aliases |
 
 ### `anima_discover`
 
@@ -1018,7 +1011,7 @@ Send a synchronous request to another agent and wait for reply.
 
 **Input schema:** `callAgentInput` — see source for fields.
 
-**Source:** `src/tools/platform/utility/index.ts:820`
+**Source:** `src/tools/platform/utility/index.ts:816`
 
 ### `check_followups`
 *Aliases:* `Check Followups`, `Check_Followups`
@@ -1027,7 +1020,7 @@ Drain and return queued follow-up reminders for blocked messages. Use this to po
 
 **Input schema:** `noInput` — see source for fields.
 
-**Source:** `src/tools/platform/utility/index.ts:679`
+**Source:** `src/tools/platform/utility/index.ts:675`
 
 ### `check_health`
 *Aliases:* `Check Health`, `Check_Health`
@@ -1044,7 +1037,7 @@ Check inbound messages with optional unread-only filtering and compact formattin
 
 **Input schema:** `checkMessagesInput` — see source for fields.
 
-**Source:** `src/tools/platform/utility/index.ts:743`
+**Source:** `src/tools/platform/utility/index.ts:739`
 
 ### `check_tasks`
 *Aliases:* `Check Tasks`, `Check_Tasks`
@@ -1053,7 +1046,7 @@ Fetch task-assignment messages filtered by metadata type and optional status.
 
 **Input schema:** `checkTasksInput` — see source for fields.
 
-**Source:** `src/tools/platform/utility/index.ts:1025`
+**Source:** `src/tools/platform/utility/index.ts:1021`
 
 ### `Concepts`
 
@@ -1061,7 +1054,7 @@ Return a short conceptual map of the Anima platform: how Agents, EmailIdentities
 
 **Input schema:** `noInput` — see source for fields.
 
-**Source:** `src/tools/platform/utility/index.ts:438`
+**Source:** `src/tools/platform/utility/index.ts:434`
 
 ### `List_Capabilities`
 
@@ -1069,7 +1062,7 @@ Return what the CURRENT credential can do — auth tier + tool families that wor
 
 **Input schema:** `noInput` — see source for fields.
 
-**Source:** `src/tools/platform/utility/index.ts:544`
+**Source:** `src/tools/platform/utility/index.ts:540`
 
 ### `manage_pending`
 *Aliases:* `Manage Pending`, `Manage_Pending`
@@ -1078,7 +1071,7 @@ Approve or reject a pending message requiring manual decision. Use this to unblo
 
 **Input schema:** `managePendingInput` — see source for fields.
 
-**Source:** `src/tools/platform/utility/index.ts:644`
+**Source:** `src/tools/platform/utility/index.ts:640`
 
 ### `manage_spam`
 *Aliases:* `Manage Spam`, `Manage_Spam`
@@ -1087,7 +1080,7 @@ List, report, and unmark spam messages.
 
 **Input schema:** `manageSpamInput` — see source for fields.
 
-**Source:** `src/tools/platform/utility/index.ts:978`
+**Source:** `src/tools/platform/utility/index.ts:974`
 
 ### `message_agent`
 *Aliases:* `Message Agent`, `Message_Agent`
@@ -1096,7 +1089,7 @@ Send an email message to another agent by agent name.
 
 **Input schema:** `messageAgentInput` — see source for fields.
 
-**Source:** `src/tools/platform/utility/index.ts:701`
+**Source:** `src/tools/platform/utility/index.ts:697`
 
 ### `send_test_email`
 *Aliases:* `Send Test Email`, `Send_Test_Email`
@@ -1105,7 +1098,7 @@ Send a simple test email for setup verification.
 
 **Input schema:** `sendTestEmailInput` — see source for fields.
 
-**Source:** `src/tools/platform/utility/index.ts:952`
+**Source:** `src/tools/platform/utility/index.ts:948`
 
 ### `setup_email_domain`
 *Aliases:* `Setup Email Domain`, `Setup_Email_Domain`
@@ -1114,7 +1107,7 @@ Configure a custom email domain for account setup workflows.
 
 **Input schema:** `setupEmailDomainInput` — see source for fields.
 
-**Source:** `src/tools/platform/utility/index.ts:927`
+**Source:** `src/tools/platform/utility/index.ts:923`
 
 ### `update_metadata`
 *Aliases:* `Update Metadata`, `Update_Metadata`
@@ -1123,7 +1116,7 @@ Update metadata for the current agent identity.
 
 **Input schema:** `updateMetadataInput` — see source for fields.
 
-**Source:** `src/tools/platform/utility/index.ts:886`
+**Source:** `src/tools/platform/utility/index.ts:882`
 
 ### `wait_for_email`
 *Aliases:* `Wait for Email`, `Wait_for_Email`
@@ -1132,7 +1125,7 @@ Poll inbound messages until a matching email arrives or timeout expires.
 
 **Input schema:** `waitForEmailInput` — see source for fields.
 
-**Source:** `src/tools/platform/utility/index.ts:778`
+**Source:** `src/tools/platform/utility/index.ts:774`
 
 ### `who_am_i`
 *Aliases:* `Who Am I`, `Who_Am_I`
@@ -1146,7 +1139,7 @@ Return identity details for the current API credential, plus the running MCP ser
 ### `workspace_health`
 *Aliases:* `Workspace Health`, `Workspace_Health`
 
-_(no description in source)_
+Workspace-level self-diagnosis: returns canSendEmail, canSendSms, current credential context, inventory counts (agents, domains, phones), and a list of typed blockers. Each blocker carries
 
 **Input schema:** `noInput` — see source for fields.
 
