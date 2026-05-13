@@ -3,13 +3,12 @@ import { SERVER_INFO as CORE_SERVER_INFO, type ApiClient, type ToolRegistrationO
 import { registerEmailTools } from "./email/index.js";
 import { registerMessageTools } from "./message/index.js";
 import { registerDomainTools } from "./domain/index.js";
-import { registerAddressTools } from "./address/index.js";
 
 const SERVER_INFO = {
 	...CORE_SERVER_INFO,
 	name: "anima-mcp-email",
 	version: "0.1.0",
-	description: "Anima MCP Server — Email, message, domain, and address tools",
+	description: "Anima MCP Server — Email, message, domain tools",
 };
 
 export function buildEmailServer(client: ApiClient): McpServer {
@@ -21,6 +20,5 @@ export function buildEmailServer(client: ApiClient): McpServer {
 	registerEmailTools(context);
 	registerMessageTools(context);
 	registerDomainTools(context);
-	registerAddressTools(context);
 	return server;
 }

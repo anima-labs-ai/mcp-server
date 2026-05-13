@@ -4,7 +4,6 @@ import { ApiClient, type ToolRegistrationOptions } from "../../../shared/index.j
 import { registerEmailTools } from "../email/index.js";
 import { registerMessageTools } from "../message/index.js";
 import { registerDomainTools } from "../domain/index.js";
-import { registerAddressTools } from "../address/index.js";
 
 function createTestOptions(): ToolRegistrationOptions {
 	const server = new McpServer({ name: "test", version: "0.0.1" });
@@ -31,17 +30,11 @@ describe("mcp-email tool registration", () => {
 		expect(() => registerDomainTools(options)).not.toThrow();
 	});
 
-	test("address tools register without error", () => {
-		const options = createTestOptions();
-		expect(() => registerAddressTools(options)).not.toThrow();
-	});
-
 	test("all tools register on single server", () => {
 		const options = createTestOptions();
 		registerEmailTools(options);
 		registerMessageTools(options);
 		registerDomainTools(options);
-		registerAddressTools(options);
 		// If we get here without error, all tools registered successfully
 		expect(true).toBe(true);
 	});
