@@ -3,7 +3,6 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { ApiClient, type ToolRegistrationOptions } from "../../../shared/index.js";
 import { registerAgentTools } from "../agent/index.js";
 import { registerOrganizationTools } from "../organization/index.js";
-import { registerRegistryTools } from "../registry/index.js";
 
 function createTestOptions(): ToolRegistrationOptions {
 	const server = new McpServer({ name: "test", version: "0.0.1" });
@@ -25,16 +24,10 @@ describe("mcp-agent tool registration", () => {
 		expect(() => registerOrganizationTools(options)).not.toThrow();
 	});
 
-	test("registry tools register without error", () => {
-		const options = createTestOptions();
-		expect(() => registerRegistryTools(options)).not.toThrow();
-	});
-
 	test("all tools register on single server", () => {
 		const options = createTestOptions();
 		registerAgentTools(options);
 		registerOrganizationTools(options);
-		registerRegistryTools(options);
 		// If we get here without error, all tools registered successfully
 		expect(true).toBe(true);
 	});
