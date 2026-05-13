@@ -121,7 +121,7 @@ export function registerAddressTools(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
 	server.registerTool(
-		"create_address",
+		"address_create",
 		{
 			title: "Create Address",
 			description: "Create a new postal address for an agent. Use this to register billing, shipping, mailing, or registered addresses.",
@@ -142,7 +142,7 @@ export function registerAddressTools(options: ToolRegistrationOptions): void {
 	);
 
 	server.registerTool(
-		"list_addresses",
+		"address_list",
 		{
 			title: "List Addresses",
 			description: "List all addresses for an agent, optionally filtered by type. Use this to review the agent's registered addresses.",
@@ -166,7 +166,7 @@ export function registerAddressTools(options: ToolRegistrationOptions): void {
 	);
 
 	server.registerTool(
-		"get_address",
+		"address_get",
 		{
 			title: "Get Address",
 			description: "Get full details for a specific address by ID. Use this to inspect a single address record.",
@@ -187,7 +187,7 @@ export function registerAddressTools(options: ToolRegistrationOptions): void {
 	);
 
 	server.registerTool(
-		"update_address",
+		"address_update",
 		{
 			title: "Update Address",
 			description: "Update fields on an existing address. Use this to correct or change address details.",
@@ -210,7 +210,7 @@ export function registerAddressTools(options: ToolRegistrationOptions): void {
 	);
 
 	server.registerTool(
-		"delete_address",
+		"address_delete",
 		{
 			title: "Delete Address",
 			description: "Delete an address from an agent. Use this to remove addresses that are no longer needed.",
@@ -232,7 +232,7 @@ export function registerAddressTools(options: ToolRegistrationOptions): void {
 	);
 
 	server.registerTool(
-		"validate_address",
+		"address_validate",
 		{
 			title: "Validate Address",
 			description: "Validate an existing address against postal standards. Use this to verify address accuracy before shipping or official registration.",

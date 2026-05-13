@@ -332,7 +332,7 @@ function registerCheckHealthTool(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
 	server.registerTool(
-		"check_health",
+		"health_check",
 		{
 			title: "Check Health",
 			description:
@@ -384,7 +384,7 @@ function registerWorkspaceHealthTool(options: ToolRegistrationOptions): void {
 		{
 			title: "Workspace Health",
 			description:
-				"Workspace-level self-diagnosis: returns canSendEmail, canSendSms, current credential context, inventory counts (agents, domains, phones), and a list of typed blockers. Each blocker carries `tool` (the canonical MCP tool that resolves it) and `toolHint` (how to call it) when an automated remediation exists — so you can go from diagnosis to action in one round-trip. Callable by ANY authenticated credential — agent-key, master, or admin:full OAuth — no escalation required. Use this before non-trivial workflows to check 'can I do X right now?' without paying a real send/call to find out. Closes the gap that check_health (server-only health) and who_am_i (identity only) leave open.",
+				"Workspace-level self-diagnosis: returns canSendEmail, canSendSms, current credential context, inventory counts (agents, domains, phones), and a list of typed blockers. Each blocker carries `tool` (the canonical MCP tool that resolves it) and `toolHint` (how to call it) when an automated remediation exists — so you can go from diagnosis to action in one round-trip. Callable by ANY authenticated credential — agent-key, master, or admin:full OAuth — no escalation required. Use this before non-trivial workflows to check 'can I do X right now?' without paying a real send/call to find out. Closes the gap that health_check (server-only health) and whoami (identity only) leave open.",
 			inputSchema: noInput.shape,
 			outputSchema: objectOutput(),
 			annotations: { readOnlyHint: true, destructiveHint: false },
@@ -421,7 +421,7 @@ function registerManagePendingTool(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
 	server.registerTool(
-		"manage_pending",
+		"pending_manage",
 		{
 			title: "Manage Pending",
 			description:
@@ -454,7 +454,7 @@ function registerCheckFollowupsTool(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
 	server.registerTool(
-		"check_followups",
+		"followups_check",
 		{
 			title: "Check Followups",
 			description:
@@ -474,7 +474,7 @@ function registerMessageAgentTool(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
 	server.registerTool(
-		"message_agent",
+		"agent_message",
 		{
 			title: "Message Agent",
 			description: "Send an email message to another agent by agent name.",
@@ -514,7 +514,7 @@ function registerCheckMessagesTool(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
 	server.registerTool(
-		"check_messages",
+		"messages_check",
 		{
 			title: "Check Messages",
 			description:
@@ -547,7 +547,7 @@ function registerWaitForEmailTool(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
 	server.registerTool(
-		"wait_for_email",
+		"email_wait",
 		{
 			title: "Wait for Email",
 			description:
@@ -587,7 +587,7 @@ function registerCallAgentTool(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
 	server.registerTool(
-		"call_agent",
+		"agent_call",
 		{
 			title: "Call Agent",
 			description:
@@ -651,7 +651,7 @@ function registerUpdateMetadataTool(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
 	server.registerTool(
-		"update_metadata",
+		"me_update",
 		{
 			title: "Update Metadata",
 			description: "Update metadata for the current agent identity.",
@@ -693,7 +693,7 @@ function registerManageSpamTool(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
 	server.registerTool(
-		"manage_spam",
+		"spam_manage",
 		{
 			title: "Manage Spam",
 			description: "List, report, and unmark spam messages.",
@@ -738,7 +738,7 @@ function registerCheckTasksTool(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
 	server.registerTool(
-		"check_tasks",
+		"tasks_check",
 		{
 			title: "Check Tasks",
 			description:
