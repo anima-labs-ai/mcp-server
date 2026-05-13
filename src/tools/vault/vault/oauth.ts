@@ -12,7 +12,14 @@
 
 import { z } from "zod";
 import type { ToolRegistrationOptions } from "../../../shared/index.js";
-import { withErrorHandling, toolSuccess } from "../../../shared/index.js";
+import {
+	deleteOutput,
+	listOutput,
+	objectOutput,
+	statusOutput,
+	toolSuccess,
+	withErrorHandling,
+} from "../../../shared/index.js";
 
 export function registerOAuthTools(options: ToolRegistrationOptions): void {
 	const { server } = options;
@@ -28,6 +35,7 @@ export function registerOAuthTools(options: ToolRegistrationOptions): void {
 				.optional()
 				.describe("Filter by category (productivity, developer, communication, crm, etc.)"),
 		},
+			outputSchema: listOutput(),
 			annotations: {
 				readOnlyHint: true,
 				destructiveHint: false,
@@ -72,6 +80,7 @@ export function registerOAuthTools(options: ToolRegistrationOptions): void {
 				.optional()
 				.describe("URL to redirect to after authentication completes."),
 		},
+			outputSchema: objectOutput(),
 			annotations: {
 				readOnlyHint: false,
 				destructiveHint: false,
@@ -98,6 +107,7 @@ export function registerOAuthTools(options: ToolRegistrationOptions): void {
 				.string()
 				.describe("The Connect Link token returned by vault_oauth_create_link."),
 		},
+			outputSchema: statusOutput(),
 			annotations: {
 				readOnlyHint: true,
 				destructiveHint: false,
@@ -136,6 +146,7 @@ export function registerOAuthTools(options: ToolRegistrationOptions): void {
 				.optional()
 				.describe("Filter by connection status."),
 		},
+			outputSchema: listOutput(),
 			annotations: {
 				readOnlyHint: true,
 				destructiveHint: false,
@@ -171,6 +182,7 @@ export function registerOAuthTools(options: ToolRegistrationOptions): void {
 				.string()
 				.describe("Connected account ID to disconnect."),
 		},
+			outputSchema: deleteOutput(),
 			annotations: {
 				readOnlyHint: false,
 				destructiveHint: true,
@@ -204,6 +216,7 @@ export function registerOAuthTools(options: ToolRegistrationOptions): void {
 				.string()
 				.describe("Service slug to check (e.g. google, github, slack)."),
 		},
+			outputSchema: objectOutput(),
 			annotations: {
 				readOnlyHint: false,
 				destructiveHint: false,

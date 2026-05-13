@@ -1,8 +1,11 @@
 import { z } from "zod";
 import type { ToolRegistrationOptions } from "../../../shared/index.js";
 import {
+	listOutput,
+	objectOutput,
 	registerToolWithAliases,
 	requireMasterKeyGuard,
+	statusOutput,
 	toolError,
 	toolSuccess,
 	withErrorHandling,
@@ -258,6 +261,7 @@ function registerDiscoverTool(options: ToolRegistrationOptions): void {
 			description:
 				"Find the right Anima MCP tool for an intent in plain English. Use this when you don't remember the exact tool name. Returns a ranked list of {name, description, why} so you can pick. Falls back to keyword matching when the platform's pgvector index is unavailable.",
 			inputSchema: discoverInput.shape,
+			outputSchema: objectOutput(),
 			annotations: { readOnlyHint: true, destructiveHint: false },
 		},
 		withErrorHandling(async (args, context) => {
@@ -323,6 +327,7 @@ function registerWhoAmITool(options: ToolRegistrationOptions): void {
 			description:
 				"Return identity details for the current API credential, plus the running MCP server's deploy identity (commitSha, revision, buildId). Use to verify which account and scope you're operating under AND which version of the MCP server is actually serving you. The mcpServer block answers 'did my fix actually land?' in one call — compare commitSha against the merge commit you expected to deploy.",
 			inputSchema: noInput.shape,
+			outputSchema: objectOutput(),
 			annotations: { readOnlyHint: true, destructiveHint: false },
 			deprecate: true,
 		},
@@ -348,6 +353,7 @@ function registerCheckHealthTool(options: ToolRegistrationOptions): void {
 			description:
 				"Check API health status from the server health endpoint, plus the MCP server's deploy identity. Returns api={...} (upstream API health) and mcpServer={commitSha, revision, buildId, startedAt}. Use this before troubleshooting tool failures to confirm BOTH service availability AND that you're hitting the deploy you think you are.",
 			inputSchema: noInput.shape,
+			outputSchema: statusOutput(),
 			annotations: { readOnlyHint: true, destructiveHint: false },
 			deprecate: true,
 		},
@@ -403,6 +409,7 @@ function registerWorkspaceHealthTool(options: ToolRegistrationOptions): void {
 			description:
 				"Workspace-level self-diagnosis: returns canSendEmail, canSendSms, current credential context, inventory counts (agents, domains, phones), and a list of typed blockers. Each blocker carries `tool` (the canonical MCP tool that resolves it) and `toolHint` (how to call it) when an automated remediation exists — so you can go from diagnosis to action in one round-trip. Callable by ANY authenticated credential — agent-key, master, or admin:full OAuth — no escalation required. Use this before non-trivial workflows to check 'can I do X right now?' without paying a real send/call to find out. Closes the gap that check_health (server-only health) and who_am_i (identity only) leave open.",
 			inputSchema: noInput.shape,
+			outputSchema: objectOutput(),
 			annotations: { readOnlyHint: true, destructiveHint: false },
 			deprecate: true,
 		},
@@ -438,6 +445,7 @@ function registerConceptsTool(options: ToolRegistrationOptions): void {
 			description:
 				"Return a short conceptual map of the Anima platform: how Agents, EmailIdentities, PhoneIdentities, Domains, Inboxes, Pods, and DIDs relate. Useful for cold-started agents that need to reason about resource lifecycles before making writes. Returns a JSON doc — no API call, instant.",
 			inputSchema: noInput.shape,
+			outputSchema: objectOutput(),
 			annotations: { readOnlyHint: true, destructiveHint: false },
 		},
 		withErrorHandling(async (_args, _context) => {
@@ -544,6 +552,7 @@ function registerListCapabilitiesTool(options: ToolRegistrationOptions): void {
 			description:
 				"Return what the CURRENT credential can do — auth tier + tool families that work for that tier. Calls /v1/orgs/me to learn the credential context, then attaches a static catalog of tool families bucketed by required auth tier (anyAuth / agentOrMaster / masterOnly). Saves exploratory calls — instead of trial-and-error on 'is this master-only?' the LLM gets the answer up front. Pair with Workspace_Health for capability state (canSendEmail etc.).",
 			inputSchema: noInput.shape,
+			outputSchema: objectOutput(),
 			annotations: { readOnlyHint: true, destructiveHint: false },
 		},
 		withErrorHandling(async (_args, context) => {
@@ -647,6 +656,7 @@ function registerManagePendingTool(options: ToolRegistrationOptions): void {
 			description:
 				"Approve or reject a pending message requiring manual decision. Use this to unblock held messages with an explicit action and optional reason.",
 			inputSchema: managePendingInput.shape,
+			outputSchema: objectOutput(),
 			annotations: {
 				readOnlyHint: false,
 				destructiveHint: false,
@@ -682,6 +692,7 @@ function registerCheckFollowupsTool(options: ToolRegistrationOptions): void {
 			description:
 				"Drain and return queued follow-up reminders for blocked messages. Use this to poll reminders generated by the pending follow-up scheduler.",
 			inputSchema: noInput.shape,
+			outputSchema: listOutput(),
 			annotations: { readOnlyHint: true, destructiveHint: false },
 			deprecate: true,
 		},
@@ -703,6 +714,7 @@ function registerMessageAgentTool(options: ToolRegistrationOptions): void {
 			title: "Message Agent",
 			description: "Send an email message to another agent by agent name.",
 			inputSchema: messageAgentInput.shape,
+			outputSchema: objectOutput(),
 			annotations: { readOnlyHint: false, destructiveHint: false },
 			deprecate: true,
 		},
@@ -746,6 +758,7 @@ function registerCheckMessagesTool(options: ToolRegistrationOptions): void {
 			description:
 				"Check inbound messages with optional unread-only filtering and compact formatting.",
 			inputSchema: checkMessagesInput.shape,
+			outputSchema: listOutput(),
 			annotations: { readOnlyHint: true, destructiveHint: false },
 			deprecate: true,
 		},
@@ -781,6 +794,7 @@ function registerWaitForEmailTool(options: ToolRegistrationOptions): void {
 			description:
 				"Poll inbound messages until a matching email arrives or timeout expires.",
 			inputSchema: waitForEmailInput.shape,
+			outputSchema: objectOutput(),
 			annotations: { readOnlyHint: true, destructiveHint: false },
 			deprecate: true,
 		},
@@ -823,6 +837,7 @@ function registerCallAgentTool(options: ToolRegistrationOptions): void {
 			description:
 				"Send a synchronous request to another agent and wait for reply.",
 			inputSchema: callAgentInput.shape,
+			outputSchema: objectOutput(),
 			annotations: { readOnlyHint: false, destructiveHint: false },
 			deprecate: true,
 		},
@@ -888,6 +903,7 @@ function registerUpdateMetadataTool(options: ToolRegistrationOptions): void {
 			title: "Update Metadata",
 			description: "Update metadata for the current agent identity.",
 			inputSchema: updateMetadataInput.shape,
+			outputSchema: objectOutput(),
 			annotations: { readOnlyHint: false, destructiveHint: false },
 			deprecate: true,
 		},
@@ -930,6 +946,7 @@ function registerSetupEmailDomainTool(options: ToolRegistrationOptions): void {
 			description:
 				"Configure a custom email domain for account setup workflows.",
 			inputSchema: setupEmailDomainInput.shape,
+			outputSchema: objectOutput(),
 			annotations: { readOnlyHint: false, destructiveHint: false },
 			deprecate: true,
 		},
@@ -954,6 +971,7 @@ function registerSendTestEmailTool(options: ToolRegistrationOptions): void {
 			title: "Send Test Email",
 			description: "Send a simple test email for setup verification.",
 			inputSchema: sendTestEmailInput.shape,
+			outputSchema: objectOutput(),
 			annotations: { readOnlyHint: false, destructiveHint: false },
 			deprecate: true,
 		},
@@ -980,6 +998,7 @@ function registerManageSpamTool(options: ToolRegistrationOptions): void {
 			title: "Manage Spam",
 			description: "List, report, and unmark spam messages.",
 			inputSchema: manageSpamInput.shape,
+			outputSchema: objectOutput(),
 			annotations: { readOnlyHint: false, destructiveHint: false },
 			deprecate: true,
 		},
@@ -1028,6 +1047,7 @@ function registerCheckTasksTool(options: ToolRegistrationOptions): void {
 			description:
 				"Fetch task-assignment messages filtered by metadata type and optional status.",
 			inputSchema: checkTasksInput.shape,
+			outputSchema: listOutput(),
 			annotations: { readOnlyHint: true, destructiveHint: false },
 			deprecate: true,
 		},

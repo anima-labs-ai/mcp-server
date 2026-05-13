@@ -1,9 +1,11 @@
 import { z } from "zod";
 import type { ToolRegistrationOptions } from "../../shared/index.js";
 import {
-	withErrorHandling,
-	toolSuccess,
+	listOutput,
+	objectOutput,
 	requireMasterKeyGuard,
+	toolSuccess,
+	withErrorHandling,
 } from "../../shared/index.js";
 
 const agentIdSchema = z.object({
@@ -94,6 +96,7 @@ export function registerWalletTools(options: ToolRegistrationOptions): void {
 			title: "Create Wallet",
 			description: "Create a new wallet for an agent. Use this to provision a payment wallet for agent-to-agent transactions.",
 			inputSchema: createWalletSchema.shape,
+			outputSchema: objectOutput(),
 		},
 		withErrorHandling(async (args, context) => {
 			requireMasterKeyGuard(context);
@@ -109,6 +112,7 @@ export function registerWalletTools(options: ToolRegistrationOptions): void {
 			title: "Get Wallet",
 			description: "Get wallet details for an agent including balance. Use this to check an agent's wallet status and balance.",
 			inputSchema: agentIdSchema.shape,
+			outputSchema: objectOutput(),
 		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.get<unknown>(`/v1/agents/${encodeURIComponent(args.agentId)}/wallet`);
@@ -122,6 +126,7 @@ export function registerWalletTools(options: ToolRegistrationOptions): void {
 			title: "Pay Wallet",
 			description: "Send a payment from an agent's wallet. Use this to transfer funds to another agent or address.",
 			inputSchema: walletPaySchema.shape,
+			outputSchema: objectOutput(),
 		},
 		withErrorHandling(async (args, context) => {
 			requireMasterKeyGuard(context);
@@ -137,6 +142,7 @@ export function registerWalletTools(options: ToolRegistrationOptions): void {
 			title: "Fetch Wallet x402",
 			description: "Fetch a URL with automatic x402 payment negotiation via the agent's wallet API. Use this to access paid APIs and content.",
 			inputSchema: x402FetchSchema.shape,
+			outputSchema: objectOutput(),
 		},
 		withErrorHandling(async (args, context) => {
 			requireMasterKeyGuard(context);
@@ -152,6 +158,7 @@ export function registerWalletTools(options: ToolRegistrationOptions): void {
 			title: "Wallet Transactions",
 			description: "List wallet transactions for an agent. Use this to review payment history.",
 			inputSchema: walletTransactionsSchema.shape,
+			outputSchema: listOutput(),
 		},
 		withErrorHandling(async (args, context) => {
 			const params = new URLSearchParams();
@@ -169,6 +176,7 @@ export function registerWalletTools(options: ToolRegistrationOptions): void {
 			title: "Freeze Wallet",
 			description: "Freeze an agent's wallet to prevent transactions. Use this to temporarily disable payments.",
 			inputSchema: agentIdSchema.shape,
+			outputSchema: objectOutput(),
 		},
 		withErrorHandling(async (args, context) => {
 			requireMasterKeyGuard(context);
@@ -183,6 +191,7 @@ export function registerWalletTools(options: ToolRegistrationOptions): void {
 			title: "Unfreeze Wallet",
 			description: "Unfreeze an agent's wallet to re-enable transactions. Use this to restore payment capability.",
 			inputSchema: agentIdSchema.shape,
+			outputSchema: objectOutput(),
 		},
 		withErrorHandling(async (args, context) => {
 			requireMasterKeyGuard(context);

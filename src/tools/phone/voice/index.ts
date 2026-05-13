@@ -17,9 +17,12 @@
 import { z } from "zod";
 import type { ToolRegistrationOptions } from "../../../shared/index.js";
 import {
+	listOutput,
+	objectOutput,
 	registerToolWithAliases,
-	withErrorHandling,
+	sendOutput,
 	toolSuccess,
+	withErrorHandling,
 } from "../../../shared/index.js";
 import { registerVoiceCallTool } from "./live-call.js";
 
@@ -78,6 +81,7 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 			description:
 				"List available AI voices for phone calls. Filter by tier (basic for low-latency, premium for natural voices), gender, or language. Returns voice IDs needed for voice_create_call.",
 			inputSchema: voiceCatalogSchema.shape,
+			outputSchema: listOutput(),
 			deprecate: true,
 			annotations: {
 				readOnlyHint: true,
@@ -106,6 +110,7 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 			fromNumber: z.string().optional()
 				.describe("Source number to call from (defaults to agent's primary number)."),
 		},
+			outputSchema: sendOutput(),
 			annotations: {
 				readOnlyHint: false,
 				destructiveHint: false,
@@ -142,6 +147,7 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 			offset: z.number().int().nonnegative().optional()
 				.describe("Offset for pagination."),
 		},
+			outputSchema: listOutput(),
 			annotations: {
 				readOnlyHint: true,
 				destructiveHint: false,
@@ -173,6 +179,7 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 			callId: z.string()
 				.describe("The call ID to retrieve."),
 		},
+			outputSchema: objectOutput(),
 			annotations: {
 				readOnlyHint: true,
 				destructiveHint: false,
@@ -197,6 +204,7 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 			callId: z.string()
 				.describe("The call ID to get the transcript for."),
 		},
+			outputSchema: objectOutput(),
 			annotations: {
 				readOnlyHint: true,
 				destructiveHint: false,
@@ -221,6 +229,7 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 			callId: z.string()
 				.describe("The call ID to get the recording for."),
 		},
+			outputSchema: objectOutput(),
 			annotations: {
 				readOnlyHint: true,
 				destructiveHint: false,
@@ -245,6 +254,7 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 			callId: z.string()
 				.describe("The call ID to get the summary for."),
 		},
+			outputSchema: objectOutput(),
 			annotations: {
 				readOnlyHint: true,
 				destructiveHint: false,
@@ -269,6 +279,7 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 			callId: z.string()
 				.describe("The call ID to get the score for."),
 		},
+			outputSchema: objectOutput(),
 			annotations: {
 				readOnlyHint: true,
 				destructiveHint: false,
@@ -303,6 +314,7 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 			threshold: z.number().min(0).max(1).optional()
 				.describe("Similarity threshold 0-1 (default: 0.7). Lower = more results."),
 		},
+			outputSchema: listOutput(),
 			annotations: {
 				readOnlyHint: true,
 				destructiveHint: false,
@@ -333,6 +345,7 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 			callId: z.string()
 				.describe("The call ID to get security scan results for."),
 		},
+			outputSchema: objectOutput(),
 			annotations: {
 				readOnlyHint: true,
 				destructiveHint: false,

@@ -38,6 +38,31 @@ describe("toolSuccess", () => {
 		const result = toolSuccess("hello");
 		expect(result.content[0].text).toBe("hello");
 	});
+
+	test("emits structuredContent for object data (MCP spec 2025-11-25)", () => {
+		const result = toolSuccess({ foo: "bar", n: 1 });
+		expect(result.structuredContent).toEqual({ foo: "bar", n: 1 });
+	});
+
+	test("wraps array in { items } for structuredContent", () => {
+		const result = toolSuccess([1, 2, 3]);
+		expect(result.structuredContent).toEqual({ items: [1, 2, 3] });
+	});
+
+	test("omits structuredContent for string data", () => {
+		const result = toolSuccess("hello");
+		expect(result.structuredContent).toBeUndefined();
+	});
+
+	test("omits structuredContent for null/undefined", () => {
+		expect(toolSuccess(null).structuredContent).toBeUndefined();
+		expect(toolSuccess(undefined).structuredContent).toBeUndefined();
+	});
+
+	test("wraps primitives as { value }", () => {
+		expect(toolSuccess(42).structuredContent).toEqual({ value: 42 });
+		expect(toolSuccess(true).structuredContent).toEqual({ value: true });
+	});
 });
 
 describe("toolError", () => {

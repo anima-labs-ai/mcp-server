@@ -35,14 +35,49 @@ export function requiresMasterKey(toolName: string): boolean {
 
 /**
  * Format a successful tool response for MCP.
+ *
+ * Emits BOTH unstructured text content AND `structuredContent` per the
+ * MCP spec 2025-11-25:
+ *   - `content` — text block, preserved for clients that don't yet read
+ *     `structuredContent`. Required for backward compatibility.
+ *   - `structuredContent` — JSON object that conforms to the tool's
+ *     declared `outputSchema`. Required by spec whenever outputSchema is
+ *     set on the tool. Lets clients typecheck and consume responses
+ *     without re-parsing the text block.
+ *
+ * Wrapping rule: API responses are usually objects (or arrays). The MCP
+ * spec requires `structuredContent` to be a JSON object — not an array
+ * or scalar. So:
+ *   - object → return as-is in structuredContent
+ *   - array  → wrap as `{ items: [...] }` so it satisfies "object"
+ *   - string → no structuredContent (use cases: pure prose responses)
+ *   - other  → wrap as `{ value: ... }`
+ *
+ * This keeps the unstructured text exactly what it was (pretty JSON or
+ * the raw string) while making the structured form available alongside.
  */
-export function toolSuccess(
-	data: unknown,
-): { content: Array<{ type: "text"; text: string }> } {
+export function toolSuccess(data: unknown): {
+	content: Array<{ type: "text"; text: string }>;
+	structuredContent?: Record<string, unknown>;
+} {
 	const text =
 		typeof data === "string" ? data : JSON.stringify(data, null, 2);
-	return {
+	const base = {
 		content: [{ type: "text" as const, text }],
+	};
+	if (data === null || data === undefined || typeof data === "string") {
+		return base;
+	}
+	if (Array.isArray(data)) {
+		return { ...base, structuredContent: { items: data } };
+	}
+	if (typeof data === "object") {
+		return { ...base, structuredContent: data as Record<string, unknown> };
+	}
+	// number | boolean | bigint | symbol — wrap as { value }
+	return {
+		...base,
+		structuredContent: { value: data as unknown },
 	};
 }
 
@@ -215,6 +250,15 @@ export function registerToolWithAliases(
 		// biome-ignore lint/suspicious/noExplicitAny: Same — Zod-shape passthrough.
 		inputSchema: any;
 		/**
+		 * Optional JSON Schema (Zod-shape form, same convention as
+		 * `inputSchema`) describing the structured tool output. When set,
+		 * the canonical + every alias get the same schema, and the MCP SDK
+		 * validates `structuredContent` against it on the wire. See
+		 * `output-schemas.ts` for reusable shapes.
+		 */
+		// biome-ignore lint/suspicious/noExplicitAny: Same — Zod-shape passthrough.
+		outputSchema?: any;
+		/**
 		 * Behavioral hints surfaced to MCP clients (readOnlyHint,
 		 * destructiveHint, idempotentHint, openWorldHint). Passed through
 		 * to both canonical + alias registrations so deprecated aliases
@@ -239,6 +283,7 @@ export function registerToolWithAliases(
 			...(config.title ? { title: config.title } : {}),
 			description: config.description,
 			inputSchema: config.inputSchema,
+			...(config.outputSchema ? { outputSchema: config.outputSchema } : {}),
 			...(config.annotations ? { annotations: config.annotations } : {}),
 		},
 		handler,
@@ -267,6 +312,7 @@ export function registerToolWithAliases(
 			{
 				description,
 				inputSchema: config.inputSchema,
+				...(config.outputSchema ? { outputSchema: config.outputSchema } : {}),
 				...(config.annotations ? { annotations: config.annotations } : {}),
 			},
 			wrappedHandler,

@@ -1,9 +1,12 @@
 import { z } from "zod";
 import type { ToolRegistrationOptions } from "../../../shared/index.js";
 import {
-	withErrorHandling,
-	toolSuccess,
+	deleteOutput,
+	listOutput,
+	objectOutput,
 	requireMasterKeyGuard,
+	toolSuccess,
+	withErrorHandling,
 } from "../../../shared/index.js";
 
 const domainAddSchema = z.object({
@@ -27,6 +30,7 @@ export function registerDomainTools(options: ToolRegistrationOptions): void {
 			title: "Add Domain",
 			description: "Add a custom sending domain to the workspace so it can be configured for email traffic. Use this before DNS setup and verification.",
 			inputSchema: domainAddSchema.shape,
+			outputSchema: objectOutput(),
 			annotations: {
 				readOnlyHint: false,
 				destructiveHint: false,
@@ -47,6 +51,7 @@ export function registerDomainTools(options: ToolRegistrationOptions): void {
 			title: "Verify Domain",
 			description: "Trigger a verification check for a domain after DNS records are configured. Use this to re-run DNS validation and update verification status.",
 			inputSchema: domainIdSchema.shape,
+			outputSchema: objectOutput(),
 			annotations: {
 				readOnlyHint: false,
 				destructiveHint: false,
@@ -68,6 +73,7 @@ export function registerDomainTools(options: ToolRegistrationOptions): void {
 			title: "Get Domain",
 			description: "Fetch full details for a single domain, including verification and configuration state. Use this to inspect current domain health.",
 			inputSchema: domainIdSchema.shape,
+			outputSchema: objectOutput(),
 			annotations: {
 				readOnlyHint: true,
 				destructiveHint: false,
@@ -88,6 +94,7 @@ export function registerDomainTools(options: ToolRegistrationOptions): void {
 			title: "List Domain",
 			description: "List all domains connected to the current workspace. Use this to audit configured sender domains and choose one for follow-up actions.",
 			inputSchema: emptySchema.shape,
+			outputSchema: listOutput(),
 			annotations: {
 				readOnlyHint: true,
 				destructiveHint: false,
@@ -107,6 +114,7 @@ export function registerDomainTools(options: ToolRegistrationOptions): void {
 			title: "Delete Domain",
 			description: "Delete a domain from the workspace when it is no longer needed. Use this to remove old or incorrect domain configurations.",
 			inputSchema: domainIdSchema.shape,
+			outputSchema: deleteOutput(),
 			annotations: {
 				readOnlyHint: false,
 				destructiveHint: true,
@@ -128,6 +136,7 @@ export function registerDomainTools(options: ToolRegistrationOptions): void {
 			title: "Domain DNS Records",
 			description: "Get the exact DNS records required to complete domain onboarding. Use this to configure SPF, DKIM, MX, or verification entries at your DNS provider.",
 			inputSchema: domainIdSchema.shape,
+			outputSchema: objectOutput(),
 			annotations: {
 				readOnlyHint: true,
 				destructiveHint: false,
@@ -160,6 +169,7 @@ export function registerDomainTools(options: ToolRegistrationOptions): void {
 			title: "Update Domain",
 			description: "Update configuration for a domain, such as catch-all behavior or auto-verify settings. Use this to adjust domain behavior after initial setup.",
 			inputSchema: domainUpdateSchema.shape,
+			outputSchema: objectOutput(),
 			annotations: {
 				readOnlyHint: false,
 				destructiveHint: false,
@@ -181,6 +191,7 @@ export function registerDomainTools(options: ToolRegistrationOptions): void {
 			title: "Domain Deliverability",
 			description: "Check domain deliverability diagnostics and readiness for outbound email. Use this to troubleshoot sending reputation or setup issues before campaigns.",
 			inputSchema: domainIdSchema.shape,
+			outputSchema: objectOutput(),
 			annotations: {
 				readOnlyHint: true,
 				destructiveHint: false,
@@ -201,6 +212,7 @@ export function registerDomainTools(options: ToolRegistrationOptions): void {
 			title: "Domain Zone File",
 			description: "Get the full DNS zone file for a domain. Use this for complete DNS export or to verify all records are correctly configured.",
 			inputSchema: domainIdSchema.shape,
+			outputSchema: objectOutput(),
 			annotations: {
 				readOnlyHint: true,
 				destructiveHint: false,

@@ -1,9 +1,12 @@
 import { z } from "zod";
 import type { ToolRegistrationOptions } from "../../../shared/index.js";
 import {
-	withErrorHandling,
-	toolSuccess,
+	deleteOutput,
+	listOutput,
+	objectOutput,
 	requireMasterKeyGuard,
+	toolSuccess,
+	withErrorHandling,
 } from "../../../shared/index.js";
 
 const orgCreateInput = z.object({
@@ -54,6 +57,7 @@ function registerOrgCreateTool(options: ToolRegistrationOptions): void {
 			title: "Create Org",
 			description: "Create a new organization and return its details, including credentials when available. Use this when onboarding a new tenant and ensure a master key is configured.",
 			inputSchema: orgCreateInput.shape,
+			outputSchema: objectOutput(),
 			annotations: {
 				readOnlyHint: false,
 				destructiveHint: false,
@@ -80,6 +84,7 @@ function registerOrgGetTool(options: ToolRegistrationOptions): void {
 			title: "Get Org",
 			description: "Fetch one organization by ID. Use this to inspect current organization configuration and metadata.",
 			inputSchema: orgGetInput.shape,
+			outputSchema: objectOutput(),
 			annotations: {
 				readOnlyHint: true,
 				destructiveHint: false,
@@ -103,6 +108,7 @@ function registerOrgUpdateTool(options: ToolRegistrationOptions): void {
 			title: "Update Org",
 			description: "Update organization name or metadata fields. Use this when organization settings need to be corrected or renamed.",
 			inputSchema: orgUpdateInput.shape,
+			outputSchema: objectOutput(),
 			annotations: {
 				readOnlyHint: false,
 				destructiveHint: false,
@@ -127,6 +133,7 @@ function registerOrgDeleteTool(options: ToolRegistrationOptions): void {
 			title: "Delete Org",
 			description: "Delete an organization permanently by ID. Use this only for irreversible cleanup and requires master key access.",
 			inputSchema: orgDeleteInput.shape,
+			outputSchema: deleteOutput(),
 			annotations: {
 				readOnlyHint: false,
 				destructiveHint: true,
@@ -153,6 +160,7 @@ function registerOrgRotateKeyTool(options: ToolRegistrationOptions): void {
 			title: "Rotate Org Key",
 			description: "Rotate the API key for an organization and return the new credential material. Use this when keys are compromised or part of regular security rotation. Invalidates the previous key.",
 			inputSchema: orgRotateKeyInput.shape,
+			outputSchema: objectOutput(),
 			annotations: {
 				readOnlyHint: false,
 				destructiveHint: true,
@@ -179,6 +187,7 @@ function registerOrgListTool(options: ToolRegistrationOptions): void {
 			title: "List Org",
 			description: "List organizations with optional cursor pagination. Use this to browse all tenants and audit organization inventory; requires master key.",
 			inputSchema: orgListInput.shape,
+			outputSchema: listOutput(),
 			annotations: {
 				readOnlyHint: true,
 				destructiveHint: false,

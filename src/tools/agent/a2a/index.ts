@@ -1,8 +1,11 @@
 import { z } from "zod";
 import type { ToolRegistrationOptions } from "../../../shared/index.js";
 import {
-	withErrorHandling,
+	listOutput,
+	objectOutput,
+	sendOutput,
 	toolSuccess,
+	withErrorHandling,
 } from "../../../shared/index.js";
 
 const discoverAgentInput = z.object({
@@ -47,6 +50,7 @@ function registerDiscoverAgentTool(options: ToolRegistrationOptions): void {
 			title: "Discover Agent",
 			description: "Fetch an agent's Agent Card via the A2A protocol well-known URL (/.well-known/agent.json) at a public agent URL. Use this for inter-agent capability discovery; for the public Anima registry use `lookup_agent` (by DID) or `search_registry` (by text).",
 			inputSchema: discoverAgentInput.shape,
+			outputSchema: objectOutput(),
 			annotations: {
 				readOnlyHint: true,
 				destructiveHint: false,
@@ -75,6 +79,7 @@ function registerSubmitA2aTaskTool(options: ToolRegistrationOptions): void {
 			title: "Submit A2A Task",
 			description: "Submit a task to an agent via the A2A protocol. The agent will process the task asynchronously. Use discover_agent first to check supported task types.",
 			inputSchema: submitA2aTaskInput.shape,
+			outputSchema: sendOutput(),
 			annotations: {
 				readOnlyHint: false,
 				destructiveHint: false,
@@ -99,6 +104,7 @@ function registerGetA2aTaskTool(options: ToolRegistrationOptions): void {
 			title: "Get A2A Task",
 			description: "Get the current status and output of an A2A task. Use this to poll for task completion after submitting a task.",
 			inputSchema: getA2aTaskInput.shape,
+			outputSchema: objectOutput(),
 			annotations: {
 				readOnlyHint: true,
 				destructiveHint: false,
@@ -122,6 +128,7 @@ function registerListA2aTasksTool(options: ToolRegistrationOptions): void {
 			title: "List A2A Tasks",
 			description: "List A2A tasks for an agent with optional status filtering and pagination. Use this to see all tasks submitted to or by an agent.",
 			inputSchema: listA2aTasksInput.shape,
+			outputSchema: listOutput(),
 			annotations: {
 				readOnlyHint: true,
 				destructiveHint: false,
@@ -151,6 +158,7 @@ function registerCancelA2aTaskTool(options: ToolRegistrationOptions): void {
 			title: "Cancel A2A Task",
 			description: "Cancel a running A2A task. The task must be in SUBMITTED or WORKING status to be cancelable.",
 			inputSchema: cancelA2aTaskInput.shape,
+			outputSchema: objectOutput(),
 			annotations: {
 				readOnlyHint: false,
 				destructiveHint: true,

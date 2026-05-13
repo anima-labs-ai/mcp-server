@@ -1,9 +1,11 @@
 import { z } from "zod";
 import type { ToolRegistrationOptions } from "../../../shared/index.js";
 import {
-	withErrorHandling,
-	toolSuccess,
+	listOutput,
+	objectOutput,
 	requireMasterKeyGuard,
+	toolSuccess,
+	withErrorHandling,
 } from "../../../shared/index.js";
 
 type UnknownRecord = Record<string, unknown>;
@@ -142,6 +144,7 @@ export function registerSecurityTools(options: ToolRegistrationOptions): void {
 			title: "Approve Security",
 			description: "Approve or reject a message that is waiting in pending-review state. Use this to unblock compliant outbound content or explicitly reject risky messages.",
 			inputSchema: securityApproveInput.shape,
+			outputSchema: objectOutput(),
 			annotations: {
 				readOnlyHint: false,
 				destructiveHint: false,
@@ -169,6 +172,7 @@ export function registerSecurityTools(options: ToolRegistrationOptions): void {
 			title: "List Security Events",
 			description: "List security events for an organization with optional agent and event-type filters. Use this for incident triage, compliance review, and audit timelines.",
 			inputSchema: securityListEventsInput.shape,
+			outputSchema: listOutput(),
 			annotations: {
 				readOnlyHint: true,
 				destructiveHint: false,
@@ -196,6 +200,7 @@ export function registerSecurityTools(options: ToolRegistrationOptions): void {
 			title: "Get Security Policy",
 			description: "Fetch the active security policy for an agent, including scan level and domain constraints. Use this before changing enforcement behavior or diagnosing blocked messages.",
 			inputSchema: securityGetPolicyInput.shape,
+			outputSchema: objectOutput(),
 			annotations: {
 				readOnlyHint: true,
 				destructiveHint: false,
@@ -217,6 +222,7 @@ export function registerSecurityTools(options: ToolRegistrationOptions): void {
 			title: "Update Security Policy",
 			description: "Update an agent security policy to tune scanning strictness, domain allow-lists, and blocking patterns. Use this to harden or relax outbound message controls.",
 			inputSchema: securityUpdatePolicyInput.shape,
+			outputSchema: objectOutput(),
 			annotations: {
 				readOnlyHint: false,
 				destructiveHint: false,
@@ -246,6 +252,7 @@ export function registerSecurityTools(options: ToolRegistrationOptions): void {
 			title: "Scan Security Content",
 			description: "Dry-run scan message content for likely PII or injection issues without sending any outbound message. Use this as a preflight safety check before calling message send tools.",
 			inputSchema: securityScanContentInput.shape,
+			outputSchema: objectOutput(),
 			annotations: {
 				readOnlyHint: true,
 				destructiveHint: false,

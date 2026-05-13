@@ -1,9 +1,13 @@
 import { z } from "zod";
 import type { ToolRegistrationOptions } from "../../../shared/index.js";
 import {
+	deleteOutput,
+	listOutput,
+	objectOutput,
 	registerToolWithAliases,
-	withErrorHandling,
+	statusOutput,
 	toolSuccess,
+	withErrorHandling,
 } from "../../../shared/index.js";
 
 // 2026-05-12: renamed 9 webhook tools from space-separated names to
@@ -105,6 +109,7 @@ export function registerWebhookTools(options: ToolRegistrationOptions): void {
 			description:
 				"Create a new webhook endpoint with subscribed event types so external systems can receive Anima events. Use this when integrating downstream processors or automations.",
 			inputSchema: webhookCreateInput.shape,
+			outputSchema: objectOutput(),
 			annotations: { readOnlyHint: false, destructiveHint: false },
 			deprecate: true,
 		},
@@ -126,6 +131,7 @@ export function registerWebhookTools(options: ToolRegistrationOptions): void {
 			description:
 				"Fetch full details for a specific webhook by ID, including URL, events, and status fields. Use this when validating an existing webhook configuration.",
 			inputSchema: webhookGetInput.shape,
+			outputSchema: objectOutput(),
 			annotations: { readOnlyHint: true, destructiveHint: false },
 			deprecate: true,
 		},
@@ -147,6 +153,7 @@ export function registerWebhookTools(options: ToolRegistrationOptions): void {
 			description:
 				"Update an existing webhook's URL, subscribed events, enabled state, or description. Use this when endpoint destinations or subscription behavior changes.",
 			inputSchema: webhookUpdateInput.shape,
+			outputSchema: objectOutput(),
 			annotations: { readOnlyHint: false, destructiveHint: false },
 			deprecate: true,
 		},
@@ -173,6 +180,7 @@ export function registerWebhookTools(options: ToolRegistrationOptions): void {
 			description:
 				"Delete a webhook endpoint by ID so it no longer receives event deliveries. Use this when retiring integrations or removing invalid destinations.",
 			inputSchema: webhookDeleteInput.shape,
+			outputSchema: deleteOutput(),
 			annotations: { readOnlyHint: false, destructiveHint: true },
 			deprecate: true,
 		},
@@ -194,6 +202,7 @@ export function registerWebhookTools(options: ToolRegistrationOptions): void {
 			description:
 				"List webhooks with optional agent scope and cursor pagination. Use this to audit currently configured endpoints across your workspace.",
 			inputSchema: webhookListInput.shape,
+			outputSchema: listOutput(),
 			annotations: { readOnlyHint: true, destructiveHint: false },
 			deprecate: true,
 		},
@@ -221,6 +230,7 @@ export function registerWebhookTools(options: ToolRegistrationOptions): void {
 			description:
 				"Trigger a test event delivery for a webhook to verify endpoint reachability and signature handling. Use this before enabling production event flows.",
 			inputSchema: webhookTestInput.shape,
+			outputSchema: objectOutput(),
 			annotations: { readOnlyHint: false, destructiveHint: false },
 			deprecate: true,
 		},
@@ -244,6 +254,7 @@ export function registerWebhookTools(options: ToolRegistrationOptions): void {
 			description:
 				"List delivery attempts for a specific webhook, including retry and response details when available. Use this to troubleshoot failed or delayed webhook calls.",
 			inputSchema: webhookListDeliveriesInput.shape,
+			outputSchema: listOutput(),
 			annotations: { readOnlyHint: true, destructiveHint: false },
 			deprecate: true,
 		},
@@ -275,6 +286,7 @@ export function registerWebhookTools(options: ToolRegistrationOptions): void {
 			description:
 				"Test a disabled webhook endpoint and re-enable it if the test delivery succeeds. Use this after fixing a webhook endpoint that was auto-disabled due to consecutive failures.",
 			inputSchema: webhookReenableInput.shape,
+			outputSchema: statusOutput(),
 			annotations: { readOnlyHint: false, destructiveHint: false },
 			deprecate: true,
 		},
@@ -299,6 +311,7 @@ export function registerWebhookTools(options: ToolRegistrationOptions): void {
 			description:
 				"Get aggregate delivery statistics for a webhook, including total deliveries, success rate, and failure counts. Use this for monitoring webhook health.",
 			inputSchema: webhookStatsInput.shape,
+			outputSchema: objectOutput(),
 			annotations: { readOnlyHint: true, destructiveHint: false },
 			deprecate: true,
 		},
