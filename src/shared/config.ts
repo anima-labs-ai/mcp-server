@@ -13,7 +13,6 @@ export const MASTER_KEY_TOOLS = new Set([
 	"domain_add",
 	"domain_delete",
 	"domain_verify",
-	"webhook_delete",
 ]);
 
 /** Raw base64-encoded Anima sparkle icon (96x96 PNG, ~4 KB) */
