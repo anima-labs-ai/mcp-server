@@ -22,7 +22,7 @@ describe("requiresMasterKey", () => {
 	});
 
 	test("returns false for normal tools", () => {
-		expect(requiresMasterKey("agent_list")).toBe(false);
+		expect(requiresMasterKey("agent_get")).toBe(false);
 		expect(requiresMasterKey("email_send")).toBe(false);
 	});
 });

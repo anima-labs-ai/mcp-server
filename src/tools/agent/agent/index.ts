@@ -61,17 +61,22 @@ function slugifyName(name: string): string {
 }
 
 const agentGetInput = z.object({
-	id: z.string().describe("Agent ID"),
-});
-
-const agentListInput = z.object({
-	cursor: z.string().optional().describe("Pagination cursor from a previous response"),
+	id: z
+		.string()
+		.optional()
+		.describe(
+			"Agent ID. If provided, returns that one agent. If omitted, returns a paginated list of all agents in the org.",
+		),
+	cursor: z
+		.string()
+		.optional()
+		.describe("Pagination cursor from a previous list response. Ignored when `id` is provided."),
 	limit: z
 		.number()
 		.int()
 		.positive()
 		.optional()
-		.describe("Maximum number of agents to return"),
+		.describe("Maximum number of agents to return when listing. Ignored when `id` is provided."),
 });
 
 const agentUpdateInput = z.object({
@@ -134,8 +139,9 @@ function registerAgentGetTool(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"agent_get",
 		{
-			title: "Get Agent",
-			description: "Fetch one agent by ID. Use this to inspect current settings, metadata, and status for a single agent.",
+			title: "Get or List Agents",
+			description:
+				"Fetch one agent by ID, or list all agents. Pass `id` to inspect a single agent (settings, metadata, status). Omit `id` to list all agents in the current account context — `cursor` and `limit` apply only when listing.",
 			inputSchema: agentGetInput.shape,
 			outputSchema: objectOutput(),
 			annotations: {
@@ -146,30 +152,10 @@ function registerAgentGetTool(options: ToolRegistrationOptions): void {
 			},
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.get(`/v1/agents/${args.id}`);
-			return toolSuccess(result);
-		}, options.context),
-	);
-}
-
-function registerAgentListTool(options: ToolRegistrationOptions): void {
-	const { server } = options;
-
-	server.registerTool(
-		"agent_list",
-		{
-			title: "List Agent",
-			description: "List agents with optional cursor pagination. Use this to discover agents available in the current account context.",
-			inputSchema: agentListInput.shape,
-			outputSchema: listOutput(),
-			annotations: {
-				readOnlyHint: true,
-				destructiveHint: false,
-				idempotentHint: true,
-				openWorldHint: true,
-			},
-		},
-		withErrorHandling(async (args, context) => {
+			if (args.id) {
+				const result = await context.client.get(`/v1/agents/${args.id}`);
+				return toolSuccess(result);
+			}
 			const params = new URLSearchParams();
 			if (args.cursor) params.set("cursor", args.cursor);
 			if (args.limit) params.set("limit", String(args.limit));
@@ -422,7 +408,6 @@ function registerAgentEmailIdentityDeleteTool(options: ToolRegistrationOptions):
 export function registerAgentTools(options: ToolRegistrationOptions): void {
 	registerAgentCreateTool(options);
 	registerAgentGetTool(options);
-	registerAgentListTool(options);
 	registerAgentUpdateTool(options);
 	registerAgentDeleteTool(options);
 	registerAgentRotateKeyTool(options);
