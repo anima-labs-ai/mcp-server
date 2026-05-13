@@ -3,7 +3,6 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { ApiClient, type ToolRegistrationOptions } from "../../../shared/index.js";
 import { registerAgentTools } from "../agent/index.js";
 import { registerOrganizationTools } from "../organization/index.js";
-import { registerIdentityTools } from "../identity/index.js";
 import { registerRegistryTools } from "../registry/index.js";
 
 function createTestOptions(): ToolRegistrationOptions {
@@ -26,11 +25,6 @@ describe("mcp-agent tool registration", () => {
 		expect(() => registerOrganizationTools(options)).not.toThrow();
 	});
 
-	test("identity tools register without error", () => {
-		const options = createTestOptions();
-		expect(() => registerIdentityTools(options)).not.toThrow();
-	});
-
 	test("registry tools register without error", () => {
 		const options = createTestOptions();
 		expect(() => registerRegistryTools(options)).not.toThrow();
@@ -40,7 +34,6 @@ describe("mcp-agent tool registration", () => {
 		const options = createTestOptions();
 		registerAgentTools(options);
 		registerOrganizationTools(options);
-		registerIdentityTools(options);
 		registerRegistryTools(options);
 		// If we get here without error, all tools registered successfully
 		expect(true).toBe(true);
