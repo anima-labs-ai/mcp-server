@@ -2,7 +2,6 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { SERVER_INFO as CORE_SERVER_INFO, type ApiClient, type ToolRegistrationOptions } from "../../shared/index.js";
 import { registerUtilityTools } from "./utility/index.js";
 import { registerWebhookTools } from "./webhook/index.js";
-import { registerPodTools } from "./pod/index.js";
 
 const SERVER_INFO = {
 	...CORE_SERVER_INFO,
@@ -20,6 +19,5 @@ export function buildPlatformServer(client: ApiClient): McpServer {
 	};
 	registerUtilityTools(context);
 	registerWebhookTools(context);
-	registerPodTools(context);
 	return server;
 }

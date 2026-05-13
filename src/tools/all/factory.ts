@@ -21,7 +21,6 @@ import { registerVoiceTools } from "../phone/voice/index.js";
 // Platform domain
 import { registerUtilityTools } from "../platform/utility/index.js";
 import { registerWebhookTools } from "../platform/webhook/index.js";
-import { registerPodTools } from "../platform/pod/index.js";
 
 // Vault domain
 import { registerVaultTools } from "../vault/vault/index.js";
@@ -66,7 +65,6 @@ export function buildAllToolsServer(client: ApiClient): McpServer {
 	// Platform
 	registerUtilityTools(context);
 	registerWebhookTools(context);
-	registerPodTools(context);
 
 	// Vault
 	registerVaultTools(context);
