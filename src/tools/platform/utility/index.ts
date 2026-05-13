@@ -367,11 +367,6 @@ const BLOCKER_REMEDIATION: Record<
 	string,
 	{ tool: string; toolHint: string }
 > = {
-	NO_VERIFIED_EMAIL_IDENTITY: {
-		tool: "agent_email_identity_add",
-		toolHint:
-			"Call agent_email_identity_add with an address on a workspace-verified domain. The verification worker flips identities to verified within ~60s of SES confirming.",
-	},
 	NO_VERIFIED_DOMAIN: {
 		tool: "domain_verify",
 		toolHint:

@@ -120,7 +120,7 @@ const emailSendSchema = z.object({
 		.string()
 		.optional()
 		.describe(
-			"Optional EmailIdentity ID to send from. Must belong to this agent and be verified. If omitted, the agent's primary identity is used. Use this to route different message types through different identities (e.g. transactional from @brawz.ai, support from @support.brawz.ai). Discover available IDs via agent_email_identity_list.",
+			"Optional EmailIdentity ID to send from. Must belong to this agent and be verified. If omitted, the agent's primary identity is used. Use this to route different message types through different identities (e.g. transactional from @brawz.ai, support from @support.brawz.ai). Discover available IDs from the `emailIdentities` array returned by agent_get.",
 		),
 	to: z.array(z.string()).describe("List of recipient email addresses."),
 	subject: z.string().describe("Subject line for the outgoing email."),

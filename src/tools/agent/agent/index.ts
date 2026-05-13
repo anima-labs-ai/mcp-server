@@ -2,7 +2,6 @@ import { z } from "zod";
 import type { ToolRegistrationOptions } from "../../../shared/index.js";
 import {
 	deleteOutput,
-	listOutput,
 	objectOutput,
 	toolSuccess,
 	withErrorHandling,
@@ -89,10 +88,6 @@ const agentUpdateInput = z.object({
 });
 
 const agentDeleteInput = z.object({
-	id: z.string().describe("Agent ID"),
-});
-
-const agentRotateKeyInput = z.object({
 	id: z.string().describe("Agent ID"),
 });
 
@@ -215,206 +210,9 @@ function registerAgentDeleteTool(options: ToolRegistrationOptions): void {
 	);
 }
 
-function registerAgentRotateKeyTool(options: ToolRegistrationOptions): void {
-	const { server } = options;
-
-	server.registerTool(
-		"agent_rotate_key",
-		{
-			title: "Rotate Agent Key",
-			description: "Rotate an agent API key and return the new key material. Use this when rotating credentials for security hygiene or after suspected exposure. Invalidates the previous key.",
-			inputSchema: agentRotateKeyInput.shape,
-			outputSchema: objectOutput(),
-			annotations: {
-				readOnlyHint: false,
-				destructiveHint: true,
-				idempotentHint: false,
-				openWorldHint: true,
-			},
-		},
-		withErrorHandling(async (args, context) => {
-			const result = await context.client.post(`/v1/agents/${args.id}/rotate-key`);
-			return toolSuccess(result);
-		}, options.context),
-	);
-}
-
-// ── Per-agent email identity management ───────────────────────────────────
-// Wraps the API endpoints added by anima monorepo PR #63. Closes the
-// user-reported gap: "I could not, via MCP, attach a custom verified-domain
-// identity to my agent." The Layer 1 domain-verified gate (PR #62) is
-// enforced server-side, so calling these with an unverified custom domain
-// returns DOMAIN_NOT_VERIFIED 409 with a remediation hint.
-
-const agentEmailIdentityAddInput = z.object({
-	agentId: z.string().describe("Agent that will own the new identity"),
-	email: z
-		.string()
-		.email()
-		.describe(
-			"Full email address to attach. The parent domain MUST be verified for the workspace, or be the platform-managed default `agents.useanima.sh`. Otherwise rejected with DOMAIN_NOT_VERIFIED.",
-		),
-	setAsPrimary: z
-		.boolean()
-		.optional()
-		.describe(
-			"If true, this identity becomes the agent's primary on attach (the existing primary is demoted). Default false: attached as a secondary identity.",
-		),
-});
-
-const agentEmailIdentityListInput = z.object({
-	agentId: z.string().describe("Agent whose identities to list"),
-});
-
-const agentEmailIdentityActionInput = z.object({
-	agentId: z.string().describe("Owning agent ID"),
-	identityId: z.string().describe("Email identity ID being acted on"),
-});
-
-function registerAgentEmailIdentityAddTool(options: ToolRegistrationOptions): void {
-	const { server } = options;
-	server.registerTool(
-		"agent_email_identity_add",
-		{
-			title: "Add Agent Email Identity",
-			description:
-				"Attach a new email identity to an existing agent. The parent domain MUST be verified for the workspace (or be the platform-managed default `agents.useanima.sh`) — custom unverified domains are rejected with DOMAIN_NOT_VERIFIED so you don't end up with an agent that can't deliver mail. Use this to give an agent a workspace-domain identity (e.g. attach hello@brawz.ai to a digest agent that was auto-created on @agents.useanima.sh).",
-			inputSchema: agentEmailIdentityAddInput.shape,
-			outputSchema: objectOutput(),
-			annotations: {
-				readOnlyHint: false,
-				destructiveHint: false,
-				idempotentHint: false,
-				openWorldHint: true,
-			},
-		},
-		withErrorHandling(async (args, context) => {
-			const { agentId, ...body } = args;
-			const result = await context.client.post(
-				`/v1/agents/${encodeURIComponent(agentId)}/email-identities`,
-				body,
-			);
-			return toolSuccess(result);
-		}, options.context),
-	);
-}
-
-function registerAgentEmailIdentityListTool(options: ToolRegistrationOptions): void {
-	const { server } = options;
-	server.registerTool(
-		"agent_email_identity_list",
-		{
-			title: "List Agent Email Identity",
-			description:
-				"List all email identities attached to an agent (primary first, then by creation order). Use this to discover what addresses the agent can send from before choosing one for fromIdentityId on email_send.",
-			inputSchema: agentEmailIdentityListInput.shape,
-			outputSchema: listOutput(),
-			annotations: {
-				readOnlyHint: true,
-				destructiveHint: false,
-				idempotentHint: true,
-				openWorldHint: true,
-			},
-		},
-		withErrorHandling(async (args, context) => {
-			const result = await context.client.get(
-				`/v1/agents/${encodeURIComponent(args.agentId)}/email-identities`,
-			);
-			return toolSuccess(result);
-		}, options.context),
-	);
-}
-
-function registerAgentEmailIdentitySetPrimaryTool(options: ToolRegistrationOptions): void {
-	const { server } = options;
-	server.registerTool(
-		"agent_email_identity_set_primary",
-		{
-			title: "Set Agent Email Identity Primary",
-			description:
-				"Promote an email identity to be the agent's primary. Atomically demotes the existing primary in the same transaction so there is never a moment with two primaries. Use this after attaching a verified-domain identity to switch the agent's default sending address.",
-			inputSchema: agentEmailIdentityActionInput.shape,
-			outputSchema: objectOutput(),
-			annotations: {
-				readOnlyHint: false,
-				destructiveHint: false,
-				idempotentHint: true,
-				openWorldHint: true,
-			},
-		},
-		withErrorHandling(async (args, context) => {
-			const result = await context.client.post(
-				`/v1/agents/${encodeURIComponent(args.agentId)}/email-identities/${encodeURIComponent(args.identityId)}/set-primary`,
-				{},
-			);
-			return toolSuccess(result);
-		}, options.context),
-	);
-}
-
-function registerAgentEmailIdentityVerifyTool(options: ToolRegistrationOptions): void {
-	const { server } = options;
-	server.registerTool(
-		"agent_email_identity_verify",
-		{
-			title: "Verify Agent Email Identity",
-			description:
-				"Surface the current verification state for an email identity. The platform's background SES verification worker flips identity.verified=true when SES confirms; this tool is your poll point for that transition. Use it after attaching a new identity (or when an existing one's verification went stale) to see if it's ready for outbound sending yet.",
-			inputSchema: agentEmailIdentityActionInput.shape,
-			outputSchema: objectOutput(),
-			annotations: {
-				readOnlyHint: true,
-				destructiveHint: false,
-				idempotentHint: true,
-				openWorldHint: true,
-			},
-		},
-		withErrorHandling(async (args, context) => {
-			const result = await context.client.post(
-				`/v1/agents/${encodeURIComponent(args.agentId)}/email-identities/${encodeURIComponent(args.identityId)}/verify`,
-				{},
-			);
-			return toolSuccess(result);
-		}, options.context),
-	);
-}
-
-function registerAgentEmailIdentityDeleteTool(options: ToolRegistrationOptions): void {
-	const { server } = options;
-	server.registerTool(
-		"agent_email_identity_delete",
-		{
-			title: "Delete Agent Email Identity",
-			description:
-				"Remove an email identity from an agent. Refuses on the agent's only remaining identity (would leave the agent unable to send or receive) or on a primary without an explicit successor (call agent_email_identity_set_primary on another identity first to make the choice deliberate).",
-			inputSchema: agentEmailIdentityActionInput.shape,
-			outputSchema: deleteOutput(),
-			annotations: {
-				readOnlyHint: false,
-				destructiveHint: true,
-				idempotentHint: true,
-				openWorldHint: true,
-			},
-		},
-		withErrorHandling(async (args, context) => {
-			const result = await context.client.delete(
-				`/v1/agents/${encodeURIComponent(args.agentId)}/email-identities/${encodeURIComponent(args.identityId)}`,
-			);
-			return toolSuccess(result);
-		}, options.context),
-	);
-}
-
 export function registerAgentTools(options: ToolRegistrationOptions): void {
 	registerAgentCreateTool(options);
 	registerAgentGetTool(options);
 	registerAgentUpdateTool(options);
 	registerAgentDeleteTool(options);
-	registerAgentRotateKeyTool(options);
-	// Per-agent email identity management (anima monorepo PR #63).
-	registerAgentEmailIdentityAddTool(options);
-	registerAgentEmailIdentityListTool(options);
-	registerAgentEmailIdentitySetPrimaryTool(options);
-	registerAgentEmailIdentityVerifyTool(options);
-	registerAgentEmailIdentityDeleteTool(options);
 }

@@ -10,7 +10,6 @@ export const MASTER_KEY_TOOLS = new Set([
 	"org_delete",
 	"org_rotate_key",
 	"agent_delete",
-	"agent_rotate_key",
 	"domain_add",
 	"domain_delete",
 	"domain_verify",
