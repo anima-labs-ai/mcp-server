@@ -227,7 +227,7 @@ export function registerWebhookTools(options: ToolRegistrationOptions): void {
 	);
 
 	server.registerTool(
-		"webhook_deliveries_list",
+		"webhook_list_deliveries",
 		{
 			title: "List Webhook Deliveries",
 			description:
@@ -296,5 +296,103 @@ export function registerWebhookTools(options: ToolRegistrationOptions): void {
 			},
 			options.context,
 		),
+	);
+
+	// ── DLQ tooling (backported from npm package) ──
+
+	const webhookListDeadLettersInput = z.object({
+		id: z.string().describe("Webhook ID whose dead-lettered deliveries to list."),
+		event: z
+			.string()
+			.optional()
+			.describe("Optional exact event name filter (e.g. 'message.received')."),
+		from: z
+			.string()
+			.optional()
+			.describe("Optional ISO 8601 lower bound on dead-letter timestamp."),
+		to: z
+			.string()
+			.optional()
+			.describe("Optional ISO 8601 upper bound on dead-letter timestamp."),
+		limit: z
+			.number()
+			.int()
+			.positive()
+			.optional()
+			.describe("Optional maximum number of dead-lettered deliveries to return."),
+		cursor: z
+			.string()
+			.optional()
+			.describe("Optional pagination cursor from a previous response."),
+	});
+
+	server.registerTool(
+		"webhook_list_dead_letters",
+		{
+			title: "List Webhook Dead Letters",
+			description:
+				"List dead-lettered deliveries for a webhook (deliveries that exhausted all retries). Filterable by event type and date range. Use this to diagnose which events were silently dropped before invoking webhook_replay_delivery.",
+			inputSchema: webhookListDeadLettersInput.shape,
+			outputSchema: listOutput(),
+			annotations: { readOnlyHint: true, destructiveHint: false },
+		},
+		withErrorHandling<z.infer<typeof webhookListDeadLettersInput>>(
+			async (args, context) => {
+				const params = new URLSearchParams();
+				if (args.event) params.set("event", args.event);
+				if (args.from) params.set("from", args.from);
+				if (args.to) params.set("to", args.to);
+				if (args.limit !== undefined) params.set("limit", String(args.limit));
+				if (args.cursor) params.set("cursor", args.cursor);
+
+				const basePath = `/v1/webhooks/${args.id}/dead-letters`;
+				const path = params.toString() ? `${basePath}?${params}` : basePath;
+				const result = await context.client.get(path);
+				return toolSuccess(result);
+			},
+			options.context,
+		),
+	);
+
+	const webhookReplayDeliveryInput = z.object({
+		deliveryId: z.string().describe("Delivery ID to re-enqueue. Must currently be DEAD_LETTERED."),
+	});
+
+	server.registerTool(
+		"webhook_replay_delivery",
+		{
+			title: "Replay Webhook Delivery",
+			description:
+				"Re-enqueue a dead-lettered webhook delivery for another delivery attempt. Resets attempts to 0 and clears deadLetteredAt. Use this after the downstream endpoint has been fixed.",
+			inputSchema: webhookReplayDeliveryInput.shape,
+			outputSchema: objectOutput(),
+			annotations: { readOnlyHint: false, destructiveHint: false },
+		},
+		withErrorHandling<z.infer<typeof webhookReplayDeliveryInput>>(
+			async (args, context) => {
+				const result = await context.client.post(
+					`/v1/webhooks/deliveries/${args.deliveryId}/replay`,
+					{},
+				);
+				return toolSuccess(result);
+			},
+			options.context,
+		),
+	);
+
+	server.registerTool(
+		"webhook_event_types",
+		{
+			title: "Webhook Event Types",
+			description:
+				"List all known webhook event type strings. Use this when configuring a new webhook to see exactly which events you can subscribe to. Webhooks may also subscribe to glob patterns (e.g. 'message.*' or '*') that match these names.",
+			inputSchema: {},
+			outputSchema: listOutput(),
+			annotations: { readOnlyHint: true, destructiveHint: false },
+		},
+		withErrorHandling(async (_args, context) => {
+			const result = await context.client.get("/v1/webhooks/event-types");
+			return toolSuccess(result);
+		}, options.context),
 	);
 }

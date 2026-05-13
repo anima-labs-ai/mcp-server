@@ -3,7 +3,6 @@ import type { ToolRegistrationOptions } from "../../../shared/index.js";
 import {
 	listOutput,
 	objectOutput,
-	requireMasterKeyGuard,
 	statusOutput,
 	toolError,
 	toolSuccess,
@@ -99,14 +98,6 @@ const callAgentInput = z.object({
 
 const updateMetadataInput = z.object({
 	metadata: z.record(z.string()).describe("Metadata key-value pairs to set"),
-});
-
-const setupEmailDomainInput = z.object({
-	domain: z.string().min(1).describe("Custom domain to configure"),
-});
-
-const sendTestEmailInput = z.object({
-	to: z.string().min(1).describe("Recipient email address for test message"),
 });
 
 const manageSpamInput = z.object({
@@ -318,7 +309,7 @@ function registerWhoAmITool(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
 	server.registerTool(
-		"who_am_i",
+		"whoami",
 		{
 			title: "Who Am I",
 			description:
@@ -426,213 +417,10 @@ function registerWorkspaceHealthTool(options: ToolRegistrationOptions): void {
 	);
 }
 
-function registerConceptsTool(options: ToolRegistrationOptions): void {
-	const { server } = options;
-
-	server.registerTool(
-		"Concepts",
-		{
-			description:
-				"Return a short conceptual map of the Anima platform: how Agents, EmailIdentities, PhoneIdentities, Domains, Inboxes, Pods, and DIDs relate. Useful for cold-started agents that need to reason about resource lifecycles before making writes. Returns a JSON doc — no API call, instant.",
-			inputSchema: noInput.shape,
-			outputSchema: objectOutput(),
-			annotations: { readOnlyHint: true, destructiveHint: false },
-		},
-		withErrorHandling(async (_args, _context) => {
-			return toolSuccess({
-				resources: {
-					Organization: {
-						summary: "The top-level tenant (workspace). Owns everything else.",
-						owns: ["Agent", "Domain", "ApiKey"],
-						auth: "Master key (mk_), or a Clerk session for an org owner/admin, or an OAuth token with admin:full scope.",
-					},
-					Agent: {
-						summary:
-							"An autonomous actor inside an Org. Holds its own ApiKey (ak_), DID, EmailIdentities, PhoneIdentities, optional Pod.",
-						owns: ["EmailIdentity", "PhoneIdentity", "VaultIdentity", "Inbox"],
-						lifecycle: "agent_create → agent_update → (rotate_key | delete)",
-						auth_tier:
-							"Agents have agent-level auth (their own ak_ key). Master operations (delete, etc.) require the org's master key or admin:full OAuth.",
-					},
-					EmailIdentity: {
-						summary: "An email address an Agent can send from / receive at.",
-						relationships: {
-							belongs_to: "Agent",
-							inherits_verification_from: "Domain",
-						},
-						readiness:
-							"`verified` flips to true when the parent Domain is verified (PR #62 + email-identity-verification-worker). The Layer 3 send pre-flight refuses outbound on unverified identities.",
-						lifecycle:
-							"agent_create implicitly creates one on the platform default (agents.useanima.sh). agent_email_identity_add attaches more on workspace-verified domains.",
-					},
-					PhoneIdentity: {
-						summary:
-							"A phone number an Agent can send SMS / make voice calls from.",
-						belongs_to: "Agent",
-						lifecycle:
-							"phone_provision → (10DLC if SMS US) → phone_send_sms / voice_create_call → phone_release",
-					},
-					Domain: {
-						summary:
-							"A workspace-level email domain (e.g. brawz.ai). Verified via DNS records before any agent can attach an EmailIdentity on it.",
-						belongs_to: "Organization",
-						verification:
-							"DNS-based (TXT + DKIM + SPF + MX). Tracked on the Domain row; cascaded to EmailIdentities by the email-identity-verification worker.",
-					},
-					Inbox: {
-						summary:
-							"Receiving address for inbound mail. Auto-created with each Agent on the same address as the primary EmailIdentity.",
-					},
-					Pod: {
-						summary:
-							"A sandboxed runtime an Agent can launch to execute code (HTTP requests, scripts, etc.).",
-						belongs_to: "Agent",
-					},
-					DID: {
-						summary:
-							"Decentralized Identifier (W3C). Each Agent gets one (`did:anima:<orgId>:<agentId>`) at create time with an Ed25519 keypair. Used for verifiable credentials and agent-to-agent auth.",
-						belongs_to: "Agent",
-					},
-					Domain_vs_EmailIdentity:
-						"Domain is the workspace-level DNS-verified entity (e.g. brawz.ai). EmailIdentity is the per-agent address on that domain (e.g. digest@brawz.ai). One Domain → many EmailIdentity rows; verification status cascades down.",
-				},
-				typical_flows: {
-					"send first email": [
-						"agent_create with desired name (auto-creates @agents.useanima.sh EmailIdentity)",
-						"Workspace_Health → check canSendEmail",
-						"if false: agent_email_identity_add with a workspace-verified-domain address (e.g. hello@brawz.ai)",
-						"agent_email_identity_set_primary on the new identity",
-						"email_send (pre-flight will accept the now-verified primary)",
-					],
-					"attach a custom domain": [
-						"domain_add brawz.ai (creates Domain row)",
-						"domain_dns_records → publish records at DNS provider",
-						"domain_verify (loops until SES confirms)",
-						"agent_email_identity_add on any agent for an address on brawz.ai",
-					],
-					"diagnose 'cannot send' error": [
-						"Workspace_Health → look at blockers[]",
-						"if IDENTITY_NOT_VERIFIED: wait for the email-identity-verification worker (60s loop) or call agent_email_identity_verify to inspect current state",
-						"if DOMAIN_NOT_VERIFIED: re-check DNS, call domain_verify",
-					],
-				},
-				typed_error_codes: {
-					MASTER_KEY_REQUIRED:
-						"403. Use a master key, sign in as org owner/admin via Clerk, or grant admin:full scope on your OAuth token.",
-					IDENTITY_NOT_VERIFIED:
-						"409. Send pre-flight rejected because the chosen identity isn't verified yet. Check details.domainVerified — if true, just one identity; if false, fix the domain first.",
-					DOMAIN_NOT_VERIFIED:
-						"409. agent_create or agent_email_identity_add refused a custom-domain identity because the parent domain isn't verified for the workspace.",
-					IDEMPOTENCY_BODY_MISMATCH:
-						"409. Reused an Idempotency-Key with a different request body. Use a fresh key for new requests.",
-				},
-				docs: "https://docs.useanima.sh",
-				adr: "https://github.com/anima-labs-ai/anima/blob/main/docs/adr/0001-agent-creation-readiness-model.md",
-			});
-		}, options.context),
-	);
-}
-
-function registerListCapabilitiesTool(options: ToolRegistrationOptions): void {
-	const { server } = options;
-
-	server.registerTool(
-		"List_Capabilities",
-		{
-			description:
-				"Return what the CURRENT credential can do — auth tier + tool families that work for that tier. Calls /v1/orgs/me to learn the credential context, then attaches a static catalog of tool families bucketed by required auth tier (anyAuth / agentOrMaster / masterOnly). Saves exploratory calls — instead of trial-and-error on 'is this master-only?' the LLM gets the answer up front. Pair with Workspace_Health for capability state (canSendEmail etc.).",
-			inputSchema: noInput.shape,
-			outputSchema: objectOutput(),
-			annotations: { readOnlyHint: true, destructiveHint: false },
-		},
-		withErrorHandling(async (_args, context) => {
-			// Source of truth for which credential is calling — same call as Who_Am_I.
-			const orgInfo = await context.client
-				.get<{ id: string; name: string; tier: string }>("/v1/orgs/me")
-				.catch(() => null);
-
-			// Static catalog. Updated when new tool families ship. Categorized
-			// by the AUTH TIER required server-side, not by feature area —
-			// LLMs ask "can I call this?" much more than "is this email or
-			// phone?".
-			//
-			// Buckets:
-			//   - any_auth: anyone with a valid Bearer token (master, agent,
-			//     OAuth) can call. Read-only diagnostics + scoped reads.
-			//   - agent_or_master: agent-key callers can act on themselves;
-			//     master and admin:full OAuth can act on any agent.
-			//   - master_only: requires master key, Clerk privileged role, or
-			//     admin:full OAuth scope.
-			return toolSuccess({
-				credential: orgInfo
-					? { orgId: orgInfo.id, orgName: orgInfo.name, tier: orgInfo.tier }
-					: { error: "Could not resolve credential — token may be invalid" },
-				note: "tools/list returns the full registered set. This response groups them by required auth tier so you don't have to discover that empirically.",
-				any_auth: {
-					description:
-						"Read-only or self-diagnosis. Agent-bound credentials work too.",
-					families: [
-						"Who_Am_I",
-						"Check_Health",
-						"Workspace_Health",
-						"Concepts",
-						"List_Capabilities",
-					],
-				},
-				agent_or_master: {
-					description:
-						"Acts on resources owned by an agent. Agent-key callers can only see/touch their own agent; master + admin:full OAuth can touch any agent in the org.",
-					families: [
-						"agent_get",
-						"agent_list / List_Agents",
-						"list_addresses / get_address / create_address / update_address / validate_address",
-						"phone_list / phone_status / phone_search / phone_send_sms",
-						"email_list / email_get / email_search / email_send / email_reply / email_forward (and message_* aliases)",
-						"vault_list_credentials / vault_get_credential / vault_search / vault_status / vault_oauth_*",
-						"voice_list_calls / voice_get_call / voice_get_transcript / voice_get_summary",
-						"webhook tools (List_Webhooks, Get_Webhook, Webhook_Stats, ...)",
-						"Pod tools (List_Pods, Create_Pod, ...)",
-					],
-				},
-				master_only: {
-					description:
-						"Requires master tier. Throws MASTER_KEY_REQUIRED 403 with a remediation hint pointing at admin:full OAuth or a mk_ key.",
-					families: [
-						"agent_create / agent_update / agent_delete / agent_rotate_key",
-						"agent_email_identity_add / agent_email_identity_set_primary / agent_email_identity_verify / agent_email_identity_delete",
-						"org_create / org_update / org_delete / org_rotate_key / org_list",
-						"domain_add / domain_verify / domain_delete",
-						"phone_provision / phone_release",
-						"security_update_policy",
-						"vault_create_credential / vault_delete_credential / vault_share_credential",
-						"create_webhook / update_webhook / delete_webhook",
-					],
-				},
-				oauth_scopes: {
-					description:
-						"For OAuth (oat_) tokens: which scopes unlock which tool families.",
-					"admin:full": "All master_only tools + everything below",
-					"email:read / email:send_as": "Email read / send tools",
-					"phone:read_sms / phone:send_sms": "Phone read / send tools",
-					"vault:read_credential:{label} / vault:read_all": "Vault read tools",
-					"addresses:read": "Address read tools",
-					"webhooks:subscribe": "Webhook subscribe tools",
-				},
-			});
-		}, options.context),
-	);
-}
-
-// 2026-05-09: removed registerListAgentsTool. The "List Agents"
-// platform utility was a duplicate of agent_list (registered in
-// agent/agent/index.ts) — same handler, same data, both surfaced in
-// the catalog as separate tools. agent_list is the canonical name in
-// snake_case matching the rest of the agent_* tool family.
-
-// 2026-05-12: renamed 11 utility tools from space-separated names to
-// lower_snake_case. Same pattern as the Pod / Webhook migrations:
-// canonical snake_case + title (the old space form) + both legacy
-// alias forms (space + underscore-normalized) marked `deprecate: true`.
+// Concepts + List_Capabilities removed 2026-05-13: PascalCase identifiers
+// that the MCP SDK flagged on every server boot ("Tool name contains
+// invalid characters"), and the content was static hardcoded JSON that
+// doesn't justify a tool slot. Documentation lives at docs.useanima.sh.
 
 function registerManagePendingTool(options: ToolRegistrationOptions): void {
 	const { server } = options;
@@ -903,52 +691,8 @@ function registerUpdateMetadataTool(options: ToolRegistrationOptions): void {
 	);
 }
 
-function registerSetupEmailDomainTool(options: ToolRegistrationOptions): void {
-	const { server } = options;
-
-	server.registerTool(
-		"setup_email_domain",
-		{
-			title: "Setup Email Domain",
-			description:
-				"Configure a custom email domain for account setup workflows.",
-			inputSchema: setupEmailDomainInput.shape,
-			outputSchema: objectOutput(),
-			annotations: { readOnlyHint: false, destructiveHint: false },
-		},
-		withErrorHandling<z.infer<typeof setupEmailDomainInput>>(async (args, context) => {
-			requireMasterKeyGuard(options.context);
-			const result = await context.client.post("/v1/domains", {
-				domain: args.domain,
-			});
-			return toolSuccess(result);
-		}, options.context),
-	);
-}
-
-function registerSendTestEmailTool(options: ToolRegistrationOptions): void {
-	const { server } = options;
-
-	server.registerTool(
-		"send_test_email",
-		{
-			title: "Send Test Email",
-			description: "Send a simple test email for setup verification.",
-			inputSchema: sendTestEmailInput.shape,
-			outputSchema: objectOutput(),
-			annotations: { readOnlyHint: false, destructiveHint: false },
-		},
-		withErrorHandling<z.infer<typeof sendTestEmailInput>>(async (args, context) => {
-			requireMasterKeyGuard(options.context);
-			const result = await context.client.post("/v1/email/send", {
-				to: args.to,
-				subject: "Test from Anima",
-				body: "Test from Anima",
-			});
-			return toolSuccess(result);
-		}, options.context),
-	);
-}
+// setup_email_domain + send_test_email removed 2026-05-13: pure duplicates
+// of domain_add and email_send. Use those canonical tools instead.
 
 function registerManageSpamTool(options: ToolRegistrationOptions): void {
 	const { server } = options;
@@ -1038,8 +782,6 @@ export function registerUtilityTools(options: ToolRegistrationOptions): void {
 	registerWhoAmITool(options);
 	registerCheckHealthTool(options);
 	registerWorkspaceHealthTool(options);
-	registerConceptsTool(options);
-	registerListCapabilitiesTool(options);
 	registerManagePendingTool(options);
 	registerCheckFollowupsTool(options);
 	registerMessageAgentTool(options);
@@ -1047,8 +789,6 @@ export function registerUtilityTools(options: ToolRegistrationOptions): void {
 	registerWaitForEmailTool(options);
 	registerCallAgentTool(options);
 	registerUpdateMetadataTool(options);
-	registerSetupEmailDomainTool(options);
-	registerSendTestEmailTool(options);
 	registerManageSpamTool(options);
 	registerCheckTasksTool(options);
 }

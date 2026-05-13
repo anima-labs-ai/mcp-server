@@ -19,7 +19,6 @@ import type { ToolRegistrationOptions } from "../../../shared/index.js";
 import {
 	listOutput,
 	objectOutput,
-	sendOutput,
 	toolSuccess,
 	withErrorHandling,
 } from "../../../shared/index.js";
@@ -89,40 +88,9 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 		voiceCatalogHandler,
 	);
 
-	// ── voice_create_call ──
-
-	server.registerTool(
-		"voice_create_call",
-		{
-			title: "Create Voice Call",
-			description: "Initiate an outbound voice call from an agent. The agent must have a provisioned phone number. Returns a callId — connect via WebSocket for real-time conversation. For LLM-driven live conversations within the tool call, use `voice_call` instead.",
-			inputSchema: {
-			agentId: z.string().optional()
-				.describe("Agent ID to call from (defaults to current agent if using agent key)."),
-			to: z.string()
-				.describe("Destination phone number in E.164 format (e.g. +14155551234)."),
-			tier: z.enum(["basic", "premium"]).optional()
-				.describe("Voice quality tier (default: basic)."),
-			fromNumber: z.string().optional()
-				.describe("Source number to call from (defaults to agent's primary number)."),
-		},
-			outputSchema: sendOutput(),
-			annotations: {
-				readOnlyHint: false,
-				destructiveHint: false,
-				idempotentHint: false,
-				openWorldHint: true,
-			},
-		},
-		withErrorHandling(async (args, context) => {
-			const body: Record<string, unknown> = { to: args.to };
-			if (args.agentId) body.agentId = args.agentId;
-			if (args.tier) body.tier = args.tier;
-			if (args.fromNumber) body.fromNumber = args.fromNumber;
-			const result = await context.client.post<unknown>("/v1/voice/calls", body);
-			return toolSuccess(result);
-		}, options.context),
-	);
+	// voice_create_call is only registered on the npm package (@anima-labs/mcp).
+	// Hosted MCP uses voice_call (the live, Claude-driven flow) for outbound
+	// calling — see live-call.ts.
 
 	// ── voice_list_calls ──
 
@@ -170,7 +138,7 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 		"voice_get_call",
 		{
 			title: "Get Voice Call",
-			description: "Get detailed information about a specific voice call including status, duration, participants, and tier.",
+			description: "Get a voice call: status, duration, participants, tier, AND the AI-generated summary (one-liner, topics, action items, decisions, open questions, next steps, intent, outcome). The summary is generated once on the first read after post-call processing completes and cached on the call row — subsequent calls return the cached value without re-generating.",
 			inputSchema: {
 			callId: z.string()
 				.describe("The call ID to retrieve."),
@@ -239,30 +207,10 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	// ── voice_get_summary ──
-
-	server.registerTool(
-		"voice_get_summary",
-		{
-			title: "Get Voice Summary",
-			description: "Get an AI-generated summary of a call including one-liner, topics, action items, decisions, open questions, next steps, intent, and outcome. Available after post-call processing completes.",
-			inputSchema: {
-			callId: z.string()
-				.describe("The call ID to get the summary for."),
-		},
-			outputSchema: objectOutput(),
-			annotations: {
-				readOnlyHint: true,
-				destructiveHint: false,
-				idempotentHint: true,
-				openWorldHint: true,
-			},
-		},
-		withErrorHandling(async (args, context) => {
-			const result = await context.client.get<unknown>(`/v1/voice/calls/${args.callId}/summary`);
-			return toolSuccess(result);
-		}, options.context),
-	);
+	// voice_get_summary removed — the summary is now part of voice_get_call's
+	// response. The backend generates the summary once on first read and
+	// caches it on the call row, so callers no longer need a separate tool
+	// (and the API no longer needs to re-run summarization on every fetch).
 
 	// ── voice_get_score ──
 

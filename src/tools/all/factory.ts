@@ -12,18 +12,6 @@ import { registerIdentityTools } from "../agent/identity/index.js";
 import { registerRegistryTools } from "../agent/registry/index.js";
 import { registerA2aTools } from "../agent/a2a/index.js";
 
-// Wallet + x402 domain — REMOVED 2026-05-09
-// The cards-removal commit (anima monorepo 7d865fe) deleted the wallet+x402
-// API handlers entirely (apps/api/src/routes/handlers/wallet.* and the
-// wallet route registrations on the router). Calling these tools now
-// returns "API error 404: Not Found" with no useful diagnostic. Re-import
-// + re-register when the API routes are restored at /v1/wallet/* (the
-// commit message claimed they would be relocated to top-level, but as of
-// origin/main no wallet handler exists).
-//
-// import { registerWalletTools } from "../wallet/index.js";
-// import { registerX402Tools } from "../x402/index.js";
-
 // Email domain
 import { registerEmailTools } from "../email/email/index.js";
 import { registerMessageTools } from "../email/message/index.js";
@@ -73,10 +61,6 @@ export function buildAllToolsServer(client: ApiClient): McpServer {
 	registerIdentityTools(context);
 	registerRegistryTools(context);
 	registerA2aTools(context);
-
-	// Wallet + x402 — disabled (see import comment above)
-	// registerWalletTools(context);
-	// registerX402Tools(context);
 
 	// Email
 	registerEmailTools(context);
