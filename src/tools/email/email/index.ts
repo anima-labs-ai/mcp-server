@@ -4,7 +4,6 @@ import {
 	deleteOutput,
 	listOutput,
 	objectOutput,
-	registerToolWithAliases,
 	requireMasterKeyGuard,
 	sendOutput,
 	toolSuccess,
@@ -294,24 +293,6 @@ const emailDeleteSchema = z.object({
 export function registerEmailTools(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
-	// 2026-05-09: dropped duplicate aliases per customer feedback
-	// ("remove duplicated MCP tools/endpoints"). Each of these tools used
-	// to register 3 names: snake_case canonical + verb-noun + dotted form.
-	// LLMs see them as 3 separate tools in tools/list, but they all hit
-	// the same handler — pure clutter. Canonical name only now.
-	//
-	// 2026-05-10 (customer round 4): a hard removal turned out to be a
-	// breaking API change — any consumer that pinned to the old names in
-	// prompts, docs, or tool-catalog caches broke instantly. Restored the
-	// 6 alias names with `deprecate: true` so they're visibly deprecated
-	// in tools/list (description prefix `[DEPRECATED — use email_send]`)
-	// and emit a stderr warning on every invocation. Plan: remove on the
-	// next major catalog change once usage logs go quiet.
-	//
-	// Restored names: send_email, anima.email.send (email_send) +
-	// get_email, anima.email.get (email_get) +
-	// list_emails, anima.email.list (email_list).
-
 	const emailSendHandler = withErrorHandling(async (args, context) => {
 		const body: Record<string, unknown> = {
 			agentId: args.agentId,
@@ -329,17 +310,14 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 		return toolSuccess(result);
 	}, options.context);
 
-	registerToolWithAliases(
-		server,
+	server.registerTool(
 		"email_send",
-		["send_email", "anima.email.send"],
 		{
 			title: "Send Email",
 			description:
 				"Send a new outbound email from the agent mailbox. Use this when you need to compose and deliver a message with optional CC, threading headers.",
 			inputSchema: emailSendSchema.shape,
 			outputSchema: sendOutput(),
-			deprecate: true,
 			annotations: {
 				readOnlyHint: false,
 				destructiveHint: false,
@@ -359,17 +337,14 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 		options.context,
 	);
 
-	registerToolWithAliases(
-		server,
+	server.registerTool(
 		"email_get",
-		["get_email", "anima.email.get"],
 		{
 			title: "Get Email",
 			description:
 				"Retrieve one specific email by ID, including metadata and body fields. Use this before replying, forwarding, or inspecting message details.",
 			inputSchema: emailGetSchema.shape,
 			outputSchema: objectOutput(),
-			deprecate: true,
 			annotations: {
 				readOnlyHint: true,
 				destructiveHint: false,
@@ -395,17 +370,14 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 		options.context,
 	);
 
-	registerToolWithAliases(
-		server,
+	server.registerTool(
 		"email_list",
-		["list_emails", "anima.email.list"],
 		{
 			title: "List Email",
 			description:
 				"List emails in inbox or another folder with pagination controls. Use this to browse recent messages and mailbox contents.",
 			inputSchema: emailListSchema.shape,
 			outputSchema: listOutput(),
-			deprecate: true,
 			annotations: {
 				readOnlyHint: true,
 				destructiveHint: false,

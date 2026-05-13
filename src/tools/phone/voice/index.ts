@@ -19,7 +19,6 @@ import type { ToolRegistrationOptions } from "../../../shared/index.js";
 import {
 	listOutput,
 	objectOutput,
-	registerToolWithAliases,
 	sendOutput,
 	toolSuccess,
 	withErrorHandling,
@@ -72,17 +71,14 @@ export function registerVoiceTools(options: ToolRegistrationOptions): void {
 		return toolSuccess(result);
 	}, options.context);
 
-	registerToolWithAliases(
-		server,
+	server.registerTool(
 		"voice_catalog",
-		["voice_list_voices"],
 		{
 			title: "Voice Catalog",
 			description:
 				"List available AI voices for phone calls. Filter by tier (basic for low-latency, premium for natural voices), gender, or language. Returns voice IDs needed for voice_create_call.",
 			inputSchema: voiceCatalogSchema.shape,
 			outputSchema: listOutput(),
-			deprecate: true,
 			annotations: {
 				readOnlyHint: true,
 				destructiveHint: false,

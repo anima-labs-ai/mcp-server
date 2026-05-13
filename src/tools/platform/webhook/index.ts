@@ -4,7 +4,6 @@ import {
 	deleteOutput,
 	listOutput,
 	objectOutput,
-	registerToolWithAliases,
 	statusOutput,
 	toolSuccess,
 	withErrorHandling,
@@ -100,10 +99,8 @@ export function registerWebhookTools(options: ToolRegistrationOptions): void {
 		id: z.string().describe("Webhook ID to get delivery statistics for."),
 	});
 
-	registerToolWithAliases(
-		server,
+	server.registerTool(
 		"webhook_create",
-		["Create Webhook", "Create_Webhook"],
 		{
 			title: "Create Webhook",
 			description:
@@ -111,7 +108,6 @@ export function registerWebhookTools(options: ToolRegistrationOptions): void {
 			inputSchema: webhookCreateInput.shape,
 			outputSchema: objectOutput(),
 			annotations: { readOnlyHint: false, destructiveHint: false },
-			deprecate: true,
 		},
 		withErrorHandling<z.infer<typeof webhookCreateInput>>(
 			async (args, context) => {
@@ -122,10 +118,8 @@ export function registerWebhookTools(options: ToolRegistrationOptions): void {
 		),
 	);
 
-	registerToolWithAliases(
-		server,
+	server.registerTool(
 		"webhook_get",
-		["Get Webhook", "Get_Webhook"],
 		{
 			title: "Get Webhook",
 			description:
@@ -133,7 +127,6 @@ export function registerWebhookTools(options: ToolRegistrationOptions): void {
 			inputSchema: webhookGetInput.shape,
 			outputSchema: objectOutput(),
 			annotations: { readOnlyHint: true, destructiveHint: false },
-			deprecate: true,
 		},
 		withErrorHandling<z.infer<typeof webhookGetInput>>(
 			async (args, context) => {
@@ -144,10 +137,8 @@ export function registerWebhookTools(options: ToolRegistrationOptions): void {
 		),
 	);
 
-	registerToolWithAliases(
-		server,
+	server.registerTool(
 		"webhook_update",
-		["Update Webhook", "Update_Webhook"],
 		{
 			title: "Update Webhook",
 			description:
@@ -155,7 +146,6 @@ export function registerWebhookTools(options: ToolRegistrationOptions): void {
 			inputSchema: webhookUpdateInput.shape,
 			outputSchema: objectOutput(),
 			annotations: { readOnlyHint: false, destructiveHint: false },
-			deprecate: true,
 		},
 		withErrorHandling<z.infer<typeof webhookUpdateInput>>(
 			async (args, context) => {
@@ -171,10 +161,8 @@ export function registerWebhookTools(options: ToolRegistrationOptions): void {
 		),
 	);
 
-	registerToolWithAliases(
-		server,
+	server.registerTool(
 		"webhook_delete",
-		["Delete Webhook", "Delete_Webhook"],
 		{
 			title: "Delete Webhook",
 			description:
@@ -182,7 +170,6 @@ export function registerWebhookTools(options: ToolRegistrationOptions): void {
 			inputSchema: webhookDeleteInput.shape,
 			outputSchema: deleteOutput(),
 			annotations: { readOnlyHint: false, destructiveHint: true },
-			deprecate: true,
 		},
 		withErrorHandling<z.infer<typeof webhookDeleteInput>>(
 			async (args, context) => {
@@ -193,10 +180,8 @@ export function registerWebhookTools(options: ToolRegistrationOptions): void {
 		),
 	);
 
-	registerToolWithAliases(
-		server,
+	server.registerTool(
 		"webhook_list",
-		["List Webhooks", "List_Webhooks"],
 		{
 			title: "List Webhooks",
 			description:
@@ -204,7 +189,6 @@ export function registerWebhookTools(options: ToolRegistrationOptions): void {
 			inputSchema: webhookListInput.shape,
 			outputSchema: listOutput(),
 			annotations: { readOnlyHint: true, destructiveHint: false },
-			deprecate: true,
 		},
 		withErrorHandling<z.infer<typeof webhookListInput>>(
 			async (args, context) => {
@@ -221,10 +205,8 @@ export function registerWebhookTools(options: ToolRegistrationOptions): void {
 		),
 	);
 
-	registerToolWithAliases(
-		server,
+	server.registerTool(
 		"webhook_test",
-		["Test Webhook", "Test_Webhook"],
 		{
 			title: "Test Webhook",
 			description:
@@ -232,7 +214,6 @@ export function registerWebhookTools(options: ToolRegistrationOptions): void {
 			inputSchema: webhookTestInput.shape,
 			outputSchema: objectOutput(),
 			annotations: { readOnlyHint: false, destructiveHint: false },
-			deprecate: true,
 		},
 		withErrorHandling<z.infer<typeof webhookTestInput>>(
 			async (args, context) => {
@@ -245,10 +226,8 @@ export function registerWebhookTools(options: ToolRegistrationOptions): void {
 		),
 	);
 
-	registerToolWithAliases(
-		server,
+	server.registerTool(
 		"webhook_deliveries_list",
-		["List Webhook Deliveries", "List_Webhook_Deliveries"],
 		{
 			title: "List Webhook Deliveries",
 			description:
@@ -256,7 +235,6 @@ export function registerWebhookTools(options: ToolRegistrationOptions): void {
 			inputSchema: webhookListDeliveriesInput.shape,
 			outputSchema: listOutput(),
 			annotations: { readOnlyHint: true, destructiveHint: false },
-			deprecate: true,
 		},
 		withErrorHandling<z.infer<typeof webhookListDeliveriesInput>>(
 			async (args, context) => {
@@ -277,10 +255,8 @@ export function registerWebhookTools(options: ToolRegistrationOptions): void {
 	// hyphens AND spaces are both non-standard identifier chars. Canonical
 	// `webhook_reenable` (no underscore between "re" and "enable" — single
 	// concept). Both legacy forms kept as aliases.
-	registerToolWithAliases(
-		server,
+	server.registerTool(
 		"webhook_reenable",
-		["Re-enable Webhook", "Re-enable_Webhook"],
 		{
 			title: "Re-enable Webhook",
 			description:
@@ -288,7 +264,6 @@ export function registerWebhookTools(options: ToolRegistrationOptions): void {
 			inputSchema: webhookReenableInput.shape,
 			outputSchema: statusOutput(),
 			annotations: { readOnlyHint: false, destructiveHint: false },
-			deprecate: true,
 		},
 		withErrorHandling<z.infer<typeof webhookReenableInput>>(
 			async (args, context) => {
@@ -302,10 +277,8 @@ export function registerWebhookTools(options: ToolRegistrationOptions): void {
 		),
 	);
 
-	registerToolWithAliases(
-		server,
+	server.registerTool(
 		"webhook_stats",
-		["Webhook Stats", "Webhook_Stats"],
 		{
 			title: "Webhook Stats",
 			description:
@@ -313,7 +286,6 @@ export function registerWebhookTools(options: ToolRegistrationOptions): void {
 			inputSchema: webhookStatsInput.shape,
 			outputSchema: objectOutput(),
 			annotations: { readOnlyHint: true, destructiveHint: false },
-			deprecate: true,
 		},
 		withErrorHandling<z.infer<typeof webhookStatsInput>>(
 			async (args, context) => {

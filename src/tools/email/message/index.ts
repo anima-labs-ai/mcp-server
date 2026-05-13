@@ -8,74 +8,14 @@ import {
 	withErrorHandling,
 } from "../../../shared/index.js";
 
-// 2026-05-13: message_send_email, message_get, message_list flagged as
-// deprecated soft-aliases of email_send / email_get / email_list. Same
-// reasoning as the email_send/get/list aliases dropped on 2026-05-09 then
-// restored on 2026-05-10 — visible deprecation > hard removal so existing
-// consumers don't break instantly. Handlers stay pointed at /v1/messages/*
-// (not /v1/email/*) because the schemas differ enough that a silent
-// endpoint swap would change observed behavior. Remove on the next major
-// catalog change once usage logs go quiet.
-const DEPRECATED_PREFIX = (canonical: string) =>
-	`[DEPRECATED — use \`${canonical}\`]`;
-
-function warnDeprecated(alias: string, canonical: string): void {
-	console.warn(
-		`[deprecated-tool] alias "${alias}" was invoked — migrate callers to "${canonical}". The alias will be removed in a future release.`,
-	);
-}
 
 export function registerMessageTools(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
-	const messageSendEmailInput = z.object({
-		to: z.string().describe("Recipient email address."),
-		subject: z.string().describe("Subject line for the email."),
-		text: z
-			.string()
-			.optional()
-			.describe("Optional plain-text body content."),
-		html: z
-			.string()
-			.optional()
-			.describe("Optional HTML body content."),
-		agentId: z.string().describe("Agent ID sending the message."),
-	});
     const messageSendSmsInput = z.object({
 		to: z.string().describe("Destination phone number for the SMS."),
 		body: z.string().describe("SMS body content to send."),
 		agentId: z.string().describe("Agent ID sending the message."),
-	});
-	const messageGetInput = z.object({
-		id: z.string().describe("Message ID to retrieve."),
-	});
-	const messageListInput = z.object({
-		channel: z
-			.string()
-			.optional()
-			.describe("Optional message channel filter such as EMAIL or SMS."),
-		direction: z
-			.string()
-			.optional()
-			.describe("Optional direction filter such as INBOUND or OUTBOUND."),
-		status: z
-			.string()
-			.optional()
-			.describe("Optional delivery status filter."),
-		agentId: z
-			.string()
-			.optional()
-			.describe("Optional agent ID to scope message results."),
-		limit: z
-			.number()
-			.int()
-			.positive()
-			.optional()
-			.describe("Optional maximum number of messages to return."),
-		cursor: z
-			.string()
-			.optional()
-			.describe("Optional pagination cursor from a previous response."),
 	});
 	const messageSearchInput = z.object({
 		query: z.string().describe("Search text query."),
@@ -152,35 +92,6 @@ export function registerMessageTools(options: ToolRegistrationOptions): void {
 	const messageGetAttachmentInput = z.object({
 		id: z.string().describe("Attachment ID."),
 	});
-
-	server.registerTool(
-		"message_send_email",
-		{
-			title: "Message Send Email",
-			description: `${DEPRECATED_PREFIX("email_send")} Send an outbound email through the unified messaging API when your workflow should create a tracked message record. Prefer \`email_send\` — it is the canonical email-send tool. This alias is kept for backward compatibility and will be removed in a future release.`,
-			inputSchema: messageSendEmailInput.shape,
-			outputSchema: sendOutput(),
-			annotations: {
-				readOnlyHint: false,
-				destructiveHint: false,
-				idempotentHint: false,
-				openWorldHint: true,
-			},
-		},
-		withErrorHandling(async (args, context) => {
-			warnDeprecated("message_send_email", "email_send");
-			const payload = {
-				agentId: args.agentId,
-				to: [args.to],
-				subject: args.subject,
-				body: args.text ?? args.html ?? "(empty message)",
-				bodyHtml: args.html,
-			};
-			const result = await context.client.post("/v1/messages/email", payload);
-			return toolSuccess(result);
-		}, options.context),
-	);
-
 	server.registerTool(
 		"message_send_sms",
 		{
@@ -200,58 +111,6 @@ export function registerMessageTools(options: ToolRegistrationOptions): void {
 			return toolSuccess(result);
 		}, options.context),
 	);
-
-	server.registerTool(
-		"message_get",
-		{
-			title: "Message Get",
-			description: `${DEPRECATED_PREFIX("email_get")} Fetch a specific message by ID, including channel metadata and delivery status. Prefer \`email_get\` for emails; this tool also resolves SMS messages but will be removed in a future release.`,
-			inputSchema: messageGetInput.shape,
-			outputSchema: objectOutput(),
-			annotations: {
-				readOnlyHint: true,
-				destructiveHint: false,
-				idempotentHint: true,
-				openWorldHint: true,
-			},
-		},
-		withErrorHandling(async (args, context) => {
-			warnDeprecated("message_get", "email_get");
-			const result = await context.client.get(`/v1/messages/${args.id}`);
-			return toolSuccess(result);
-		}, options.context),
-	);
-
-	server.registerTool(
-		"message_list",
-		{
-			title: "Message List",
-			description: `${DEPRECATED_PREFIX("email_list")} List messages with optional channel, direction, status, and pagination filters. Prefer \`email_list\` for emails; this tool also lists SMS but will be removed in a future release.`,
-			inputSchema: messageListInput.shape,
-			outputSchema: listOutput(),
-			annotations: {
-				readOnlyHint: true,
-				destructiveHint: false,
-				idempotentHint: true,
-				openWorldHint: true,
-			},
-		},
-		withErrorHandling(async (args, context) => {
-			warnDeprecated("message_list", "email_list");
-			const params = new URLSearchParams();
-			if (args.channel) params.set("channel", args.channel);
-			if (args.direction) params.set("direction", args.direction);
-			if (args.status) params.set("status", args.status);
-			if (args.agentId) params.set("agentId", args.agentId);
-			if (args.limit !== undefined) params.set("limit", String(args.limit));
-			if (args.cursor) params.set("cursor", args.cursor);
-
-			const path = params.toString() ? `/v1/messages?${params}` : "/v1/messages";
-			const result = await context.client.get(path);
-			return toolSuccess(result);
-		}, options.context),
-	);
-
 	server.registerTool(
 		"message_search",
 		{

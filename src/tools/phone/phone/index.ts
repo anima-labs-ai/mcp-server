@@ -282,13 +282,6 @@ export function registerPhoneTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	// voice_list_voices used to be registered here as a duplicate of
-	// voice_catalog (identical params, identical /v1/voice/catalog endpoint).
-	// It now lives in tools/phone/voice/index.ts as a deprecated alias of
-	// voice_catalog, registered via registerToolWithAliases with the
-	// `[DEPRECATED — use voice_catalog]` description prefix + stderr warning
-	// on every invocation. Will be removed once log usage goes quiet.
-
 	const phoneStatusSchema = z.object({
 		agentId: z
 			.string()

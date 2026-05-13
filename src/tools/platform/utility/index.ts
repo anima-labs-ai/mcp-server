@@ -3,7 +3,6 @@ import type { ToolRegistrationOptions } from "../../../shared/index.js";
 import {
 	listOutput,
 	objectOutput,
-	registerToolWithAliases,
 	requireMasterKeyGuard,
 	statusOutput,
 	toolError,
@@ -318,10 +317,8 @@ function registerDiscoverTool(options: ToolRegistrationOptions): void {
 function registerWhoAmITool(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
-	registerToolWithAliases(
-		server,
+	server.registerTool(
 		"who_am_i",
-		["Who Am I", "Who_Am_I"],
 		{
 			title: "Who Am I",
 			description:
@@ -329,7 +326,6 @@ function registerWhoAmITool(options: ToolRegistrationOptions): void {
 			inputSchema: noInput.shape,
 			outputSchema: objectOutput(),
 			annotations: { readOnlyHint: true, destructiveHint: false },
-			deprecate: true,
 		},
 		withErrorHandling(async (_args, context) => {
 			const result = await context.client.get<Record<string, unknown>>("/v1/orgs/me");
@@ -344,10 +340,8 @@ function registerWhoAmITool(options: ToolRegistrationOptions): void {
 function registerCheckHealthTool(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
-	registerToolWithAliases(
-		server,
+	server.registerTool(
 		"check_health",
-		["Check Health", "Check_Health"],
 		{
 			title: "Check Health",
 			description:
@@ -355,7 +349,6 @@ function registerCheckHealthTool(options: ToolRegistrationOptions): void {
 			inputSchema: noInput.shape,
 			outputSchema: statusOutput(),
 			annotations: { readOnlyHint: true, destructiveHint: false },
-			deprecate: true,
 		},
 		withErrorHandling(async (_args, context) => {
 			const result = await context.client.get<Record<string, unknown>>("/health");
@@ -400,10 +393,8 @@ const BLOCKER_REMEDIATION: Record<
 function registerWorkspaceHealthTool(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
-	registerToolWithAliases(
-		server,
+	server.registerTool(
 		"workspace_health",
-		["Workspace Health", "Workspace_Health"],
 		{
 			title: "Workspace Health",
 			description:
@@ -411,7 +402,6 @@ function registerWorkspaceHealthTool(options: ToolRegistrationOptions): void {
 			inputSchema: noInput.shape,
 			outputSchema: objectOutput(),
 			annotations: { readOnlyHint: true, destructiveHint: false },
-			deprecate: true,
 		},
 		withErrorHandling(async (_args, context) => {
 			const result = await context.client.get<Record<string, unknown>>(
@@ -647,10 +637,8 @@ function registerListCapabilitiesTool(options: ToolRegistrationOptions): void {
 function registerManagePendingTool(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
-	registerToolWithAliases(
-		server,
+	server.registerTool(
 		"manage_pending",
-		["Manage Pending", "Manage_Pending"],
 		{
 			title: "Manage Pending",
 			description:
@@ -662,7 +650,6 @@ function registerManagePendingTool(options: ToolRegistrationOptions): void {
 				destructiveHint: false,
 				idempotentHint: true,
 			},
-			deprecate: true,
 		},
 		withErrorHandling<z.infer<typeof managePendingInput>>(
 			async (args, context) => {
@@ -683,10 +670,8 @@ function registerManagePendingTool(options: ToolRegistrationOptions): void {
 function registerCheckFollowupsTool(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
-	registerToolWithAliases(
-		server,
+	server.registerTool(
 		"check_followups",
-		["Check Followups", "Check_Followups"],
 		{
 			title: "Check Followups",
 			description:
@@ -694,7 +679,6 @@ function registerCheckFollowupsTool(options: ToolRegistrationOptions): void {
 			inputSchema: noInput.shape,
 			outputSchema: listOutput(),
 			annotations: { readOnlyHint: true, destructiveHint: false },
-			deprecate: true,
 		},
 		withErrorHandling(async () => {
 			const result = drainFollowUps();
@@ -706,17 +690,14 @@ function registerCheckFollowupsTool(options: ToolRegistrationOptions): void {
 function registerMessageAgentTool(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
-	registerToolWithAliases(
-		server,
+	server.registerTool(
 		"message_agent",
-		["Message Agent", "Message_Agent"],
 		{
 			title: "Message Agent",
 			description: "Send an email message to another agent by agent name.",
 			inputSchema: messageAgentInput.shape,
 			outputSchema: objectOutput(),
 			annotations: { readOnlyHint: false, destructiveHint: false },
-			deprecate: true,
 		},
 		withErrorHandling<z.infer<typeof messageAgentInput>>(
 			async (args, context) => {
@@ -749,10 +730,8 @@ function registerMessageAgentTool(options: ToolRegistrationOptions): void {
 function registerCheckMessagesTool(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
-	registerToolWithAliases(
-		server,
+	server.registerTool(
 		"check_messages",
-		["Check Messages", "Check_Messages"],
 		{
 			title: "Check Messages",
 			description:
@@ -760,7 +739,6 @@ function registerCheckMessagesTool(options: ToolRegistrationOptions): void {
 			inputSchema: checkMessagesInput.shape,
 			outputSchema: listOutput(),
 			annotations: { readOnlyHint: true, destructiveHint: false },
-			deprecate: true,
 		},
 		withErrorHandling<z.infer<typeof checkMessagesInput>>(async (args, context) => {
 			// API enum is uppercase (MessageDirectionSchema in @anima/contracts).
@@ -785,10 +763,8 @@ function registerCheckMessagesTool(options: ToolRegistrationOptions): void {
 function registerWaitForEmailTool(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
-	registerToolWithAliases(
-		server,
+	server.registerTool(
 		"wait_for_email",
-		["Wait for Email", "Wait_for_Email"],
 		{
 			title: "Wait for Email",
 			description:
@@ -796,7 +772,6 @@ function registerWaitForEmailTool(options: ToolRegistrationOptions): void {
 			inputSchema: waitForEmailInput.shape,
 			outputSchema: objectOutput(),
 			annotations: { readOnlyHint: true, destructiveHint: false },
-			deprecate: true,
 		},
 		withErrorHandling<z.infer<typeof waitForEmailInput>>(async (args, context) => {
 			const startTime = Date.now();
@@ -828,10 +803,8 @@ function registerWaitForEmailTool(options: ToolRegistrationOptions): void {
 function registerCallAgentTool(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
-	registerToolWithAliases(
-		server,
+	server.registerTool(
 		"call_agent",
-		["Call Agent", "Call_Agent"],
 		{
 			title: "Call Agent",
 			description:
@@ -839,7 +812,6 @@ function registerCallAgentTool(options: ToolRegistrationOptions): void {
 			inputSchema: callAgentInput.shape,
 			outputSchema: objectOutput(),
 			annotations: { readOnlyHint: false, destructiveHint: false },
-			deprecate: true,
 		},
 		withErrorHandling<z.infer<typeof callAgentInput>>(async (args, context) => {
 			const agents = await context.client.get("/v1/agents");
@@ -895,17 +867,14 @@ function registerCallAgentTool(options: ToolRegistrationOptions): void {
 function registerUpdateMetadataTool(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
-	registerToolWithAliases(
-		server,
+	server.registerTool(
 		"update_metadata",
-		["Update Metadata", "Update_Metadata"],
 		{
 			title: "Update Metadata",
 			description: "Update metadata for the current agent identity.",
 			inputSchema: updateMetadataInput.shape,
 			outputSchema: objectOutput(),
 			annotations: { readOnlyHint: false, destructiveHint: false },
-			deprecate: true,
 		},
 		withErrorHandling<z.infer<typeof updateMetadataInput>>(async (args, context) => {
 			// Resolve the "current agent" via OAuth userinfo. For agent-bound
@@ -937,10 +906,8 @@ function registerUpdateMetadataTool(options: ToolRegistrationOptions): void {
 function registerSetupEmailDomainTool(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
-	registerToolWithAliases(
-		server,
+	server.registerTool(
 		"setup_email_domain",
-		["Setup Email Domain", "Setup_Email_Domain"],
 		{
 			title: "Setup Email Domain",
 			description:
@@ -948,7 +915,6 @@ function registerSetupEmailDomainTool(options: ToolRegistrationOptions): void {
 			inputSchema: setupEmailDomainInput.shape,
 			outputSchema: objectOutput(),
 			annotations: { readOnlyHint: false, destructiveHint: false },
-			deprecate: true,
 		},
 		withErrorHandling<z.infer<typeof setupEmailDomainInput>>(async (args, context) => {
 			requireMasterKeyGuard(options.context);
@@ -963,17 +929,14 @@ function registerSetupEmailDomainTool(options: ToolRegistrationOptions): void {
 function registerSendTestEmailTool(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
-	registerToolWithAliases(
-		server,
+	server.registerTool(
 		"send_test_email",
-		["Send Test Email", "Send_Test_Email"],
 		{
 			title: "Send Test Email",
 			description: "Send a simple test email for setup verification.",
 			inputSchema: sendTestEmailInput.shape,
 			outputSchema: objectOutput(),
 			annotations: { readOnlyHint: false, destructiveHint: false },
-			deprecate: true,
 		},
 		withErrorHandling<z.infer<typeof sendTestEmailInput>>(async (args, context) => {
 			requireMasterKeyGuard(options.context);
@@ -990,17 +953,14 @@ function registerSendTestEmailTool(options: ToolRegistrationOptions): void {
 function registerManageSpamTool(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
-	registerToolWithAliases(
-		server,
+	server.registerTool(
 		"manage_spam",
-		["Manage Spam", "Manage_Spam"],
 		{
 			title: "Manage Spam",
 			description: "List, report, and unmark spam messages.",
 			inputSchema: manageSpamInput.shape,
 			outputSchema: objectOutput(),
 			annotations: { readOnlyHint: false, destructiveHint: false },
-			deprecate: true,
 		},
 		withErrorHandling<z.infer<typeof manageSpamInput>>(async (args, context) => {
 			if (args.action === "list") {
@@ -1038,10 +998,8 @@ function registerManageSpamTool(options: ToolRegistrationOptions): void {
 function registerCheckTasksTool(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
-	registerToolWithAliases(
-		server,
+	server.registerTool(
 		"check_tasks",
-		["Check Tasks", "Check_Tasks"],
 		{
 			title: "Check Tasks",
 			description:
@@ -1049,7 +1007,6 @@ function registerCheckTasksTool(options: ToolRegistrationOptions): void {
 			inputSchema: checkTasksInput.shape,
 			outputSchema: listOutput(),
 			annotations: { readOnlyHint: true, destructiveHint: false },
-			deprecate: true,
 		},
 		withErrorHandling<z.infer<typeof checkTasksInput>>(async (args, context) => {
 			// API expects uppercase INBOUND (MessageDirectionSchema). The
