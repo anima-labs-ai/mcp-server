@@ -5,7 +5,6 @@ import { registerAgentTools } from "../agent/index.js";
 import { registerOrganizationTools } from "../organization/index.js";
 import { registerIdentityTools } from "../identity/index.js";
 import { registerRegistryTools } from "../registry/index.js";
-import { registerA2aTools } from "../a2a/index.js";
 
 function createTestOptions(): ToolRegistrationOptions {
 	const server = new McpServer({ name: "test", version: "0.0.1" });
@@ -37,18 +36,12 @@ describe("mcp-agent tool registration", () => {
 		expect(() => registerRegistryTools(options)).not.toThrow();
 	});
 
-	test("a2a tools register without error", () => {
-		const options = createTestOptions();
-		expect(() => registerA2aTools(options)).not.toThrow();
-	});
-
 	test("all tools register on single server", () => {
 		const options = createTestOptions();
 		registerAgentTools(options);
 		registerOrganizationTools(options);
 		registerIdentityTools(options);
 		registerRegistryTools(options);
-		registerA2aTools(options);
 		// If we get here without error, all tools registered successfully
 		expect(true).toBe(true);
 	});

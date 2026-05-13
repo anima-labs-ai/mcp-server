@@ -2,7 +2,6 @@ import { describe, test, expect } from "bun:test";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { ApiClient, type ToolRegistrationOptions } from "../../../shared/index.js";
 import { registerVaultTools } from "../vault/index.js";
-import { registerSecurityTools } from "../security/index.js";
 
 function createTestOptions(): ToolRegistrationOptions {
 	const server = new McpServer({ name: "test", version: "0.0.1" });
@@ -19,15 +18,9 @@ describe("mcp-vault tool registration", () => {
 		expect(() => registerVaultTools(options)).not.toThrow();
 	});
 
-	test("security tools register without error", () => {
-		const options = createTestOptions();
-		expect(() => registerSecurityTools(options)).not.toThrow();
-	});
-
 	test("all tools register on single server", () => {
 		const options = createTestOptions();
 		registerVaultTools(options);
-		registerSecurityTools(options);
 		// If we get here without error, all tools registered successfully
 		expect(true).toBe(true);
 	});

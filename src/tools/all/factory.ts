@@ -10,7 +10,6 @@ import { registerAgentTools } from "../agent/agent/index.js";
 import { registerOrganizationTools } from "../agent/organization/index.js";
 import { registerIdentityTools } from "../agent/identity/index.js";
 import { registerRegistryTools } from "../agent/registry/index.js";
-import { registerA2aTools } from "../agent/a2a/index.js";
 
 // Email domain
 import { registerEmailTools } from "../email/email/index.js";
@@ -29,7 +28,6 @@ import { registerPodTools } from "../platform/pod/index.js";
 
 // Vault domain
 import { registerVaultTools } from "../vault/vault/index.js";
-import { registerSecurityTools } from "../vault/security/index.js";
 import { registerOAuthTools } from "../vault/vault/oauth.js";
 
 const SERVER_INFO = {
@@ -60,7 +58,6 @@ export function buildAllToolsServer(client: ApiClient): McpServer {
 	registerOrganizationTools(context);
 	registerIdentityTools(context);
 	registerRegistryTools(context);
-	registerA2aTools(context);
 
 	// Email
 	registerEmailTools(context);
@@ -79,7 +76,6 @@ export function buildAllToolsServer(client: ApiClient): McpServer {
 
 	// Vault
 	registerVaultTools(context);
-	registerSecurityTools(context);
 	registerOAuthTools(context);
 
 	return server;
