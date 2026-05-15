@@ -89,9 +89,6 @@ export function registerMessageTools(options: ToolRegistrationOptions): void {
 			.optional()
 			.describe("Optional MIME type for the attachment."),
 	});
-	const messageGetAttachmentInput = z.object({
-		id: z.string().describe("Attachment ID."),
-	});
 	server.registerTool(
 		"message_send_sms",
 		{
@@ -294,23 +291,4 @@ export function registerMessageTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.registerTool(
-		"message_get_attachment",
-		{
-			title: "Message Get Attachment",
-			description: "Retrieve a temporary download URL for a previously uploaded attachment. Use this when a client needs direct file access for preview or download.",
-			inputSchema: messageGetAttachmentInput.shape,
-			outputSchema: objectOutput(),
-			annotations: {
-				readOnlyHint: true,
-				destructiveHint: false,
-				idempotentHint: true,
-				openWorldHint: true,
-			},
-		},
-		withErrorHandling(async (args, context) => {
-			const result = await context.client.get(`/v1/attachments/${args.id}/download`);
-			return toolSuccess(result);
-		}, options.context),
-	);
 }
