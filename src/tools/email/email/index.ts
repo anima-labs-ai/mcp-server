@@ -188,6 +188,55 @@ const emailAttachmentGetSchema = z.object({
 	id: z.string().describe("Attachment ID. Returns a temporary download URL."),
 });
 
+const emailDraftCreateSchema = z.object({
+	agentId: z.string().describe("Owning agent ID."),
+	fromIdentityId: z
+		.string()
+		.optional()
+		.describe(
+			"Optional EmailIdentity ID to send from. Must belong to this agent and be verified. If omitted, the agent's primary identity is used at send time. Discover available IDs from the `emailIdentities` array returned by agent_get.",
+		),
+	to: z.array(z.string()).optional().describe("Recipient email addresses (may be empty for an incomplete draft)."),
+	cc: z.array(z.string()).optional().describe("CC recipients."),
+	bcc: z.array(z.string()).optional().describe("BCC recipients."),
+	subject: z.string().optional().describe("Subject line."),
+	body: z.string().optional().describe("Plain-text body."),
+	bodyHtml: z.string().optional().describe("HTML body."),
+	inReplyTo: z
+		.string()
+		.optional()
+		.describe("Optional In-Reply-To Message-ID for threading on send."),
+	references: z.array(z.string()).optional().describe("Optional References chain for threading."),
+	metadata: z.record(z.unknown()).optional().describe("Arbitrary metadata."),
+});
+
+const emailDraftGetSchema = z.object({
+	id: z
+		.string()
+		.optional()
+		.describe(
+			"Draft ID. If provided, returns that one draft. If omitted, returns a paginated list of drafts in the current context.",
+		),
+	agentId: z
+		.string()
+		.optional()
+		.describe("Filter drafts by agent ID (only applied when listing). Ignored when `id` is provided."),
+	cursor: z
+		.string()
+		.optional()
+		.describe("Pagination cursor when listing. Ignored when `id` is provided."),
+	limit: z
+		.number()
+		.int()
+		.positive()
+		.optional()
+		.describe("Max drafts when listing. Ignored when `id` is provided."),
+});
+
+const emailDraftIdSchema = z.object({
+	id: z.string().describe("Draft ID."),
+});
+
 export function registerEmailTools(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
@@ -447,6 +496,116 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.get<unknown>(
 				`/v1/attachments/${encodeURIComponent(args.id)}/download`,
+			);
+			return toolSuccess(result);
+		}, options.context),
+	);
+
+	server.registerTool(
+		"email_draft_create",
+		{
+			title: "Create Email Draft",
+			description:
+				"Create a new email draft (composed but not sent). Drafts can be incomplete — missing recipients, subject, or body. Use email_draft_send later to actually deliver, or email_draft_delete to discard.",
+			inputSchema: emailDraftCreateSchema.shape,
+			outputSchema: objectOutput(),
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: false,
+				openWorldHint: true,
+			},
+		},
+		withErrorHandling(async (args, context) => {
+			const body: Record<string, unknown> = { agentId: args.agentId };
+			if (args.fromIdentityId) body.fromIdentityId = args.fromIdentityId;
+			if (args.to) body.to = args.to;
+			if (args.cc) body.cc = args.cc;
+			if (args.bcc) body.bcc = args.bcc;
+			if (args.subject !== undefined) body.subject = args.subject;
+			if (args.body !== undefined) body.body = args.body;
+			if (args.bodyHtml !== undefined) body.bodyHtml = args.bodyHtml;
+			if (args.inReplyTo !== undefined) body.inReplyTo = args.inReplyTo;
+			if (args.references) body.references = args.references;
+			if (args.metadata !== undefined) body.metadata = args.metadata;
+			const result = await context.client.post<unknown>("/v1/email/drafts", body);
+			return toolSuccess(result);
+		}, options.context),
+	);
+
+	server.registerTool(
+		"email_draft_get",
+		{
+			title: "Get or List Email Drafts",
+			description:
+				"Fetch one draft by ID, or list drafts. Pass `id` to inspect a single draft. Omit `id` to list drafts — `agentId`, `cursor`, `limit` apply only when listing.",
+			inputSchema: emailDraftGetSchema.shape,
+			outputSchema: objectOutput(),
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
+		},
+		withErrorHandling(async (args, context) => {
+			if (args.id) {
+				const result = await context.client.get<unknown>(
+					`/v1/email/drafts/${encodeURIComponent(args.id)}`,
+				);
+				return toolSuccess(result);
+			}
+			const params = new URLSearchParams();
+			if (args.agentId) params.set("agentId", args.agentId);
+			if (args.cursor) params.set("cursor", args.cursor);
+			if (args.limit !== undefined) params.set("limit", String(args.limit));
+			const path = params.toString() ? `/v1/email/drafts?${params}` : "/v1/email/drafts";
+			const result = await context.client.get<unknown>(path);
+			return toolSuccess(result);
+		}, options.context),
+	);
+
+	server.registerTool(
+		"email_draft_send",
+		{
+			title: "Send Email Draft",
+			description:
+				"Send a draft. Atomically converts the draft to a delivered Message + deletes the draft row. The draft must have at least one recipient, a subject, and a body. Returns the newly-created Message.",
+			inputSchema: emailDraftIdSchema.shape,
+			outputSchema: sendOutput(),
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: false,
+				openWorldHint: true,
+			},
+		},
+		withErrorHandling(async (args, context) => {
+			const result = await context.client.post<unknown>(
+				`/v1/email/drafts/${encodeURIComponent(args.id)}/send`,
+			);
+			return toolSuccess(result);
+		}, options.context),
+	);
+
+	server.registerTool(
+		"email_draft_delete",
+		{
+			title: "Delete Email Draft",
+			description:
+				"Discard a draft. Use this to remove drafts that are no longer needed. Use email_draft_send if you want to deliver instead.",
+			inputSchema: emailDraftIdSchema.shape,
+			outputSchema: objectOutput(),
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: true,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
+		},
+		withErrorHandling(async (args, context) => {
+			const result = await context.client.delete<unknown>(
+				`/v1/email/drafts/${encodeURIComponent(args.id)}`,
 			);
 			return toolSuccess(result);
 		}, options.context),
