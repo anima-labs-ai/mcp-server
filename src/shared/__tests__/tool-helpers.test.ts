@@ -16,9 +16,9 @@ const mockContext: ToolContext = {
 
 describe("requiresMasterKey", () => {
 	test("returns true for master key tools", () => {
-		expect(requiresMasterKey("org_create")).toBe(true);
-		expect(requiresMasterKey("org_delete")).toBe(true);
+		expect(requiresMasterKey("agent_delete")).toBe(true);
 		expect(requiresMasterKey("domain_add")).toBe(true);
+		expect(requiresMasterKey("domain_delete")).toBe(true);
 	});
 
 	test("returns false for normal tools", () => {

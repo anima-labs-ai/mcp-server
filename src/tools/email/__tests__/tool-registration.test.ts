@@ -2,7 +2,6 @@ import { describe, test, expect } from "bun:test";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { ApiClient, type ToolRegistrationOptions } from "../../../shared/index.js";
 import { registerEmailTools } from "../email/index.js";
-import { registerMessageTools } from "../message/index.js";
 import { registerDomainTools } from "../domain/index.js";
 
 function createTestOptions(): ToolRegistrationOptions {
@@ -20,11 +19,6 @@ describe("mcp-email tool registration", () => {
 		expect(() => registerEmailTools(options)).not.toThrow();
 	});
 
-	test("message tools register without error", () => {
-		const options = createTestOptions();
-		expect(() => registerMessageTools(options)).not.toThrow();
-	});
-
 	test("domain tools register without error", () => {
 		const options = createTestOptions();
 		expect(() => registerDomainTools(options)).not.toThrow();
@@ -33,7 +27,6 @@ describe("mcp-email tool registration", () => {
 	test("all tools register on single server", () => {
 		const options = createTestOptions();
 		registerEmailTools(options);
-		registerMessageTools(options);
 		registerDomainTools(options);
 		// If we get here without error, all tools registered successfully
 		expect(true).toBe(true);

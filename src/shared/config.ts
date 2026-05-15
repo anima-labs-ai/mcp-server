@@ -6,9 +6,6 @@
 
 /** Tool names that require master key access */
 export const MASTER_KEY_TOOLS = new Set([
-	"org_create",
-	"org_delete",
-	"org_rotate_key",
 	"agent_delete",
 	"domain_add",
 	"domain_delete",

@@ -7,11 +7,9 @@ import {
 
 // Agent domain
 import { registerAgentTools } from "../agent/agent/index.js";
-import { registerOrganizationTools } from "../agent/organization/index.js";
 
 // Email domain
 import { registerEmailTools } from "../email/email/index.js";
-import { registerMessageTools } from "../email/message/index.js";
 import { registerDomainTools } from "../email/domain/index.js";
 
 // Phone domain
@@ -50,11 +48,9 @@ export function buildAllToolsServer(client: ApiClient): McpServer {
 
 	// Agent
 	registerAgentTools(context);
-	registerOrganizationTools(context);
 
 	// Email
 	registerEmailTools(context);
-	registerMessageTools(context);
 	registerDomainTools(context);
 
 	// Phone

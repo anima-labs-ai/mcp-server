@@ -2,7 +2,6 @@ import { z } from "zod";
 import type { ToolRegistrationOptions } from "../../../shared/index.js";
 import {
 	deleteOutput,
-	listOutput,
 	objectOutput,
 	requireMasterKeyGuard,
 	toolSuccess,
@@ -19,7 +18,14 @@ const domainIdSchema = z.object({
 	id: z.string().describe("Unique domain ID."),
 });
 
-const emptySchema = z.object({});
+const domainGetSchema = z.object({
+	id: z
+		.string()
+		.optional()
+		.describe(
+			"Domain ID. If provided, returns that one domain with verification and config state. If omitted, returns the list of all domains in the workspace.",
+		),
+});
 
 export function registerDomainTools(options: ToolRegistrationOptions): void {
 	const { server } = options;
@@ -70,9 +76,10 @@ export function registerDomainTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"domain_get",
 		{
-			title: "Get Domain",
-			description: "Fetch full details for a single domain, including verification and configuration state. Use this to inspect current domain health.",
-			inputSchema: domainIdSchema.shape,
+			title: "Get or List Domains",
+			description:
+				"Fetch one domain by ID, or list all domains. Pass `id` to inspect a single domain (verification + config state). Omit `id` to list all domains in the workspace.",
+			inputSchema: domainGetSchema.shape,
 			outputSchema: objectOutput(),
 			annotations: {
 				readOnlyHint: true,
@@ -82,27 +89,11 @@ export function registerDomainTools(options: ToolRegistrationOptions): void {
 			},
 		},
 		withErrorHandling(async (args, context) => {
-			const path = `/v1/domains/${encodeURIComponent(args.id)}`;
-			const result = await context.client.get<unknown>(path);
-			return toolSuccess(result);
-		}, options.context),
-	);
-
-	server.registerTool(
-		"domain_list",
-		{
-			title: "List Domain",
-			description: "List all domains connected to the current workspace. Use this to audit configured sender domains and choose one for follow-up actions.",
-			inputSchema: emptySchema.shape,
-			outputSchema: listOutput(),
-			annotations: {
-				readOnlyHint: true,
-				destructiveHint: false,
-				idempotentHint: true,
-				openWorldHint: true,
-			},
-		},
-		withErrorHandling(async (_args, context) => {
+			if (args.id) {
+				const path = `/v1/domains/${encodeURIComponent(args.id)}`;
+				const result = await context.client.get<unknown>(path);
+				return toolSuccess(result);
+			}
 			const result = await context.client.get<unknown>("/v1/domains");
 			return toolSuccess(result);
 		}, options.context),
@@ -126,27 +117,6 @@ export function registerDomainTools(options: ToolRegistrationOptions): void {
 			requireMasterKeyGuard(context);
 			const path = `/v1/domains/${encodeURIComponent(args.id)}`;
 			const result = await context.client.delete<unknown>(path);
-			return toolSuccess(result);
-		}, options.context),
-	);
-
-	server.registerTool(
-		"domain_dns_records",
-		{
-			title: "Domain DNS Records",
-			description: "Get the exact DNS records required to complete domain onboarding. Use this to configure SPF, DKIM, MX, or verification entries at your DNS provider.",
-			inputSchema: domainIdSchema.shape,
-			outputSchema: objectOutput(),
-			annotations: {
-				readOnlyHint: true,
-				destructiveHint: false,
-				idempotentHint: true,
-				openWorldHint: true,
-			},
-		},
-		withErrorHandling(async (args, context) => {
-			const path = `/v1/domains/${encodeURIComponent(args.id)}/dns-records`;
-			const result = await context.client.get<unknown>(path);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -185,26 +155,6 @@ export function registerDomainTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	server.registerTool(
-		"domain_deliverability",
-		{
-			title: "Domain Deliverability",
-			description: "Check domain deliverability diagnostics and readiness for outbound email. Use this to troubleshoot sending reputation or setup issues before campaigns.",
-			inputSchema: domainIdSchema.shape,
-			outputSchema: objectOutput(),
-			annotations: {
-				readOnlyHint: true,
-				destructiveHint: false,
-				idempotentHint: true,
-				openWorldHint: true,
-			},
-		},
-		withErrorHandling(async (args, context) => {
-			const path = `/v1/domains/${encodeURIComponent(args.id)}/deliverability`;
-			const result = await context.client.get<unknown>(path);
-			return toolSuccess(result);
-		}, options.context),
-	);
 
 	server.registerTool(
 		"domain_zone_file",
