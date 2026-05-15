@@ -23,8 +23,18 @@ const domainGetSchema = z.object({
 		.string()
 		.optional()
 		.describe(
-			"Domain ID. If provided, returns that one domain with verification and config state. If omitted, returns the list of all domains in the workspace.",
+			"Domain ID. If provided, returns that one domain with verification and config state. If omitted, returns a list of all domains in the workspace.",
 		),
+	cursor: z
+		.string()
+		.optional()
+		.describe("Pagination cursor when listing. Ignored when `id` is provided."),
+	limit: z
+		.number()
+		.int()
+		.positive()
+		.optional()
+		.describe("Max domains when listing. Ignored when `id` is provided."),
 });
 
 export function registerDomainTools(options: ToolRegistrationOptions): void {
@@ -94,7 +104,11 @@ export function registerDomainTools(options: ToolRegistrationOptions): void {
 				const result = await context.client.get<unknown>(path);
 				return toolSuccess(result);
 			}
-			const result = await context.client.get<unknown>("/v1/domains");
+			const params = new URLSearchParams();
+			if (args.cursor) params.set("cursor", args.cursor);
+			if (args.limit !== undefined) params.set("limit", String(args.limit));
+			const path = params.toString() ? `/v1/domains?${params}` : "/v1/domains";
+			const result = await context.client.get<unknown>(path);
 			return toolSuccess(result);
 		}, options.context),
 	);
