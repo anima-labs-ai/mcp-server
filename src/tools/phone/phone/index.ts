@@ -5,7 +5,6 @@ import {
 	listOutput,
 	objectOutput,
 	requireMasterKeyGuard,
-	sendOutput,
 	statusOutput,
 	toolSuccess,
 	withErrorHandling,
@@ -130,22 +129,6 @@ const phoneReleaseSchema = z.object({
 		.describe("E.164 formatted phone number to release."),
 });
 
-const phoneSendSmsSchema = z.object({
-	agentId: z
-		.string()
-		.describe("Agent ID sending the SMS message."),
-	to: z
-		.string()
-		.describe("Destination phone number in E.164 format."),
-	body: z
-		.string()
-		.describe("Text message body to send (max 1600 characters)."),
-	mediaUrls: z
-		.array(z.string())
-		.optional()
-		.describe("Optional URLs of media attachments for MMS (max 10)."),
-});
-
 export function registerPhoneTools(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
@@ -253,34 +236,6 @@ export function registerPhoneTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-
-	server.registerTool(
-		"phone_send_sms",
-		{
-			title: "Send Phone SMS",
-			description: "Send an SMS or MMS message to a destination phone number. Use this for outbound notifications or conversational messaging.",
-			inputSchema: phoneSendSmsSchema.shape,
-			outputSchema: sendOutput(),
-			annotations: {
-				readOnlyHint: false,
-				destructiveHint: false,
-				idempotentHint: false,
-				openWorldHint: true,
-			},
-		},
-		withErrorHandling(async (args, context) => {
-			const body: Record<string, unknown> = {
-				agentId: args.agentId,
-				to: args.to,
-				body: args.body,
-			};
-			if (args.mediaUrls && args.mediaUrls.length > 0) {
-				body.mediaUrls = args.mediaUrls;
-			}
-			const result = await context.client.post<unknown>("/v1/phone/send-sms", body);
-			return toolSuccess(result);
-		}, options.context),
-	);
 
 	const phoneStatusSchema = z.object({
 		agentId: z

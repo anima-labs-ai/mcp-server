@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { SERVER_INFO as CORE_SERVER_INFO, type ApiClient, type ToolRegistrationOptions } from "../../shared/index.js";
 import { registerPhoneTools } from "./phone/index.js";
+import { registerSmsTools } from "./sms/index.js";
 import { registerVoiceTools } from "./voice/index.js";
 
 const SERVER_INFO = {
@@ -17,6 +18,7 @@ export function buildPhoneServer(client: ApiClient): McpServer {
 		context: { client, hasMasterKey: client.hasMasterKey() },
 	};
 	registerPhoneTools(context);
+	registerSmsTools(context);
 	registerVoiceTools(context);
 	return server;
 }

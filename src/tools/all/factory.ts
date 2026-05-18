@@ -14,6 +14,7 @@ import { registerDomainTools } from "../email/domain/index.js";
 
 // Phone domain
 import { registerPhoneTools } from "../phone/phone/index.js";
+import { registerSmsTools } from "../phone/sms/index.js";
 import { registerVoiceTools } from "../phone/voice/index.js";
 
 // Platform domain
@@ -55,6 +56,7 @@ export function buildAllToolsServer(client: ApiClient): McpServer {
 
 	// Phone
 	registerPhoneTools(context);
+	registerSmsTools(context);
 	registerVoiceTools(context);
 
 	// Platform
