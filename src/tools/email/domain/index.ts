@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { ToolRegistrationOptions } from "../../../shared/index.js";
 import {
 	deleteOutput,
+	listOutput,
 	objectOutput,
 	requireMasterKeyGuard,
 	toolSuccess,
@@ -18,23 +19,9 @@ const domainIdSchema = z.object({
 	id: z.string().describe("Unique domain ID."),
 });
 
-const domainGetSchema = z.object({
-	id: z
-		.string()
-		.optional()
-		.describe(
-			"Domain ID. If provided, returns that one domain with verification and config state. If omitted, returns a list of all domains in the workspace.",
-		),
-	cursor: z
-		.string()
-		.optional()
-		.describe("Pagination cursor when listing. Ignored when `id` is provided."),
-	limit: z
-		.number()
-		.int()
-		.positive()
-		.optional()
-		.describe("Max domains when listing. Ignored when `id` is provided."),
+const domainListSchema = z.object({
+	cursor: z.string().optional().describe("Pagination cursor from a previous list response."),
+	limit: z.number().int().positive().optional().describe("Max domains to return."),
 });
 
 export function registerDomainTools(options: ToolRegistrationOptions): void {
@@ -86,10 +73,10 @@ export function registerDomainTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"domain_get",
 		{
-			title: "Get or List Domains",
+			title: "Get Domain",
 			description:
-				"Fetch one domain by ID, or list all domains. Pass `id` to inspect a single domain (verification + config state). Omit `id` to list all domains in the workspace.",
-			inputSchema: domainGetSchema.shape,
+				"Fetch full detail for a single domain by ID, including verification and configuration state. Use domain_list to browse all domains.",
+			inputSchema: domainIdSchema.shape,
 			outputSchema: objectOutput(),
 			annotations: {
 				readOnlyHint: true,
@@ -99,11 +86,28 @@ export function registerDomainTools(options: ToolRegistrationOptions): void {
 			},
 		},
 		withErrorHandling(async (args, context) => {
-			if (args.id) {
-				const path = `/v1/domains/${encodeURIComponent(args.id)}`;
-				const result = await context.client.get<unknown>(path);
-				return toolSuccess(result);
-			}
+			const path = `/v1/domains/${encodeURIComponent(args.id)}`;
+			const result = await context.client.get<unknown>(path);
+			return toolSuccess(result);
+		}, options.context),
+	);
+
+	server.registerTool(
+		"domain_list",
+		{
+			title: "List Domains",
+			description:
+				"List all domains connected to the current workspace. Use this to audit configured sender domains and choose one for follow-up actions.",
+			inputSchema: domainListSchema.shape,
+			outputSchema: listOutput(),
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
+		},
+		withErrorHandling(async (args, context) => {
 			const params = new URLSearchParams();
 			if (args.cursor) params.set("cursor", args.cursor);
 			if (args.limit !== undefined) params.set("limit", String(args.limit));

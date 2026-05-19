@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { ToolRegistrationOptions } from "../../../shared/index.js";
 import {
+	listOutput,
 	objectOutput,
 	requireMasterKeyGuard,
 	sendOutput,
@@ -118,28 +119,13 @@ const emailSendSchema = z.object({
 });
 
 const emailGetSchema = z.object({
-	id: z
-		.string()
-		.optional()
-		.describe(
-			"Email ID. If provided, returns that one email with full metadata + body. If omitted, returns a paginated list of emails (use `folder`, `limit`, `offset`).",
-		),
-	folder: z
-		.string()
-		.optional()
-		.describe("Folder filter (e.g. inbox, sent). Applies only when listing. Ignored when `id` is provided."),
-	limit: z
-		.number()
-		.int()
-		.positive()
-		.optional()
-		.describe("Max emails when listing. Ignored when `id` is provided."),
-	offset: z
-		.number()
-		.int()
-		.nonnegative()
-		.optional()
-		.describe("Pagination offset when listing. Ignored when `id` is provided."),
+	id: z.string().describe("Email ID. Returns full metadata and body."),
+});
+
+const emailListSchema = z.object({
+	folder: z.string().optional().describe("Folder filter (e.g. inbox, sent)."),
+	limit: z.number().int().positive().optional().describe("Max emails to return."),
+	offset: z.number().int().nonnegative().optional().describe("Pagination offset."),
 });
 
 const emailReplySchema = z.object({
@@ -210,21 +196,9 @@ const emailDraftCreateSchema = z.object({
 	metadata: z.record(z.unknown()).optional().describe("Arbitrary metadata."),
 });
 
-const emailDraftGetSchema = z.object({
-	id: z
-		.string()
-		.optional()
-		.describe(
-			"Draft ID. If provided, returns that one draft. If omitted, returns a paginated list of drafts in the current context.",
-		),
-	agentId: z
-		.string()
-		.optional()
-		.describe("Filter drafts by agent ID (only applied when listing). Ignored when `id` is provided."),
-	cursor: z
-		.string()
-		.optional()
-		.describe("Pagination cursor when listing. Ignored when `id` is provided."),
+const emailDraftListSchema = z.object({
+	agentId: z.string().optional().describe("Filter drafts by agent ID."),
+	cursor: z.string().optional().describe("Pagination cursor from a previous list response."),
 	limit: z
 		.number()
 		.int()
@@ -276,9 +250,9 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"email_get",
 		{
-			title: "Get or List Emails",
+			title: "Get Email",
 			description:
-				"Fetch one email by ID, or list emails. Pass `id` to inspect a single email (full metadata + body). Omit `id` to list emails in a folder — `folder`, `limit`, `offset` apply only when listing.",
+				"Fetch full detail for a single email by ID, including metadata and body. Use email_list to browse emails in a folder.",
 			inputSchema: emailGetSchema.shape,
 			outputSchema: objectOutput(),
 			annotations: {
@@ -289,11 +263,28 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 			},
 		},
 		withErrorHandling(async (args, context) => {
-			if (args.id) {
-				const path = `/v1/email/${encodeURIComponent(args.id)}`;
-				const result = await context.client.get<unknown>(path);
-				return toolSuccess(result);
-			}
+			const path = `/v1/email/${encodeURIComponent(args.id)}`;
+			const result = await context.client.get<unknown>(path);
+			return toolSuccess(result);
+		}, options.context),
+	);
+
+	server.registerTool(
+		"email_list",
+		{
+			title: "List Emails",
+			description:
+				"List emails in a folder with pagination. Returns lightweight per-email records — use email_get for the full body.",
+			inputSchema: emailListSchema.shape,
+			outputSchema: listOutput(),
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
+		},
+		withErrorHandling(async (args, context) => {
 			const params = new URLSearchParams();
 			if (args.folder) params.set("folder", args.folder);
 			if (args.limit !== undefined) params.set("limit", String(args.limit));
@@ -536,10 +527,10 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"email_draft_get",
 		{
-			title: "Get or List Email Drafts",
+			title: "Get Email Draft",
 			description:
-				"Fetch one draft by ID, or list drafts. Pass `id` to inspect a single draft. Omit `id` to list drafts — `agentId`, `cursor`, `limit` apply only when listing.",
-			inputSchema: emailDraftGetSchema.shape,
+				"Fetch full detail for a single draft by ID. Use email_draft_list to browse drafts.",
+			inputSchema: emailDraftIdSchema.shape,
 			outputSchema: objectOutput(),
 			annotations: {
 				readOnlyHint: true,
@@ -549,12 +540,29 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 			},
 		},
 		withErrorHandling(async (args, context) => {
-			if (args.id) {
-				const result = await context.client.get<unknown>(
-					`/v1/email/drafts/${encodeURIComponent(args.id)}`,
-				);
-				return toolSuccess(result);
-			}
+			const result = await context.client.get<unknown>(
+				`/v1/email/drafts/${encodeURIComponent(args.id)}`,
+			);
+			return toolSuccess(result);
+		}, options.context),
+	);
+
+	server.registerTool(
+		"email_draft_list",
+		{
+			title: "List Email Drafts",
+			description:
+				"List email drafts with optional filters. Returns lightweight draft records — use email_draft_get for full detail.",
+			inputSchema: emailDraftListSchema.shape,
+			outputSchema: listOutput(),
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
+		},
+		withErrorHandling(async (args, context) => {
 			const params = new URLSearchParams();
 			if (args.agentId) params.set("agentId", args.agentId);
 			if (args.cursor) params.set("cursor", args.cursor);

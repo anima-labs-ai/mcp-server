@@ -1,14 +1,14 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { SERVER_INFO as CORE_SERVER_INFO, type ApiClient, type ToolRegistrationOptions } from "../../shared/index.js";
 import { registerPhoneTools } from "./phone/index.js";
+import { registerPhoneCallTools } from "./phone_call/index.js";
 import { registerSmsTools } from "./sms/index.js";
-import { registerVoiceTools } from "./voice/index.js";
 
 const SERVER_INFO = {
 	...CORE_SERVER_INFO,
 	name: "anima-mcp-phone",
 	version: "0.1.0",
-	description: "Anima MCP Server — Phone, SMS, and voice call tools",
+	description: "Anima MCP Server — Phone number, SMS, and phone call tools",
 };
 
 export function buildPhoneServer(client: ApiClient): McpServer {
@@ -19,6 +19,6 @@ export function buildPhoneServer(client: ApiClient): McpServer {
 	};
 	registerPhoneTools(context);
 	registerSmsTools(context);
-	registerVoiceTools(context);
+	registerPhoneCallTools(context);
 	return server;
 }
