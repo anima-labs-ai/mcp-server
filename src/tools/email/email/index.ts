@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { ToolRegistrationOptions } from "../../../shared/index.js";
 import {
+	deleteOutput,
 	listOutput,
 	objectOutput,
 	requireMasterKeyGuard,
@@ -142,7 +143,10 @@ const emailReplySchema = z.object({
 const emailForwardSchema = z.object({
 	agentId: z.string().describe("Agent ID forwarding the email."),
 	originalId: z.string().describe("Original email ID being forwarded."),
-	to: z.string().describe("Recipient email address for the forwarded message."),
+	to: z
+		.array(z.string())
+		.min(1)
+		.describe("Recipient email address(es) for the forwarded message."),
 	text: z
 		.string()
 		.optional()
@@ -320,8 +324,19 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 				throw new Error("Original email payload is missing or invalid.");
 			}
 
+			// 2026-05-20: API returns fromAddress/toAddress (not from/to). For
+			// OUTBOUND originals, "reply" should go to the original RECIPIENT
+			// (toAddress), not the sender — replying to your own sent message
+			// continues the thread with the same correspondent.
+			const direction = typeof original.direction === "string"
+				? original.direction
+				: undefined;
+			const isOutbound = direction === "OUTBOUND";
 			const replyToAddress =
-				extractEmailAddress(original.replyTo) ?? extractEmailAddress(original.from);
+				extractEmailAddress(original.replyTo) ??
+				(isOutbound
+					? extractEmailAddress(original.toAddress) ?? extractEmailAddress(original.to)
+					: extractEmailAddress(original.fromAddress) ?? extractEmailAddress(original.from));
 			if (!replyToAddress) {
 				throw new Error("Unable to determine reply recipient from original email.");
 			}
@@ -398,14 +413,28 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 				typeof original.subject === "string" ? original.subject : "No subject";
 			const subject = ensureForwardSubject(subjectRaw);
 
-			const from = extractEmailAddress(original.from) ?? "unknown sender";
-			const date = stringifyValue(original.date || original.createdAt || "unknown date");
+			// 2026-05-20: API uses fromAddress + body fields (not from/text/snippet).
+			// Old code never matched and the forwarded body always said
+			// "Original email body unavailable" / "From: unknown sender".
+			const from =
+				extractEmailAddress(original.fromAddress) ??
+				extractEmailAddress(original.from) ??
+				"unknown sender";
+			const date = stringifyValue(
+				original.sentAt ||
+					original.receivedAt ||
+					original.date ||
+					original.createdAt ||
+					"unknown date",
+			);
 			const originalText =
-				typeof original.text === "string"
-					? original.text
-					: typeof original.snippet === "string"
-						? original.snippet
-						: "(Original email body unavailable)";
+				typeof original.body === "string"
+					? original.body
+					: typeof original.text === "string"
+						? original.text
+						: typeof original.snippet === "string"
+							? original.snippet
+							: "(Original email body unavailable)";
 
 			const intro = args.text ? `${args.text}\n\n` : "";
 			const forwardedBody =
@@ -417,7 +446,7 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 
 			const payload = {
 				agentId: args.agentId,
-				to: [args.to],
+				to: args.to,
 				subject,
 				body: forwardedBody,
 			};
@@ -603,7 +632,7 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 			description:
 				"Discard a draft. Use this to remove drafts that are no longer needed. Use email_draft_send if you want to deliver instead.",
 			inputSchema: emailDraftIdSchema.shape,
-			outputSchema: objectOutput(),
+			outputSchema: deleteOutput(),
 			annotations: {
 				readOnlyHint: false,
 				destructiveHint: true,
@@ -612,10 +641,13 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 			},
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.delete<unknown>(
+			// API returns the deleted draft body for forensics. The MCP
+			// surface normalizes all destructive ops to `{success: true}` —
+			// matches webhook_delete, vault_credential_delete, etc.
+			await context.client.delete<unknown>(
 				`/v1/email/drafts/${encodeURIComponent(args.id)}`,
 			);
-			return toolSuccess(result);
+			return toolSuccess({ success: true });
 		}, options.context),
 	);
 }

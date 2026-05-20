@@ -65,7 +65,10 @@ export function registerDomainTools(options: ToolRegistrationOptions): void {
 		withErrorHandling(async (args, context) => {
 			requireMasterKeyGuard(context);
 			const path = `/v1/domains/${encodeURIComponent(args.id)}/verify`;
-			const result = await context.client.post<unknown>(path, {});
+			// API contract has `domainId` in the body redundantly with the path
+			// `id`. Pass it through so the validator is satisfied — caller
+			// shouldn't need to know about the redundancy.
+			const result = await context.client.post<unknown>(path, { domainId: args.id });
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -139,23 +142,26 @@ export function registerDomainTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
+	// 2026-05-20: domain_update schema previously had catchAll + autoVerify,
+	// which the API doesn't accept. The actual updatable field is
+	// feedbackEnabled (toggles bounce + complaint feedback processing).
+	// Old args were silently dropped → updates appeared to succeed but had
+	// no effect.
 	const domainUpdateSchema = z.object({
 		id: z.string().describe("Unique domain ID."),
-		catchAll: z
+		feedbackEnabled: z
 			.boolean()
 			.optional()
-			.describe("Enable or disable catch-all for this domain."),
-		autoVerify: z
-			.boolean()
-			.optional()
-			.describe("Enable or disable automatic verification."),
+			.describe(
+				"Enable or disable bounce + complaint feedback processing for this domain.",
+			),
 	});
 
 	server.registerTool(
 		"domain_update",
 		{
 			title: "Update Domain",
-			description: "Update configuration for a domain, such as catch-all behavior or auto-verify settings. Use this to adjust domain behavior after initial setup.",
+			description: "Update mutable configuration on a domain. Currently the only updatable field is `feedbackEnabled` — toggle SES bounce and complaint feedback processing on or off without re-verifying the domain.",
 			inputSchema: domainUpdateSchema.shape,
 			outputSchema: objectOutput(),
 			annotations: {

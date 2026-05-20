@@ -192,8 +192,37 @@ const vaultSearchInput = z.object({
 		.describe("Optional credential type filter."),
 });
 
+const vaultProvisionInput = z.object({
+	agentId: z
+		.string()
+		.describe("Agent ID to provision a vault for. Master-key only."),
+});
+
 export function registerVaultTools(options: ToolRegistrationOptions): void {
 	const { server } = options;
+
+	server.registerTool(
+		"vault_provision",
+		{
+			title: "Provision Vault",
+			description:
+				"Provision a credential vault for an agent. Required before vault_credential_create can be called against a freshly-created agent — without a vault, credentials have nowhere to live. Idempotent: returns the existing vault if one already exists. Master-key only.",
+			inputSchema: vaultProvisionInput.shape,
+			outputSchema: objectOutput(),
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
+		},
+		withErrorHandling(async (args, context) => {
+			const result = await context.client.post<unknown>("/v1/vault/provision", {
+				agentId: args.agentId,
+			});
+			return toolSuccess(result);
+		}, options.context),
+	);
 
 	server.registerTool(
 		"vault_credential_list",

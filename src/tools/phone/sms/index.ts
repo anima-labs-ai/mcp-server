@@ -206,7 +206,11 @@ export function registerSmsTools(options: ToolRegistrationOptions): void {
 			},
 		},
 		withErrorHandling(async (args, context) => {
-			const messageFetchLimit = 500;
+			// 2026-05-20: was 500 — hit the API's max(100) limit and 400'd.
+			// 100 still gives enough breadth to aggregate threads for the
+			// common inbox (most agents have < 100 active conversations).
+			// Heavy users should paginate via sms_list directly.
+			const messageFetchLimit = 100;
 			const params = new URLSearchParams();
 			params.set("channel", "SMS");
 			params.set("limit", String(messageFetchLimit));
