@@ -1,8 +1,10 @@
 import { z } from "zod";
 import type { ToolRegistrationOptions } from "../../../shared/index.js";
 import {
-	registerToolWithAliases,
+	listOutput,
+	objectOutput,
 	requireMasterKeyGuard,
+	sendOutput,
 	toolSuccess,
 	withErrorHandling,
 } from "../../../shared/index.js";
@@ -62,28 +64,6 @@ function ensureForwardSubject(subject: string): string {
 	return /^fwd:/i.test(subject.trim()) ? subject : `Fwd: ${subject}`;
 }
 
-function extractEmailItems(payload: unknown): UnknownRecord[] {
-	if (Array.isArray(payload)) {
-		return payload
-			.map((item) => asRecord(item))
-			.filter((item): item is UnknownRecord => Boolean(item));
-	}
-
-	const record = asRecord(payload);
-	if (!record) return [];
-
-	const candidates = [record.items, record.messages, record.data];
-	for (const candidate of candidates) {
-		if (Array.isArray(candidate)) {
-			return candidate
-				.map((item) => asRecord(item))
-				.filter((item): item is UnknownRecord => Boolean(item));
-		}
-	}
-
-	return [];
-}
-
 function extractHeaderId(original: UnknownRecord): string | undefined {
 	const messageId = original.messageId;
 	if (typeof messageId === "string") return messageId;
@@ -117,7 +97,7 @@ const emailSendSchema = z.object({
 		.string()
 		.optional()
 		.describe(
-			"Optional EmailIdentity ID to send from. Must belong to this agent and be verified. If omitted, the agent's primary identity is used. Use this to route different message types through different identities (e.g. transactional from @brawz.ai, support from @support.brawz.ai). Discover available IDs via agent_email_identity_list.",
+			"Optional EmailIdentity ID to send from. Must belong to this agent and be verified. If omitted, the agent's primary identity is used. Use this to route different message types through different identities (e.g. transactional from @brawz.ai, support from @support.brawz.ai). Discover available IDs from the `emailIdentities` array returned by agent_get.",
 		),
 	to: z.array(z.string()).describe("List of recipient email addresses."),
 	subject: z.string().describe("Subject line for the outgoing email."),
@@ -126,65 +106,37 @@ const emailSendSchema = z.object({
 		.string()
 		.optional()
 		.describe("Optional HTML body content for rich email formatting."),
-	cc: z
-		.array(z.string())
-		.optional()
-		.describe("Optional CC recipient email addresses."),
-	bcc: z
-		.array(z.string())
-		.optional()
-		.describe("Optional BCC recipient email addresses."),
+	cc: z.array(z.string()).optional().describe("Optional CC recipient email addresses."),
+	bcc: z.array(z.string()).optional().describe("Optional BCC recipient email addresses."),
 	inReplyTo: z
 		.string()
 		.optional()
-		.describe(
-			"Optional message ID to set the In-Reply-To header for threading.",
-		),
+		.describe("Optional message ID to set the In-Reply-To header for threading."),
 	references: z
 		.array(z.string())
 		.optional()
-		.describe(
-			"Optional list of message IDs to include in the References header.",
-		),
+		.describe("Optional list of message IDs to include in the References header."),
 });
 
 const emailGetSchema = z.object({
-	id: z.string().describe("Unique email ID to fetch."),
+	id: z.string().describe("Email ID. Returns full metadata and body."),
 });
 
 const emailListSchema = z.object({
-	folder: z
-		.string()
-		.optional()
-		.describe("Optional folder name to list, such as inbox or sent."),
-	limit: z
-		.number()
-		.int()
-		.positive()
-		.optional()
-		.describe("Optional maximum number of emails to return."),
-	offset: z
-		.number()
-		.int()
-		.nonnegative()
-		.optional()
-		.describe("Optional pagination offset for the email list."),
+	folder: z.string().optional().describe("Folder filter (e.g. inbox, sent)."),
+	limit: z.number().int().positive().optional().describe("Max emails to return."),
+	offset: z.number().int().nonnegative().optional().describe("Pagination offset."),
 });
 
 const emailReplySchema = z.object({
 	agentId: z.string().describe("Agent ID sending the reply."),
 	originalId: z.string().describe("Original email ID being replied to."),
 	text: z.string().describe("Plain-text content for your reply message."),
-	html: z
-		.string()
-		.optional()
-		.describe("Optional HTML content for the reply body."),
+	html: z.string().optional().describe("Optional HTML content for the reply body."),
 	replyAll: z
 		.boolean()
 		.optional()
-		.describe(
-			"When true, include additional participants from the original email.",
-		),
+		.describe("When true, include additional participants from the original email."),
 });
 
 const emailForwardSchema = z.object({
@@ -194,201 +146,153 @@ const emailForwardSchema = z.object({
 	text: z
 		.string()
 		.optional()
-		.describe(
-			"Optional introductory text to prepend before forwarded content.",
-		),
+		.describe("Optional introductory text to prepend before forwarded content."),
 });
 
-const emailSearchSchema = z.object({
-	query: z
+const emailThreadGetSchema = z.object({
+	id: z
 		.string()
 		.optional()
-		.describe("Free-text search query applied across email content."),
-	from: z.string().optional().describe("Optional sender email filter."),
-	to: z.string().optional().describe("Optional recipient email filter."),
-	subject: z
+		.describe("Single thread ID to fetch. Pass either `id` or `ids`."),
+	ids: z
+		.array(z.string())
+		.optional()
+		.describe("Multiple thread IDs to fetch in parallel. Pass either `id` or `ids`."),
+	agentId: z
 		.string()
 		.optional()
-		.describe("Optional subject-line search filter."),
-	after: z
-		.string()
-		.optional()
-		.describe("Optional inclusive lower date bound in ISO format."),
-	before: z
-		.string()
-		.optional()
-		.describe("Optional inclusive upper date bound in ISO format."),
+		.describe("Optional agent scope filter (only return messages owned by this agent)."),
 	limit: z
 		.number()
 		.int()
 		.positive()
 		.optional()
-		.describe("Optional maximum number of search results."),
+		.describe("Optional max messages per thread."),
 });
 
-const inboxDigestSchema = z.object({
+const emailAttachmentGetSchema = z.object({
+	id: z.string().describe("Attachment ID. Returns a temporary download URL."),
+});
+
+const emailDraftCreateSchema = z.object({
+	agentId: z.string().describe("Owning agent ID."),
+	fromIdentityId: z
+		.string()
+		.optional()
+		.describe(
+			"Optional EmailIdentity ID to send from. Must belong to this agent and be verified. If omitted, the agent's primary identity is used at send time. Discover available IDs from the `emailIdentities` array returned by agent_get.",
+		),
+	to: z.array(z.string()).optional().describe("Recipient email addresses (may be empty for an incomplete draft)."),
+	cc: z.array(z.string()).optional().describe("CC recipients."),
+	bcc: z.array(z.string()).optional().describe("BCC recipients."),
+	subject: z.string().optional().describe("Subject line."),
+	body: z.string().optional().describe("Plain-text body."),
+	bodyHtml: z.string().optional().describe("HTML body."),
+	inReplyTo: z
+		.string()
+		.optional()
+		.describe("Optional In-Reply-To Message-ID for threading on send."),
+	references: z.array(z.string()).optional().describe("Optional References chain for threading."),
+	metadata: z.record(z.unknown()).optional().describe("Arbitrary metadata."),
+});
+
+const emailDraftListSchema = z.object({
+	agentId: z.string().optional().describe("Filter drafts by agent ID."),
+	cursor: z.string().optional().describe("Pagination cursor from a previous list response."),
 	limit: z
 		.number()
 		.int()
 		.positive()
 		.optional()
-		.describe(
-			"Optional maximum number of recent emails to include in the digest.",
-		),
+		.describe("Max drafts when listing. Ignored when `id` is provided."),
 });
 
-const emailMarkReadSchema = z.object({
-	id: z.string().describe("Unique email ID to mark as read."),
+const emailDraftIdSchema = z.object({
+	id: z.string().describe("Draft ID."),
 });
-
-const emailMarkUnreadSchema = z.object({
-	id: z.string().describe("Unique email ID to mark as unread."),
-});
-
-const batchMarkReadSchema = z.object({
-	ids: z
-		.array(z.string())
-		.min(1)
-		.describe("List of email IDs to mark as read."),
-});
-
-const batchMarkUnreadSchema = z.object({
-	ids: z
-		.array(z.string())
-		.min(1)
-		.describe("List of email IDs to mark as unread."),
-});
-
-const batchDeleteSchema = z.object({
-	ids: z
-		.array(z.string())
-		.min(1)
-		.describe("List of email IDs to delete in one operation."),
-});
-
-const batchMoveSchema = z.object({
-	ids: z
-		.array(z.string())
-		.min(1)
-		.describe("List of email IDs to move in one operation."),
-	folder: z.string().describe("Destination folder name for moved emails."),
-});
-
-const emailMoveSchema = z.object({
-	id: z.string().describe("Unique email ID to move."),
-	folder: z.string().describe("Destination folder name for the email."),
-});
-
-const emailDeleteSchema = z.object({
-	id: z.string().describe("Unique email ID to delete."),
-});
-
-// manage_folders/contacts/templates + template_send schemas removed
-// alongside their tool registrations — see comment near the end of
-// registerEmailTools.
 
 export function registerEmailTools(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
-	// 2026-05-09: dropped duplicate aliases per customer feedback
-	// ("remove duplicated MCP tools/endpoints"). Each of these tools used
-	// to register 3 names: snake_case canonical + verb-noun + dotted form.
-	// LLMs see them as 3 separate tools in tools/list, but they all hit
-	// the same handler — pure clutter. Canonical name only now.
-	//
-	// 2026-05-10 (customer round 4): a hard removal turned out to be a
-	// breaking API change — any consumer that pinned to the old names in
-	// prompts, docs, or tool-catalog caches broke instantly. Restored the
-	// 6 alias names with `deprecate: true` so they're visibly deprecated
-	// in tools/list (description prefix `[DEPRECATED — use email_send]`)
-	// and emit a stderr warning on every invocation. Plan: remove on the
-	// next major catalog change once usage logs go quiet.
-	//
-	// Restored names: send_email, anima.email.send (email_send) +
-	// get_email, anima.email.get (email_get) +
-	// list_emails, anima.email.list (email_list).
-
-	const emailSendHandler = withErrorHandling(async (args, context) => {
-		const body: Record<string, unknown> = {
-			agentId: args.agentId,
-			to: args.to,
-			subject: args.subject,
-			body: args.body,
-		};
-		if (args.fromIdentityId) body.fromIdentityId = args.fromIdentityId;
-		if (args.bodyHtml) body.bodyHtml = args.bodyHtml;
-		if (args.cc) body.cc = args.cc;
-		if (args.bcc) body.bcc = args.bcc;
-		if (args.inReplyTo) body.inReplyTo = args.inReplyTo;
-		if (args.references) body.references = args.references;
-		const result = await context.client.post<unknown>("/v1/email/send", body);
-		return toolSuccess(result);
-	}, options.context);
-
-	registerToolWithAliases(
-		server,
+	server.registerTool(
 		"email_send",
-		["send_email", "anima.email.send"],
 		{
 			title: "Send Email",
 			description:
 				"Send a new outbound email from the agent mailbox. Use this when you need to compose and deliver a message with optional CC, threading headers.",
 			inputSchema: emailSendSchema.shape,
-			deprecate: true,
+			outputSchema: sendOutput(),
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: false,
+				openWorldHint: true,
+			},
 		},
-		emailSendHandler,
-	);
-
-	const emailGetHandler = withErrorHandling<z.infer<typeof emailGetSchema>>(
-		async (args, context) => {
-			const path = `/v1/email/${encodeURIComponent(args.id)}`;
-			const result = await context.client.get<unknown>(path);
+		withErrorHandling(async (args, context) => {
+			const body: Record<string, unknown> = {
+				agentId: args.agentId,
+				to: args.to,
+				subject: args.subject,
+				body: args.body,
+			};
+			if (args.fromIdentityId) body.fromIdentityId = args.fromIdentityId;
+			if (args.bodyHtml) body.bodyHtml = args.bodyHtml;
+			if (args.cc) body.cc = args.cc;
+			if (args.bcc) body.bcc = args.bcc;
+			if (args.inReplyTo) body.inReplyTo = args.inReplyTo;
+			if (args.references) body.references = args.references;
+			const result = await context.client.post<unknown>("/v1/email/send", body);
 			return toolSuccess(result);
-		},
-		options.context,
+		}, options.context),
 	);
 
-	registerToolWithAliases(
-		server,
+	server.registerTool(
 		"email_get",
-		["get_email", "anima.email.get"],
 		{
 			title: "Get Email",
 			description:
-				"Retrieve one specific email by ID, including metadata and body fields. Use this before replying, forwarding, or inspecting message details.",
+				"Fetch full detail for a single email by ID, including metadata and body. Use email_list to browse emails in a folder.",
 			inputSchema: emailGetSchema.shape,
-			deprecate: true,
+			outputSchema: objectOutput(),
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
-		emailGetHandler,
+		withErrorHandling(async (args, context) => {
+			const path = `/v1/email/${encodeURIComponent(args.id)}`;
+			const result = await context.client.get<unknown>(path);
+			return toolSuccess(result);
+		}, options.context),
 	);
 
-	const emailListHandler = withErrorHandling<z.infer<typeof emailListSchema>>(
-		async (args, context) => {
+	server.registerTool(
+		"email_list",
+		{
+			title: "List Emails",
+			description:
+				"List emails in a folder with pagination. Returns lightweight per-email records — use email_get for the full body.",
+			inputSchema: emailListSchema.shape,
+			outputSchema: listOutput(),
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
+		},
+		withErrorHandling(async (args, context) => {
 			const params = new URLSearchParams();
 			if (args.folder) params.set("folder", args.folder);
 			if (args.limit !== undefined) params.set("limit", String(args.limit));
-			if (args.offset !== undefined)
-				params.set("offset", String(args.offset));
-
+			if (args.offset !== undefined) params.set("offset", String(args.offset));
 			const path = params.toString() ? `/v1/email?${params}` : "/v1/email";
 			const result = await context.client.get<unknown>(path);
 			return toolSuccess(result);
-		},
-		options.context,
-	);
-
-	registerToolWithAliases(
-		server,
-		"email_list",
-		["list_emails", "anima.email.list"],
-		{
-			title: "List Email",
-			description:
-				"List emails in inbox or another folder with pagination controls. Use this to browse recent messages and mailbox contents.",
-			inputSchema: emailListSchema.shape,
-			deprecate: true,
-		},
-		emailListHandler,
+		}, options.context),
 	);
 
 	server.registerTool(
@@ -398,6 +302,13 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 			description:
 				"Reply to an existing email thread by first loading the original message and setting threading headers. Use this when you need a proper in-thread response.",
 			inputSchema: emailReplySchema.shape,
+			outputSchema: sendOutput(),
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: false,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			requireMasterKeyGuard(context);
@@ -410,12 +321,9 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 			}
 
 			const replyToAddress =
-				extractEmailAddress(original.replyTo) ??
-				extractEmailAddress(original.from);
+				extractEmailAddress(original.replyTo) ?? extractEmailAddress(original.from);
 			if (!replyToAddress) {
-				throw new Error(
-					"Unable to determine reply recipient from original email.",
-				);
+				throw new Error("Unable to determine reply recipient from original email.");
 			}
 
 			const subjectRaw =
@@ -458,10 +366,7 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 				}
 			}
 
-			const result = await context.client.post<unknown>(
-				"/v1/email/send",
-				payload,
-			);
+			const result = await context.client.post<unknown>("/v1/email/send", payload);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -473,6 +378,13 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 			description:
 				"Forward an existing email to another recipient by loading the original content first. Use this to share a prior message while preserving context.",
 			inputSchema: emailForwardSchema.shape,
+			outputSchema: sendOutput(),
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: false,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const originalPath = `/v1/email/${encodeURIComponent(args.originalId)}`;
@@ -487,9 +399,7 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 			const subject = ensureForwardSubject(subjectRaw);
 
 			const from = extractEmailAddress(original.from) ?? "unknown sender";
-			const date = stringifyValue(
-				original.date || original.createdAt || "unknown date",
-			);
+			const date = stringifyValue(original.date || original.createdAt || "unknown date");
 			const originalText =
 				typeof original.text === "string"
 					? original.text
@@ -512,254 +422,200 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 				body: forwardedBody,
 			};
 
-			const result = await context.client.post<unknown>(
-				"/v1/email/send",
-				payload,
-			);
+			const result = await context.client.post<unknown>("/v1/email/send", payload);
 			return toolSuccess(result);
 		}, options.context),
 	);
 
 	server.registerTool(
-		"email_search",
+		"email_thread_get",
 		{
-			title: "Search Email",
+			title: "Get Email Thread(s)",
 			description:
-				"Search mailbox messages by query text and structured filters like sender, recipient, subject, and date bounds. Use this to locate specific conversations quickly.",
-			inputSchema: emailSearchSchema.shape,
+				"Fetch all email messages in one or more threads. Pass `id` for a single thread or `ids` for multiple. Returns messages ordered within each thread. Uses the messages endpoint filtered by threadId + channel=EMAIL under the hood.",
+			inputSchema: emailThreadGetSchema.shape,
+			outputSchema: objectOutput(),
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
-			// API contract MessageSearchInput expects nested
-			// {query, filters, pagination: {limit, cursor}}. Sending args
-			// flat caused the API to use pagination.limit=20 (the contract
-			// default) and ignore the caller's `limit` — see message_search
-			// fix for the same root cause and detail. Force EMAIL channel
-			// since this is the email-domain alias of message_search.
-			const dateRange =
-				args.after || args.before
-					? { from: args.after, to: args.before }
-					: undefined;
-			const body: Record<string, unknown> = {
-				query: args.query ?? args.subject ?? "",
-				filters: {
-					channel: "EMAIL",
-					...(dateRange ? { dateRange } : {}),
-				},
-				pagination: { limit: args.limit ?? 20 },
+			const threadIds = args.ids ?? (args.id ? [args.id] : []);
+			if (threadIds.length === 0) {
+				throw new Error("email_thread_get requires either `id` or `ids`.");
+			}
+
+			const fetchOne = async (threadId: string): Promise<unknown> => {
+				const params = new URLSearchParams();
+				params.set("threadId", threadId);
+				params.set("channel", "EMAIL");
+				if (args.agentId) params.set("agentId", args.agentId);
+				if (args.limit !== undefined) params.set("limit", String(args.limit));
+				return context.client.get<unknown>(`/v1/messages?${params}`);
 			};
-			const result = await context.client.post<unknown>(
-				"/v1/messages/search",
-				body,
+
+			const results = await Promise.all(threadIds.map(fetchOne));
+
+			if (threadIds.length === 1) {
+				return toolSuccess(results[0]);
+			}
+
+			return toolSuccess({
+				threads: threadIds.map((id, i) => ({ id, ...((asRecord(results[i]) ?? {}) as object) })),
+			});
+		}, options.context),
+	);
+
+	server.registerTool(
+		"email_attachment_get",
+		{
+			title: "Get Email Attachment",
+			description:
+				"Get a temporary download URL for an email attachment. Use this when you need direct file access for preview or download.",
+			inputSchema: emailAttachmentGetSchema.shape,
+			outputSchema: objectOutput(),
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
+		},
+		withErrorHandling(async (args, context) => {
+			const result = await context.client.get<unknown>(
+				`/v1/attachments/${encodeURIComponent(args.id)}/download`,
 			);
 			return toolSuccess(result);
 		}, options.context),
 	);
 
 	server.registerTool(
-		"inbox_digest",
+		"email_draft_create",
 		{
-			title: "Inbox Digest",
+			title: "Create Email Draft",
 			description:
-				"Generate a compact digest of recent inbox messages with sender, subject, date, and snippet. Use this for quick triage without opening each email.",
-			inputSchema: inboxDigestSchema.shape,
+				"Create a new email draft (composed but not sent). Drafts can be incomplete — missing recipients, subject, or body. Use email_draft_send later to actually deliver, or email_draft_delete to discard.",
+			inputSchema: emailDraftCreateSchema.shape,
+			outputSchema: objectOutput(),
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: false,
+				openWorldHint: true,
+			},
+		},
+		withErrorHandling(async (args, context) => {
+			const body: Record<string, unknown> = { agentId: args.agentId };
+			if (args.fromIdentityId) body.fromIdentityId = args.fromIdentityId;
+			if (args.to) body.to = args.to;
+			if (args.cc) body.cc = args.cc;
+			if (args.bcc) body.bcc = args.bcc;
+			if (args.subject !== undefined) body.subject = args.subject;
+			if (args.body !== undefined) body.body = args.body;
+			if (args.bodyHtml !== undefined) body.bodyHtml = args.bodyHtml;
+			if (args.inReplyTo !== undefined) body.inReplyTo = args.inReplyTo;
+			if (args.references) body.references = args.references;
+			if (args.metadata !== undefined) body.metadata = args.metadata;
+			const result = await context.client.post<unknown>("/v1/email/drafts", body);
+			return toolSuccess(result);
+		}, options.context),
+	);
+
+	server.registerTool(
+		"email_draft_get",
+		{
+			title: "Get Email Draft",
+			description:
+				"Fetch full detail for a single draft by ID. Use email_draft_list to browse drafts.",
+			inputSchema: emailDraftIdSchema.shape,
+			outputSchema: objectOutput(),
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
+		},
+		withErrorHandling(async (args, context) => {
+			const result = await context.client.get<unknown>(
+				`/v1/email/drafts/${encodeURIComponent(args.id)}`,
+			);
+			return toolSuccess(result);
+		}, options.context),
+	);
+
+	server.registerTool(
+		"email_draft_list",
+		{
+			title: "List Email Drafts",
+			description:
+				"List email drafts with optional filters. Returns lightweight draft records — use email_draft_get for full detail.",
+			inputSchema: emailDraftListSchema.shape,
+			outputSchema: listOutput(),
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const params = new URLSearchParams();
+			if (args.agentId) params.set("agentId", args.agentId);
+			if (args.cursor) params.set("cursor", args.cursor);
 			if (args.limit !== undefined) params.set("limit", String(args.limit));
-
-			const path = params.toString() ? `/v1/email?${params}` : "/v1/email";
+			const path = params.toString() ? `/v1/email/drafts?${params}` : "/v1/email/drafts";
 			const result = await context.client.get<unknown>(path);
-			const items = extractEmailItems(result);
-
-			const digestItems = items.map((item, index) => {
-				// API returns `fromAddress` (string) on EMAIL items. Some
-				// shapes nest under `from` (legacy), so accept both. Same
-				// for body/text/snippet and sentAt/receivedAt/createdAt
-				// for ordering — INBOUND messages have receivedAt, OUTBOUND
-				// have sentAt, both have createdAt as a fallback.
-				const from =
-					(typeof item.fromAddress === "string"
-						? item.fromAddress
-						: undefined) ??
-					extractEmailAddress(item.from) ??
-					"unknown sender";
-				const subject =
-					typeof item.subject === "string" && item.subject.length > 0
-						? item.subject
-						: "(no subject)";
-				const date =
-					(typeof item.sentAt === "string" ? item.sentAt : undefined) ??
-					(typeof item.receivedAt === "string" ? item.receivedAt : undefined) ??
-					(typeof item.createdAt === "string" ? item.createdAt : undefined) ??
-					(typeof item.date === "string" ? item.date : undefined) ??
-					"unknown date";
-				const rawBody =
-					(typeof item.body === "string" ? item.body : undefined) ??
-					(typeof item.snippet === "string" ? item.snippet : undefined) ??
-					(typeof item.text === "string" ? item.text : undefined) ??
-					"";
-				const snippet = rawBody.slice(0, 140);
-
-				return {
-					index: index + 1,
-					from,
-					subject,
-					date,
-					snippet,
-				};
-			});
-
-			const summary = digestItems
-				.map(
-					(item) =>
-						`${item.index}. ${item.from} | ${item.subject} | ${item.date}${item.snippet ? ` | ${item.snippet}` : ""}`,
-				)
-				.join("\n");
-
-			return toolSuccess({
-				count: digestItems.length,
-				items: digestItems,
-				summary,
-			});
-		}, options.context),
-	);
-
-	server.registerTool(
-		"email_mark_read",
-		{
-			title: "Mark Email Read",
-			description: "Mark a specific email message as read by ID.",
-			inputSchema: emailMarkReadSchema.shape,
-		},
-		withErrorHandling(async (args, context) => {
-			const path = `/v1/email/${encodeURIComponent(args.id)}/read`;
-			const result = await context.client.post<unknown>(path, { id: args.id });
 			return toolSuccess(result);
 		}, options.context),
 	);
 
 	server.registerTool(
-		"email_mark_unread",
+		"email_draft_send",
 		{
-			title: "Mark Email Unread",
-			description: "Mark a specific email message as unread by ID.",
-			inputSchema: emailMarkUnreadSchema.shape,
-		},
-		withErrorHandling(async (args, context) => {
-			const path = `/v1/email/${encodeURIComponent(args.id)}/unread`;
-			const result = await context.client.post<unknown>(path, { id: args.id });
-			return toolSuccess(result);
-		}, options.context),
-	);
-
-	server.registerTool(
-		"batch_mark_read",
-		{
-			title: "Mark Batch Read",
-			description: "Mark multiple email messages as read in one operation.",
-			inputSchema: batchMarkReadSchema.shape,
+			title: "Send Email Draft",
+			description:
+				"Send a draft. Atomically converts the draft to a delivered Message + deletes the draft row. The draft must have at least one recipient, a subject, and a body. Returns the newly-created Message.",
+			inputSchema: emailDraftIdSchema.shape,
+			outputSchema: sendOutput(),
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: false,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.post<unknown>(
-				"/v1/email/batch/read",
-				{
-					ids: args.ids,
-				},
+				`/v1/email/drafts/${encodeURIComponent(args.id)}/send`,
 			);
 			return toolSuccess(result);
 		}, options.context),
 	);
 
 	server.registerTool(
-		"batch_mark_unread",
+		"email_draft_delete",
 		{
-			title: "Mark Batch Unread",
-			description: "Mark multiple email messages as unread in one operation.",
-			inputSchema: batchMarkUnreadSchema.shape,
+			title: "Delete Email Draft",
+			description:
+				"Discard a draft. Use this to remove drafts that are no longer needed. Use email_draft_send if you want to deliver instead.",
+			inputSchema: emailDraftIdSchema.shape,
+			outputSchema: objectOutput(),
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: true,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.post<unknown>(
-				"/v1/email/batch/unread",
-				{
-					ids: args.ids,
-				},
+			const result = await context.client.delete<unknown>(
+				`/v1/email/drafts/${encodeURIComponent(args.id)}`,
 			);
 			return toolSuccess(result);
 		}, options.context),
 	);
-
-	server.registerTool(
-		"batch_delete",
-		{
-			title: "Delete Batch",
-			description: "Delete multiple emails at once.",
-			inputSchema: batchDeleteSchema.shape,
-		},
-		withErrorHandling(async (args, context) => {
-			const result = await context.client.post<unknown>(
-				"/v1/email/batch/delete",
-				{
-					ids: args.ids,
-				},
-			);
-			return toolSuccess(result);
-		}, options.context),
-	);
-
-	server.registerTool(
-		"batch_move",
-		{
-			title: "Move Batch",
-			description: "Move multiple emails to a specified folder.",
-			inputSchema: batchMoveSchema.shape,
-		},
-		withErrorHandling(async (args, context) => {
-			const result = await context.client.post<unknown>(
-				"/v1/email/batch/move",
-				{
-					ids: args.ids,
-					folder: args.folder,
-				},
-			);
-			return toolSuccess(result);
-		}, options.context),
-	);
-
-	server.registerTool(
-		"email_move",
-		{
-			title: "Move Email",
-			description: "Move a specific email message to a destination folder.",
-			inputSchema: emailMoveSchema.shape,
-		},
-		withErrorHandling(async (args, context) => {
-			const path = `/v1/email/${encodeURIComponent(args.id)}/move`;
-			const result = await context.client.post<unknown>(path, {
-				id: args.id,
-				folder: args.folder,
-			});
-			return toolSuccess(result);
-		}, options.context),
-	);
-
-	server.registerTool(
-		"email_delete",
-		{
-			title: "Delete Email",
-			description: "Delete a specific email message by ID.",
-			inputSchema: emailDeleteSchema.shape,
-		},
-		withErrorHandling(async (args, context) => {
-			const path = `/v1/email/${encodeURIComponent(args.id)}`;
-			const result = await context.client.delete<unknown>(path);
-			return toolSuccess(result);
-		}, options.context),
-	);
-
-	// manage_folders / manage_contacts / manage_templates / template_send
-	// removed — the underlying API routes (/v1/email/folders, /v1/contacts,
-	// /v1/templates) don't exist on the Anima API. They were registered
-	// against speculative endpoints; calling any of them returned 404 and
-	// confused both LLMs and humans about whether the feature exists.
-	// Re-add when (if) the corresponding API surface ships.
 }

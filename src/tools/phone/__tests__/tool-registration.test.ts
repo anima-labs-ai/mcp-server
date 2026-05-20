@@ -2,7 +2,7 @@ import { describe, test, expect } from "bun:test";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { ApiClient, type ToolRegistrationOptions } from "../../../shared/index.js";
 import { registerPhoneTools } from "../phone/index.js";
-import { registerVoiceTools } from "../voice/index.js";
+import { registerPhoneCallTools } from "../phone_call/index.js";
 
 function createTestOptions(): ToolRegistrationOptions {
 	const server = new McpServer({ name: "test", version: "0.0.1" });
@@ -19,15 +19,15 @@ describe("mcp-phone tool registration", () => {
 		expect(() => registerPhoneTools(options)).not.toThrow();
 	});
 
-	test("voice tools register without error", () => {
+	test("phone_call tools register without error", () => {
 		const options = createTestOptions();
-		expect(() => registerVoiceTools(options)).not.toThrow();
+		expect(() => registerPhoneCallTools(options)).not.toThrow();
 	});
 
 	test("all tools register on single server", () => {
 		const options = createTestOptions();
 		registerPhoneTools(options);
-		registerVoiceTools(options);
+		registerPhoneCallTools(options);
 		// If we get here without error, all tools registered successfully
 		expect(true).toBe(true);
 	});

@@ -1,5 +1,5 @@
 /**
- * voice_call MCP tool — live, Claude-driven phone calls.
+ * phone_call MCP tool — live, Claude-driven phone calls.
  *
  * One MCP `tools/call` invocation holds the entire conversation. The tool
  * opens a WebSocket to `/ws/voice`, sends `call.create`, and then loops:
@@ -67,7 +67,7 @@ const inputSchema = {
 		.string()
 		.optional()
 		.describe(
-			"Optional voice override. Use voice_catalog to list valid IDs for the chosen tier.",
+			"Optional voice override. Use voice_list to list valid IDs for the chosen tier.",
 		),
 	fromNumber: z
 		.string()
@@ -122,21 +122,32 @@ interface VoiceCallResult {
 
 // ── Public registration ──
 
-export function registerVoiceCallTool(
+export function registerPhoneCallLiveTool(
 	server: McpServer,
 	context: ToolContext,
 ): void {
 	server.registerTool(
-		"voice_call",
+		"phone_call_create",
 		{
-			title: "Voice Call",
+			title: "Phone Call (Live)",
 			description:
 				"Place a live phone call and have a real conversation. The tool stays open for the entire call duration. As the caller speaks, you receive live transcript chunks via progress notifications; when the caller finishes a turn (server emits isFinal: true), an elicitation prompt asks you what the agent should say next. You respond with `say` (the exact text to speak) and optional `endCallAfterSpoken: true` to hang up after the line. Returns the full transcript when the call ends. Works on both `basic` and `premium` voice tiers. Requires the connecting MCP client to support elicitation — without it, the tool errors out immediately.",
 			inputSchema,
+			outputSchema: {
+				callId: z.string().describe("ID of the placed call."),
+				endedReason: z.string().describe("Why the call ended (hangup, timeout, error, etc.)."),
+				durationSec: z.number().optional().describe("Total call duration in seconds."),
+				transcript: z.array(z.object({
+					speaker: z.enum(["caller", "agent"]),
+					text: z.string(),
+					at: z.string().optional(),
+				})).describe("Full transcript with speaker labels in chronological order."),
+			},
 			annotations: {
 				destructiveHint: false,
 				openWorldHint: true,
 				readOnlyHint: false,
+				idempotentHint: false,
 			},
 		},
 		async (args, extra) => {

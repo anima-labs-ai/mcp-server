@@ -6,16 +6,10 @@
 
 /** Tool names that require master key access */
 export const MASTER_KEY_TOOLS = new Set([
-	"org_create",
-	"org_delete",
-	"org_rotate_key",
 	"agent_delete",
-	"agent_rotate_key",
-	"domain_add",
+	"domain_create",
 	"domain_delete",
 	"domain_verify",
-	"webhook_delete",
-	"security_update_policy",
 ]);
 
 /** Raw base64-encoded Anima sparkle icon (96x96 PNG, ~4 KB) */

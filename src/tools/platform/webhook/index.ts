@@ -1,315 +1,173 @@
 import { z } from "zod";
 import type { ToolRegistrationOptions } from "../../../shared/index.js";
 import {
-	registerToolWithAliases,
-	withErrorHandling,
+	deleteOutput,
+	listOutput,
+	objectOutput,
 	toolSuccess,
+	withErrorHandling,
 } from "../../../shared/index.js";
 
-// 2026-05-12: renamed 9 webhook tools from space-separated names to
-// lower_snake_case with the resource_verb convention (webhook_create,
-// webhook_get, etc.) to fix MCP SDK identifier warnings + match the
-// agent_*, domain_*, pod_* families. Old names kept as deprecated
-// aliases — both the space form ("Create Webhook") AND the underscore-
-// normalized form ("Create_Webhook") because different clients
-// normalize differently before pinning. Added MCP-spec `title` field
-// for clients that render display labels.
+// Webhook group (hosted): 5 tools matching the public API surface.
+// webhook_set is an UPSERT — `id` present routes to PUT (update), absent
+// routes to POST (create). API has separate create / update endpoints
+// but a single tool keeps the agent surface tighter and matches
+// declarative "ensure webhook X exists" workflows.
+//
+// Additional API surface (listDeliveries, stats, reenable, replayDelivery,
+// listDeadLetters, eventTypes) is intentionally NOT exposed via MCP —
+// operational/debugging concerns, not agent-driven actions. Live in the
+// dashboard / CLI instead.
+
+const webhookIdInput = z.object({
+	id: z.string().describe("Webhook ID"),
+});
+
+const webhookListInput = z.object({
+	cursor: z.string().optional().describe("Pagination cursor from a previous list call"),
+	limit: z
+		.number()
+		.int()
+		.positive()
+		.max(100)
+		.optional()
+		.describe("Maximum number of webhooks to return (1-100)"),
+});
+
+const webhookSetInput = z.object({
+	id: z
+		.string()
+		.optional()
+		.describe(
+			"Webhook ID. Present → updates that webhook (PUT). Omitted → creates a new one (POST).",
+		),
+	url: z
+		.string()
+		.url()
+		.optional()
+		.describe(
+			"HTTPS endpoint URL that will receive event payloads. Required on create; optional on update.",
+		),
+	events: z
+		.array(z.string())
+		.optional()
+		.describe(
+			"List of event types to subscribe to (e.g. 'message.received', 'email.bounced'). Required on create; optional on update.",
+		),
+	description: z.string().optional().describe("Optional human-readable label"),
+	active: z
+		.boolean()
+		.optional()
+		.describe("Whether the webhook is active. Defaults to true on create."),
+});
+
+const webhookTestInput = z.object({
+	id: z.string().describe("Webhook ID to send a test delivery to"),
+	event: z
+		.string()
+		.optional()
+		.describe(
+			"Event type to simulate in the test payload (e.g. 'message.received'). Defaults to 'message.received'.",
+		),
+});
 
 export function registerWebhookTools(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
-	const webhookCreateInput = z.object({
-		url: z.string().describe("Webhook destination URL."),
-		events: z
-			.array(z.string())
-			.describe("Event names the webhook should subscribe to."),
-		description: z
-			.string()
-			.optional()
-			.describe("Optional human-readable description for the webhook."),
-		agentId: z
-			.string()
-			.optional()
-			.describe("Optional agent ID scope for webhook ownership."),
-	});
-	const webhookGetInput = z.object({
-		id: z.string().describe("Webhook ID to retrieve."),
-	});
-	const webhookUpdateInput = z.object({
-		id: z.string().describe("Webhook ID to update."),
-		url: z
-			.string()
-			.optional()
-			.describe("Optional updated webhook destination URL."),
-		events: z
-			.array(z.string())
-			.optional()
-			.describe("Optional replacement event subscription list."),
-		enabled: z
-			.boolean()
-			.optional()
-			.describe("Optional enabled state for this webhook endpoint."),
-		description: z
-			.string()
-			.optional()
-			.describe("Optional updated description."),
-	});
-	const webhookDeleteInput = z.object({
-		id: z.string().describe("Webhook ID to delete."),
-	});
-	const webhookListInput = z.object({
-		agentId: z
-			.string()
-			.optional()
-			.describe("Optional agent ID filter for webhook ownership."),
-		limit: z
-			.number()
-			.int()
-			.positive()
-			.optional()
-			.describe("Optional maximum number of webhooks to return."),
-		cursor: z
-			.string()
-			.optional()
-			.describe("Optional pagination cursor from a previous response."),
-	});
-	const webhookTestInput = z.object({
-		id: z.string().describe("Webhook ID to test."),
-	});
-	const webhookListDeliveriesInput = z.object({
-		id: z.string().describe("Webhook ID whose deliveries should be listed."),
-		limit: z
-			.number()
-			.int()
-			.positive()
-			.optional()
-			.describe("Optional maximum number of delivery attempts to return."),
-		cursor: z
-			.string()
-			.optional()
-			.describe("Optional pagination cursor from a previous response."),
-	});
-	const webhookReenableInput = z.object({
-		id: z.string().describe("Webhook ID to test and re-enable."),
-	});
-	const webhookStatsInput = z.object({
-		id: z.string().describe("Webhook ID to get delivery statistics for."),
-	});
-
-	registerToolWithAliases(
-		server,
-		"webhook_create",
-		["Create Webhook", "Create_Webhook"],
-		{
-			title: "Create Webhook",
-			description:
-				"Create a new webhook endpoint with subscribed event types so external systems can receive Anima events. Use this when integrating downstream processors or automations.",
-			inputSchema: webhookCreateInput.shape,
-			annotations: { readOnlyHint: false, destructiveHint: false },
-			deprecate: true,
-		},
-		withErrorHandling<z.infer<typeof webhookCreateInput>>(
-			async (args, context) => {
-				const result = await context.client.post("/v1/webhooks", args);
-				return toolSuccess(result);
-			},
-			options.context,
-		),
-	);
-
-	registerToolWithAliases(
-		server,
+	server.registerTool(
 		"webhook_get",
-		["Get Webhook", "Get_Webhook"],
 		{
 			title: "Get Webhook",
 			description:
-				"Fetch full details for a specific webhook by ID, including URL, events, and status fields. Use this when validating an existing webhook configuration.",
-			inputSchema: webhookGetInput.shape,
+				"Get a webhook subscription by ID. Returns the full configuration (URL, subscribed events, active state, description).",
+			inputSchema: webhookIdInput.shape,
+			outputSchema: objectOutput(),
 			annotations: { readOnlyHint: true, destructiveHint: false },
-			deprecate: true,
 		},
-		withErrorHandling<z.infer<typeof webhookGetInput>>(
-			async (args, context) => {
-				const result = await context.client.get(`/v1/webhooks/${args.id}`);
-				return toolSuccess(result);
-			},
-			options.context,
-		),
+		withErrorHandling(async (args, context) => {
+			const path = `/v1/webhooks/${encodeURIComponent(args.id)}`;
+			const result = await context.client.get<unknown>(path);
+			return toolSuccess(result);
+		}, options.context),
 	);
 
-	registerToolWithAliases(
-		server,
-		"webhook_update",
-		["Update Webhook", "Update_Webhook"],
-		{
-			title: "Update Webhook",
-			description:
-				"Update an existing webhook's URL, subscribed events, enabled state, or description. Use this when endpoint destinations or subscription behavior changes.",
-			inputSchema: webhookUpdateInput.shape,
-			annotations: { readOnlyHint: false, destructiveHint: false },
-			deprecate: true,
-		},
-		withErrorHandling<z.infer<typeof webhookUpdateInput>>(
-			async (args, context) => {
-				const { id, enabled, ...rest } = args;
-				const payload = {
-					...rest,
-					...(enabled === undefined ? {} : { active: enabled }),
-				};
-				const result = await context.client.put(`/v1/webhooks/${id}`, payload);
-				return toolSuccess(result);
-			},
-			options.context,
-		),
-	);
-
-	registerToolWithAliases(
-		server,
-		"webhook_delete",
-		["Delete Webhook", "Delete_Webhook"],
-		{
-			title: "Delete Webhook",
-			description:
-				"Delete a webhook endpoint by ID so it no longer receives event deliveries. Use this when retiring integrations or removing invalid destinations.",
-			inputSchema: webhookDeleteInput.shape,
-			annotations: { readOnlyHint: false, destructiveHint: true },
-			deprecate: true,
-		},
-		withErrorHandling<z.infer<typeof webhookDeleteInput>>(
-			async (args, context) => {
-				const result = await context.client.delete(`/v1/webhooks/${args.id}`);
-				return toolSuccess(result);
-			},
-			options.context,
-		),
-	);
-
-	registerToolWithAliases(
-		server,
+	server.registerTool(
 		"webhook_list",
-		["List Webhooks", "List_Webhooks"],
 		{
 			title: "List Webhooks",
 			description:
-				"List webhooks with optional agent scope and cursor pagination. Use this to audit currently configured endpoints across your workspace.",
+				"List webhook subscriptions for the calling org with cursor pagination. Use to enumerate existing webhooks before set/delete operations.",
 			inputSchema: webhookListInput.shape,
+			outputSchema: listOutput(),
 			annotations: { readOnlyHint: true, destructiveHint: false },
-			deprecate: true,
 		},
-		withErrorHandling<z.infer<typeof webhookListInput>>(
-			async (args, context) => {
-				const params = new URLSearchParams();
-				if (args.agentId) params.set("agentId", args.agentId);
-				if (args.limit !== undefined) params.set("limit", String(args.limit));
-				if (args.cursor) params.set("cursor", args.cursor);
-
-				const path = params.toString() ? `/v1/webhooks?${params}` : "/v1/webhooks";
-				const result = await context.client.get(path);
-				return toolSuccess(result);
-			},
-			options.context,
-		),
+		withErrorHandling(async (args, context) => {
+			const params = new URLSearchParams();
+			if (args.cursor) params.set("cursor", args.cursor);
+			if (args.limit) params.set("limit", String(args.limit));
+			const qs = params.toString();
+			const url = qs ? `/v1/webhooks?${qs}` : "/v1/webhooks";
+			const result = await context.client.get<unknown>(url);
+			return toolSuccess(result);
+		}, options.context),
 	);
 
-	registerToolWithAliases(
-		server,
+	server.registerTool(
+		"webhook_set",
+		{
+			title: "Set Webhook",
+			description:
+				"Create or update a webhook subscription (upsert). If `id` is provided the call updates that webhook (PUT). If omitted it creates a new one (POST) — `url` and `events` are then required. Use this for declarative 'ensure webhook X exists' workflows.",
+			inputSchema: webhookSetInput.shape,
+			outputSchema: objectOutput(),
+			annotations: { readOnlyHint: false, destructiveHint: false },
+		},
+		withErrorHandling(async (args, context) => {
+			if (args.id) {
+				const { id, ...payload } = args;
+				const path = `/v1/webhooks/${encodeURIComponent(id)}`;
+				const result = await context.client.put<unknown>(path, payload);
+				return toolSuccess(result);
+			}
+			const { id: _ignored, ...payload } = args;
+			const result = await context.client.post<unknown>("/v1/webhooks", payload);
+			return toolSuccess(result);
+		}, options.context),
+	);
+
+	server.registerTool(
+		"webhook_delete",
+		{
+			title: "Delete Webhook",
+			description:
+				"Delete a webhook subscription by ID. Permanently removes the configuration and stops future deliveries. To temporarily pause without deleting, use webhook_set with { id, active: false }.",
+			inputSchema: webhookIdInput.shape,
+			outputSchema: deleteOutput(),
+			annotations: { readOnlyHint: false, destructiveHint: true },
+		},
+		withErrorHandling(async (args, context) => {
+			const path = `/v1/webhooks/${encodeURIComponent(args.id)}`;
+			const result = await context.client.delete<unknown>(path);
+			return toolSuccess(result);
+		}, options.context),
+	);
+
+	server.registerTool(
 		"webhook_test",
-		["Test Webhook", "Test_Webhook"],
 		{
 			title: "Test Webhook",
 			description:
-				"Trigger a test event delivery for a webhook to verify endpoint reachability and signature handling. Use this before enabling production event flows.",
+				"Send a test event payload to a webhook to verify the endpoint is reachable and signature verification works. Returns a deliveryId you can correlate with your endpoint's logs.",
 			inputSchema: webhookTestInput.shape,
+			outputSchema: objectOutput(),
 			annotations: { readOnlyHint: false, destructiveHint: false },
-			deprecate: true,
 		},
-		withErrorHandling<z.infer<typeof webhookTestInput>>(
-			async (args, context) => {
-				const result = await context.client.post(`/v1/webhooks/${args.id}/test`, {
-					event: "message.received",
-				});
-				return toolSuccess(result);
-			},
-			options.context,
-		),
-	);
-
-	registerToolWithAliases(
-		server,
-		"webhook_deliveries_list",
-		["List Webhook Deliveries", "List_Webhook_Deliveries"],
-		{
-			title: "List Webhook Deliveries",
-			description:
-				"List delivery attempts for a specific webhook, including retry and response details when available. Use this to troubleshoot failed or delayed webhook calls.",
-			inputSchema: webhookListDeliveriesInput.shape,
-			annotations: { readOnlyHint: true, destructiveHint: false },
-			deprecate: true,
-		},
-		withErrorHandling<z.infer<typeof webhookListDeliveriesInput>>(
-			async (args, context) => {
-				const params = new URLSearchParams();
-				if (args.limit !== undefined) params.set("limit", String(args.limit));
-				if (args.cursor) params.set("cursor", args.cursor);
-
-				const basePath = `/v1/webhooks/${args.id}/deliveries`;
-				const path = params.toString() ? `${basePath}?${params}` : basePath;
-				const result = await context.client.get(path);
-				return toolSuccess(result);
-			},
-			options.context,
-		),
-	);
-
-	// Re-enable Webhook had a hyphen in the name — doubly broken because
-	// hyphens AND spaces are both non-standard identifier chars. Canonical
-	// `webhook_reenable` (no underscore between "re" and "enable" — single
-	// concept). Both legacy forms kept as aliases.
-	registerToolWithAliases(
-		server,
-		"webhook_reenable",
-		["Re-enable Webhook", "Re-enable_Webhook"],
-		{
-			title: "Re-enable Webhook",
-			description:
-				"Test a disabled webhook endpoint and re-enable it if the test delivery succeeds. Use this after fixing a webhook endpoint that was auto-disabled due to consecutive failures.",
-			inputSchema: webhookReenableInput.shape,
-			annotations: { readOnlyHint: false, destructiveHint: false },
-			deprecate: true,
-		},
-		withErrorHandling<z.infer<typeof webhookReenableInput>>(
-			async (args, context) => {
-				const result = await context.client.post(
-					`/v1/webhooks/${args.id}/reenable`,
-					{},
-				);
-				return toolSuccess(result);
-			},
-			options.context,
-		),
-	);
-
-	registerToolWithAliases(
-		server,
-		"webhook_stats",
-		["Webhook Stats", "Webhook_Stats"],
-		{
-			title: "Webhook Stats",
-			description:
-				"Get aggregate delivery statistics for a webhook, including total deliveries, success rate, and failure counts. Use this for monitoring webhook health.",
-			inputSchema: webhookStatsInput.shape,
-			annotations: { readOnlyHint: true, destructiveHint: false },
-			deprecate: true,
-		},
-		withErrorHandling<z.infer<typeof webhookStatsInput>>(
-			async (args, context) => {
-				const result = await context.client.get(
-					`/v1/webhooks/${args.id}/stats`,
-				);
-				return toolSuccess(result);
-			},
-			options.context,
-		),
+		withErrorHandling(async (args, context) => {
+			const path = `/v1/webhooks/${encodeURIComponent(args.id)}/test`;
+			const payload: Record<string, unknown> = {};
+			if (args.event) payload.event = args.event;
+			const result = await context.client.post<unknown>(path, payload);
+			return toolSuccess(result);
+		}, options.context),
 	);
 }

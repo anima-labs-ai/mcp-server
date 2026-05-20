@@ -1,9 +1,37 @@
 import { z } from "zod";
 import type { ToolRegistrationOptions } from "../../../shared/index.js";
 import {
-	withErrorHandling,
+	deleteOutput,
+	listOutput,
+	objectOutput,
 	toolSuccess,
+	withErrorHandling,
 } from "../../../shared/index.js";
+
+const addressTypeEnum = z.enum(["BILLING", "SHIPPING", "MAILING", "REGISTERED"]);
+
+const addressInputSchema = z.object({
+	type: addressTypeEnum.describe("Address type: BILLING, SHIPPING, MAILING, or REGISTERED."),
+	label: z.string().optional().describe("Optional human-readable label."),
+	street1: z.string().describe("Primary street address line."),
+	street2: z.string().optional().describe("Secondary street address line (apt, suite, etc.)."),
+	city: z.string().describe("City name."),
+	state: z.string().describe("State or province code."),
+	postalCode: z.string().describe("Postal or ZIP code."),
+	country: z.string().describe("ISO country code (e.g. US, GB)."),
+});
+
+const addressUpdateInputSchema = z.object({
+	addressId: z.string().describe("ID of the address to update."),
+	type: addressTypeEnum.optional().describe("Updated address type."),
+	label: z.string().optional().describe("Updated label."),
+	street1: z.string().optional().describe("Updated primary street address."),
+	street2: z.string().optional().describe("Updated secondary street address."),
+	city: z.string().optional().describe("Updated city."),
+	state: z.string().optional().describe("Updated state or province."),
+	postalCode: z.string().optional().describe("Updated postal code."),
+	country: z.string().optional().describe("Updated country code."),
+});
 
 const agentCreateInput = z.object({
 	name: z.string().describe("Agent display name"),
@@ -29,6 +57,11 @@ const agentCreateInput = z.object({
 		.record(z.string())
 		.optional()
 		.describe("Optional agent metadata as key-value string pairs"),
+	address: addressInputSchema
+		.optional()
+		.describe(
+			"Optional initial postal address to attach to the agent on creation. To add more addresses later, use agent_update.",
+		),
 	idempotencyKey: z
 		.string()
 		.min(1)
@@ -36,7 +69,7 @@ const agentCreateInput = z.object({
 		.regex(/^[\x20-\x7E]+$/)
 		.optional()
 		.describe(
-			"Optional Idempotency-Key. Send the SAME key on retries of the SAME create payload to guarantee exactly-once provisioning even if the network drops mid-flight. Reuse with a different body returns IDEMPOTENCY_BODY_MISMATCH 409. Keys are scoped per-credential, ASCII-printable 1-255 chars (Stripe convention). Server caches the response for 24h.",
+			"Optional Idempotency-Key. Send the SAME key on retries of the SAME create payload to guarantee exactly-once provisioning even if the network drops mid-flight. Reuse with a different body returns IDEMPOTENCY_BODY_MISMATCH 409. Keys are scoped per-credential, ASCII-printable 1-255 chars (Stripe convention). Server caches the response for 24h. Note: the idempotency guarantee covers the agent record only — if a subsequent address attachment fails, the agent will still exist.",
 		),
 });
 
@@ -58,17 +91,12 @@ function slugifyName(name: string): string {
 }
 
 const agentGetInput = z.object({
-	id: z.string().describe("Agent ID"),
+	id: z.string().describe("Agent ID. Returns full agent detail including addresses, emailIdentities, and phoneIdentities."),
 });
 
 const agentListInput = z.object({
-	cursor: z.string().optional().describe("Pagination cursor from a previous response"),
-	limit: z
-		.number()
-		.int()
-		.positive()
-		.optional()
-		.describe("Maximum number of agents to return"),
+	cursor: z.string().optional().describe("Pagination cursor from a previous list response."),
+	limit: z.number().int().positive().optional().describe("Maximum number of agents to return."),
 });
 
 const agentUpdateInput = z.object({
@@ -78,13 +106,19 @@ const agentUpdateInput = z.object({
 		.record(z.string())
 		.optional()
 		.describe("Updated metadata as key-value string pairs"),
+	addAddress: addressInputSchema
+		.optional()
+		.describe("Attach a new postal address to this agent."),
+	updateAddress: addressUpdateInputSchema
+		.optional()
+		.describe("Update fields on an existing address. Pass addressId + the fields to change."),
+	deleteAddressId: z
+		.string()
+		.optional()
+		.describe("ID of an address to remove from this agent."),
 });
 
 const agentDeleteInput = z.object({
-	id: z.string().describe("Agent ID"),
-});
-
-const agentRotateKeyInput = z.object({
 	id: z.string().describe("Agent ID"),
 });
 
@@ -96,24 +130,38 @@ function registerAgentCreateTool(options: ToolRegistrationOptions): void {
 		{
 			title: "Create Agent",
 			description:
-				"Create a new agent with optional metadata and return the created record. Use this when provisioning a new sending identity or automation actor. Pass idempotencyKey to make retries safe — same key + same body returns the original response, same key + different body returns IDEMPOTENCY_BODY_MISMATCH 409.",
+				"Create a new agent with optional metadata, and optionally attach an initial address. Use this when provisioning a new sending identity or automation actor. To add more addresses later, use agent_update. Pass idempotencyKey to make retries safe — same key + same body returns the original response, same key + different body returns IDEMPOTENCY_BODY_MISMATCH 409.",
 			inputSchema: agentCreateInput.shape,
+			outputSchema: objectOutput(),
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
-			// Strip idempotencyKey from the body — it travels as an HTTP
-			// header, not as a request field. Server-side middleware
-			// (apps/api/src/middleware/idempotency.ts) reads it from the
-			// Idempotency-Key header and caches the response for 24h scoped
-			// per-credential.
-			const { idempotencyKey, ...rest } = args;
+			// Strip idempotencyKey + address from the body — they're handled
+			// separately. idempotencyKey travels as an HTTP header; address is
+			// a follow-up POST after the agent is created.
+			const { idempotencyKey, address, ...rest } = args;
 			const payload = {
 				...rest,
 				slug: rest.slug ?? slugifyName(rest.name),
 			};
-			const result = await context.client.post("/v1/agents", payload, {
+			const agent = (await context.client.post("/v1/agents", payload, {
 				headers: idempotencyKey ? { "Idempotency-Key": idempotencyKey } : undefined,
+			})) as { id: string };
+
+			if (!address) {
+				return toolSuccess(agent);
+			}
+
+			const createdAddress = await context.client.post("/v1/addresses", {
+				agentId: agent.id,
+				...address,
 			});
-			return toolSuccess(result);
+			return toolSuccess({ ...agent, addresses: [createdAddress] });
 		}, options.context),
 	);
 }
@@ -125,12 +173,26 @@ function registerAgentGetTool(options: ToolRegistrationOptions): void {
 		"agent_get",
 		{
 			title: "Get Agent",
-			description: "Fetch one agent by ID. Use this to inspect current settings, metadata, and status for a single agent.",
+			description:
+				"Fetch full detail for a single agent by ID: settings, metadata, status, and the full addresses[] / emailIdentities[] / phoneIdentities[] lists. Use agent_list to browse multiple agents.",
 			inputSchema: agentGetInput.shape,
+			outputSchema: objectOutput(),
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.get(`/v1/agents/${args.id}`);
-			return toolSuccess(result);
+			const [agent, addressResp] = await Promise.all([
+				context.client.get(`/v1/agents/${args.id}`),
+				context.client.get(
+					`/v1/addresses?agentId=${encodeURIComponent(args.id)}`,
+				),
+			]);
+			const addresses = (addressResp as { items?: unknown[] })?.items ?? addressResp;
+			return toolSuccess({ ...(agent as object), addresses });
 		}, options.context),
 	);
 }
@@ -141,9 +203,17 @@ function registerAgentListTool(options: ToolRegistrationOptions): void {
 	server.registerTool(
 		"agent_list",
 		{
-			title: "List Agent",
-			description: "List agents with optional cursor pagination. Use this to discover agents available in the current account context.",
+			title: "List Agents",
+			description:
+				"List agents in the current account context with cursor pagination. Returns a lightweight per-agent record (addresses are NOT included to avoid N+1 round-trips). Use agent_get for full single-agent detail.",
 			inputSchema: agentListInput.shape,
+			outputSchema: listOutput(),
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const params = new URLSearchParams();
@@ -163,12 +233,47 @@ function registerAgentUpdateTool(options: ToolRegistrationOptions): void {
 		"agent_update",
 		{
 			title: "Update Agent",
-			description: "Update an agent's name or metadata by ID. Use this when an agent needs renaming or profile metadata changes.",
+			description:
+				"Update an agent's name or metadata, and/or add/update/delete an address. Use addAddress to attach a new address, updateAddress to change fields on an existing one (by addressId), deleteAddressId to remove one. Multiple field-level changes can be combined in a single call.",
 			inputSchema: agentUpdateInput.shape,
+			outputSchema: objectOutput(),
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: false,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
-			const { id, ...body } = args;
-			const result = await context.client.patch(`/v1/agents/${id}`, body);
+			const { id, name, metadata, addAddress, updateAddress, deleteAddressId } = args;
+			const result: Record<string, unknown> = {};
+
+			if (name !== undefined || metadata !== undefined) {
+				result.agent = await context.client.patch(`/v1/agents/${id}`, { name, metadata });
+			}
+
+			if (addAddress) {
+				result.addedAddress = await context.client.post("/v1/addresses", {
+					agentId: id,
+					...addAddress,
+				});
+			}
+
+			if (updateAddress) {
+				const { addressId, ...fields } = updateAddress;
+				result.updatedAddress = await context.client.put(
+					`/v1/addresses/${encodeURIComponent(addressId)}`,
+					fields,
+				);
+			}
+
+			if (deleteAddressId) {
+				await context.client.delete(
+					`/v1/addresses/${encodeURIComponent(deleteAddressId)}`,
+				);
+				result.deletedAddressId = deleteAddressId;
+			}
+
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -181,159 +286,18 @@ function registerAgentDeleteTool(options: ToolRegistrationOptions): void {
 		"agent_delete",
 		{
 			title: "Delete Agent",
-			description: "Delete an agent by ID. Use this to remove deprecated or compromised agents that should no longer send messages.",
+			description: "Delete an agent by ID. Use this to remove deprecated or compromised agents that should no longer send messages. Cascades to attached addresses, email identities, and phone identities.",
 			inputSchema: agentDeleteInput.shape,
+			outputSchema: deleteOutput(),
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: true,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
 		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.delete(`/v1/agents/${args.id}`);
-			return toolSuccess(result);
-		}, options.context),
-	);
-}
-
-function registerAgentRotateKeyTool(options: ToolRegistrationOptions): void {
-	const { server } = options;
-
-	server.registerTool(
-		"agent_rotate_key",
-		{
-			title: "Rotate Agent Key",
-			description: "Rotate an agent API key and return the new key material. Use this when rotating credentials for security hygiene or after suspected exposure.",
-			inputSchema: agentRotateKeyInput.shape,
-		},
-		withErrorHandling(async (args, context) => {
-			const result = await context.client.post(`/v1/agents/${args.id}/rotate-key`);
-			return toolSuccess(result);
-		}, options.context),
-	);
-}
-
-// ── Per-agent email identity management ───────────────────────────────────
-// Wraps the API endpoints added by anima monorepo PR #63. Closes the
-// user-reported gap: "I could not, via MCP, attach a custom verified-domain
-// identity to my agent." The Layer 1 domain-verified gate (PR #62) is
-// enforced server-side, so calling these with an unverified custom domain
-// returns DOMAIN_NOT_VERIFIED 409 with a remediation hint.
-
-const agentEmailIdentityAddInput = z.object({
-	agentId: z.string().describe("Agent that will own the new identity"),
-	email: z
-		.string()
-		.email()
-		.describe(
-			"Full email address to attach. The parent domain MUST be verified for the workspace, or be the platform-managed default `agents.useanima.sh`. Otherwise rejected with DOMAIN_NOT_VERIFIED.",
-		),
-	setAsPrimary: z
-		.boolean()
-		.optional()
-		.describe(
-			"If true, this identity becomes the agent's primary on attach (the existing primary is demoted). Default false: attached as a secondary identity.",
-		),
-});
-
-const agentEmailIdentityListInput = z.object({
-	agentId: z.string().describe("Agent whose identities to list"),
-});
-
-const agentEmailIdentityActionInput = z.object({
-	agentId: z.string().describe("Owning agent ID"),
-	identityId: z.string().describe("Email identity ID being acted on"),
-});
-
-function registerAgentEmailIdentityAddTool(options: ToolRegistrationOptions): void {
-	const { server } = options;
-	server.registerTool(
-		"agent_email_identity_add",
-		{
-			title: "Add Agent Email Identity",
-			description:
-				"Attach a new email identity to an existing agent. The parent domain MUST be verified for the workspace (or be the platform-managed default `agents.useanima.sh`) — custom unverified domains are rejected with DOMAIN_NOT_VERIFIED so you don't end up with an agent that can't deliver mail. Use this to give an agent a workspace-domain identity (e.g. attach hello@brawz.ai to a digest agent that was auto-created on @agents.useanima.sh).",
-			inputSchema: agentEmailIdentityAddInput.shape,
-		},
-		withErrorHandling(async (args, context) => {
-			const { agentId, ...body } = args;
-			const result = await context.client.post(
-				`/v1/agents/${encodeURIComponent(agentId)}/email-identities`,
-				body,
-			);
-			return toolSuccess(result);
-		}, options.context),
-	);
-}
-
-function registerAgentEmailIdentityListTool(options: ToolRegistrationOptions): void {
-	const { server } = options;
-	server.registerTool(
-		"agent_email_identity_list",
-		{
-			title: "List Agent Email Identity",
-			description:
-				"List all email identities attached to an agent (primary first, then by creation order). Use this to discover what addresses the agent can send from before choosing one for fromIdentityId on email_send.",
-			inputSchema: agentEmailIdentityListInput.shape,
-		},
-		withErrorHandling(async (args, context) => {
-			const result = await context.client.get(
-				`/v1/agents/${encodeURIComponent(args.agentId)}/email-identities`,
-			);
-			return toolSuccess(result);
-		}, options.context),
-	);
-}
-
-function registerAgentEmailIdentitySetPrimaryTool(options: ToolRegistrationOptions): void {
-	const { server } = options;
-	server.registerTool(
-		"agent_email_identity_set_primary",
-		{
-			title: "Set Agent Email Identity Primary",
-			description:
-				"Promote an email identity to be the agent's primary. Atomically demotes the existing primary in the same transaction so there is never a moment with two primaries. Use this after attaching a verified-domain identity to switch the agent's default sending address.",
-			inputSchema: agentEmailIdentityActionInput.shape,
-		},
-		withErrorHandling(async (args, context) => {
-			const result = await context.client.post(
-				`/v1/agents/${encodeURIComponent(args.agentId)}/email-identities/${encodeURIComponent(args.identityId)}/set-primary`,
-				{},
-			);
-			return toolSuccess(result);
-		}, options.context),
-	);
-}
-
-function registerAgentEmailIdentityVerifyTool(options: ToolRegistrationOptions): void {
-	const { server } = options;
-	server.registerTool(
-		"agent_email_identity_verify",
-		{
-			title: "Verify Agent Email Identity",
-			description:
-				"Surface the current verification state for an email identity. The platform's background SES verification worker flips identity.verified=true when SES confirms; this tool is your poll point for that transition. Use it after attaching a new identity (or when an existing one's verification went stale) to see if it's ready for outbound sending yet.",
-			inputSchema: agentEmailIdentityActionInput.shape,
-		},
-		withErrorHandling(async (args, context) => {
-			const result = await context.client.post(
-				`/v1/agents/${encodeURIComponent(args.agentId)}/email-identities/${encodeURIComponent(args.identityId)}/verify`,
-				{},
-			);
-			return toolSuccess(result);
-		}, options.context),
-	);
-}
-
-function registerAgentEmailIdentityDeleteTool(options: ToolRegistrationOptions): void {
-	const { server } = options;
-	server.registerTool(
-		"agent_email_identity_delete",
-		{
-			title: "Delete Agent Email Identity",
-			description:
-				"Remove an email identity from an agent. Refuses on the agent's only remaining identity (would leave the agent unable to send or receive) or on a primary without an explicit successor (call agent_email_identity_set_primary on another identity first to make the choice deliberate).",
-			inputSchema: agentEmailIdentityActionInput.shape,
-		},
-		withErrorHandling(async (args, context) => {
-			const result = await context.client.delete(
-				`/v1/agents/${encodeURIComponent(args.agentId)}/email-identities/${encodeURIComponent(args.identityId)}`,
-			);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -345,11 +309,4 @@ export function registerAgentTools(options: ToolRegistrationOptions): void {
 	registerAgentListTool(options);
 	registerAgentUpdateTool(options);
 	registerAgentDeleteTool(options);
-	registerAgentRotateKeyTool(options);
-	// Per-agent email identity management (anima monorepo PR #63).
-	registerAgentEmailIdentityAddTool(options);
-	registerAgentEmailIdentityListTool(options);
-	registerAgentEmailIdentitySetPrimaryTool(options);
-	registerAgentEmailIdentityVerifyTool(options);
-	registerAgentEmailIdentityDeleteTool(options);
 }

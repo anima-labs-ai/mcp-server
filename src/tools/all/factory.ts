@@ -7,42 +7,22 @@ import {
 
 // Agent domain
 import { registerAgentTools } from "../agent/agent/index.js";
-import { registerOrganizationTools } from "../agent/organization/index.js";
-import { registerIdentityTools } from "../agent/identity/index.js";
-import { registerRegistryTools } from "../agent/registry/index.js";
-import { registerA2aTools } from "../agent/a2a/index.js";
-
-// Wallet + x402 domain — REMOVED 2026-05-09
-// The cards-removal commit (anima monorepo 7d865fe) deleted the wallet+x402
-// API handlers entirely (apps/api/src/routes/handlers/wallet.* and the
-// wallet route registrations on the router). Calling these tools now
-// returns "API error 404: Not Found" with no useful diagnostic. Re-import
-// + re-register when the API routes are restored at /v1/wallet/* (the
-// commit message claimed they would be relocated to top-level, but as of
-// origin/main no wallet handler exists).
-//
-// import { registerWalletTools } from "../wallet/index.js";
-// import { registerX402Tools } from "../x402/index.js";
 
 // Email domain
 import { registerEmailTools } from "../email/email/index.js";
-import { registerMessageTools } from "../email/message/index.js";
 import { registerDomainTools } from "../email/domain/index.js";
-import { registerAddressTools } from "../email/address/index.js";
 
 // Phone domain
 import { registerPhoneTools } from "../phone/phone/index.js";
-import { registerVoiceTools } from "../phone/voice/index.js";
+import { registerSmsTools } from "../phone/sms/index.js";
+import { registerPhoneCallTools } from "../phone/phone_call/index.js";
 
 // Platform domain
-import { registerUtilityTools } from "../platform/utility/index.js";
+import { registerWorkspaceTools } from "../platform/workspace/index.js";
 import { registerWebhookTools } from "../platform/webhook/index.js";
-import { registerPodTools } from "../platform/pod/index.js";
 
 // Vault domain
 import { registerVaultTools } from "../vault/vault/index.js";
-import { registerSecurityTools } from "../vault/security/index.js";
-import { registerOAuthTools } from "../vault/vault/oauth.js";
 
 const SERVER_INFO = {
 	...CORE_SERVER_INFO,
@@ -69,34 +49,22 @@ export function buildAllToolsServer(client: ApiClient): McpServer {
 
 	// Agent
 	registerAgentTools(context);
-	registerOrganizationTools(context);
-	registerIdentityTools(context);
-	registerRegistryTools(context);
-	registerA2aTools(context);
-
-	// Wallet + x402 — disabled (see import comment above)
-	// registerWalletTools(context);
-	// registerX402Tools(context);
 
 	// Email
 	registerEmailTools(context);
-	registerMessageTools(context);
 	registerDomainTools(context);
-	registerAddressTools(context);
 
 	// Phone
 	registerPhoneTools(context);
-	registerVoiceTools(context);
+	registerSmsTools(context);
+	registerPhoneCallTools(context);
 
 	// Platform
-	registerUtilityTools(context);
+	registerWorkspaceTools(context);
 	registerWebhookTools(context);
-	registerPodTools(context);
 
 	// Vault
 	registerVaultTools(context);
-	registerSecurityTools(context);
-	registerOAuthTools(context);
 
 	return server;
 }

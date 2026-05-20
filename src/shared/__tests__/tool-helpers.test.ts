@@ -16,13 +16,13 @@ const mockContext: ToolContext = {
 
 describe("requiresMasterKey", () => {
 	test("returns true for master key tools", () => {
-		expect(requiresMasterKey("org_create")).toBe(true);
-		expect(requiresMasterKey("org_delete")).toBe(true);
-		expect(requiresMasterKey("webhook_delete")).toBe(true);
+		expect(requiresMasterKey("agent_delete")).toBe(true);
+		expect(requiresMasterKey("domain_create")).toBe(true);
+		expect(requiresMasterKey("domain_delete")).toBe(true);
 	});
 
 	test("returns false for normal tools", () => {
-		expect(requiresMasterKey("agent_list")).toBe(false);
+		expect(requiresMasterKey("agent_get")).toBe(false);
 		expect(requiresMasterKey("email_send")).toBe(false);
 	});
 });
@@ -37,6 +37,31 @@ describe("toolSuccess", () => {
 	test("passes string through directly", () => {
 		const result = toolSuccess("hello");
 		expect(result.content[0].text).toBe("hello");
+	});
+
+	test("emits structuredContent for object data (MCP spec 2025-11-25)", () => {
+		const result = toolSuccess({ foo: "bar", n: 1 });
+		expect(result.structuredContent).toEqual({ foo: "bar", n: 1 });
+	});
+
+	test("wraps array in { items } for structuredContent", () => {
+		const result = toolSuccess([1, 2, 3]);
+		expect(result.structuredContent).toEqual({ items: [1, 2, 3] });
+	});
+
+	test("omits structuredContent for string data", () => {
+		const result = toolSuccess("hello");
+		expect(result.structuredContent).toBeUndefined();
+	});
+
+	test("omits structuredContent for null/undefined", () => {
+		expect(toolSuccess(null).structuredContent).toBeUndefined();
+		expect(toolSuccess(undefined).structuredContent).toBeUndefined();
+	});
+
+	test("wraps primitives as { value }", () => {
+		expect(toolSuccess(42).structuredContent).toEqual({ value: 42 });
+		expect(toolSuccess(true).structuredContent).toEqual({ value: true });
 	});
 });
 
