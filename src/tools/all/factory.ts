@@ -19,10 +19,10 @@ import { registerPhoneCallTools } from "../phone/phone_call/index.js";
 
 // Platform domain
 import { registerUtilityTools } from "../platform/utility/index.js";
+import { registerWebhookTools } from "../platform/webhook/index.js";
 
 // Vault domain
 import { registerVaultTools } from "../vault/vault/index.js";
-import { registerOAuthTools } from "../vault/vault/oauth.js";
 
 const SERVER_INFO = {
 	...CORE_SERVER_INFO,
@@ -61,10 +61,10 @@ export function buildAllToolsServer(client: ApiClient): McpServer {
 
 	// Platform
 	registerUtilityTools(context);
+	registerWebhookTools(context);
 
 	// Vault
 	registerVaultTools(context);
-	registerOAuthTools(context);
 
 	return server;
 }

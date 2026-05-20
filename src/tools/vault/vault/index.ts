@@ -4,16 +4,28 @@ import {
 	deleteOutput,
 	listOutput,
 	objectOutput,
-	requireMasterKeyGuard,
-	statusOutput,
 	toolSuccess,
 	withErrorHandling,
 } from "../../../shared/index.js";
 
+// 2026-05-20: vault group reduced to 7 credential-CRUD-plus-power tools.
+// Dropped from prior surface (28 → 7): vault_provision, vault_deprovision
+// (org-level lifecycle), vault_generate_password (utility), vault_sync,
+// vault_status (admin-y), vault_share_credential, vault_list_shares,
+// vault_revoke_share (sharing), vault_create_token, vault_exchange_token,
+// vault_revoke_tokens (token issuance), vault_reload, vault_plan_exec,
+// vault_plan_proxy, vault_audit_query (operator), plus the 6 OAuth tools
+// (vault_oauth_*) in the deleted oauth.ts file. Naming normalized to
+// resource_action: vault_get_credential → vault_credential_get.
+// Hosted-only difference vs npm: agentId is OPTIONAL on every input
+// because the agent-bound oat_* / ak_* credential context can resolve it
+// implicitly. npm requires explicit agentId because static keys have no
+// implicit agent.
+
 /**
  * Masks sensitive fields in a vault credential response.
- * Passwords, access tokens, and refresh tokens are replaced with "****".
- * Refresh tokens are omitted entirely.
+ * Invariant: "LLMs never see plaintext through tools." Callers that need
+ * plaintext use the autofill/proxy token flow at the credential-broker.
  */
 function maskCredentialFields(
 	cred: Record<string, unknown>,
@@ -31,7 +43,7 @@ function maskCredentialFields(
 		const card = { ...(masked.card as Record<string, unknown>) };
 		if (card.code) card.code = "****";
 		if (card.number && typeof card.number === "string") {
-			card.number = "****" + (card.number as string).slice(-4);
+			card.number = `****${(card.number as string).slice(-4)}`;
 		}
 		masked.card = card;
 	}
@@ -62,60 +74,24 @@ const vaultCredentialTypeSchema = z.enum([
 	"identity",
 ]);
 
-const vaultProvisionSchema = z.object({
-	agentId: z.string().describe("Agent ID to provision a vault for."),
-});
-
-const vaultDeprovisionSchema = z.object({
-	agentId: z.string().describe("Agent ID to remove vault access for."),
-});
-
-const vaultListCredentialsSchema = z.object({
-	agentId: z.string().optional().describe("Agent ID whose vault credentials should be listed. Optional when using an agent API key."),
-	type: vaultCredentialTypeSchema
-		.optional()
-		.describe("Optional credential type filter."),
-	search: z
-		.string()
-		.optional()
-		.describe("Optional search text used to filter credential names and content."),
-});
-
-const vaultCredentialIdSchema = z.object({
-	agentId: z.string().optional().describe("Agent ID that owns the credential. Optional when using an agent API key."),
-	id: z.string().describe("Credential ID."),
-});
-
 const vaultUriSchema = z.object({
 	uri: z.string().optional().describe("URI value."),
 	match: z.string().optional().describe("Optional URI match mode."),
 });
 
 const vaultLoginSchema = z.object({
-	username: z
-		.string()
-		.optional()
-		.describe("Optional username associated with the login credential."),
-	password: z
-		.string()
-		.optional()
-		.describe("Optional password associated with the login credential."),
-	uris: z
-		.array(vaultUriSchema)
-		.optional()
-		.describe("Optional list of login URIs for this credential."),
-	totp: z
-		.string()
-		.optional()
-		.describe("Optional TOTP secret configured for this login credential."),
+	username: z.string().optional().describe("Optional login username."),
+	password: z.string().optional().describe("Optional login password."),
+	uris: z.array(vaultUriSchema).optional().describe("Optional list of login URIs."),
+	totp: z.string().optional().describe("Optional TOTP secret."),
 });
 
 const vaultCardSchema = z.object({
 	cardholderName: z.string().optional().describe("Optional cardholder name."),
 	brand: z.string().optional().describe("Optional card brand."),
 	number: z.string().optional().describe("Optional card number."),
-	expMonth: z.string().optional().describe("Optional card expiration month."),
-	expYear: z.string().optional().describe("Optional card expiration year."),
+	expMonth: z.string().optional().describe("Optional expiration month."),
+	expYear: z.string().optional().describe("Optional expiration year."),
 	code: z.string().optional().describe("Optional security code."),
 });
 
@@ -132,8 +108,8 @@ const vaultIdentitySchema = z.object({
 	postalCode: z.string().optional().describe("Optional postal code."),
 	country: z.string().optional().describe("Optional country."),
 	company: z.string().optional().describe("Optional company name."),
-	email: z.string().optional().describe("Optional identity email address."),
-	phone: z.string().optional().describe("Optional identity phone number."),
+	email: z.string().optional().describe("Optional identity email."),
+	phone: z.string().optional().describe("Optional identity phone."),
 	ssn: z.string().optional().describe("Optional SSN or national ID."),
 	username: z.string().optional().describe("Optional username value."),
 	passportNumber: z.string().optional().describe("Optional passport number."),
@@ -147,143 +123,85 @@ const vaultFieldSchema = z.object({
 	linkedId: z.string().optional().describe("Optional linked field identifier."),
 });
 
-const vaultCreateCredentialSchema = z.object({
-	agentId: z.string().optional().describe("Agent ID that owns the new credential. Optional when using an agent API key."),
-	type: vaultCredentialTypeSchema.describe("Credential type."),
-	name: z.string().describe("Human-readable credential name."),
-	login: vaultLoginSchema
-		.optional()
-		.describe("Optional login payload for login-type credentials."),
-	card: vaultCardSchema
-		.optional()
-		.describe("Optional card payload for card-type credentials."),
-	identity: vaultIdentitySchema
-		.optional()
-		.describe("Optional identity payload for identity-type credentials."),
-	notes: z.string().optional().describe("Optional secure note text."),
-	fields: z
-		.array(vaultFieldSchema)
-		.optional()
-		.describe("Optional custom fields for the credential."),
-	favorite: z
-		.boolean()
-		.optional()
-		.describe("Optional favorite flag for quick access."),
-});
-
-const vaultUpdateCredentialSchema = z.object({
-	agentId: z.string().optional().describe("Agent ID that owns the credential. Optional when using an agent API key."),
-	id: z.string().describe("Credential ID to update."),
-	name: z.string().optional().describe("Optional updated credential name."),
-	login: vaultLoginSchema
-		.optional()
-		.describe("Optional updated login payload."),
-	card: vaultCardSchema.optional().describe("Optional updated card payload."),
-	identity: vaultIdentitySchema
-		.optional()
-		.describe("Optional updated identity payload."),
-	notes: z.string().optional().describe("Optional updated secure note text."),
-	fields: z
-		.array(vaultFieldSchema)
-		.optional()
-		.describe("Optional updated custom fields."),
-	favorite: z
-		.boolean()
-		.optional()
-		.describe("Optional updated favorite flag."),
-});
-
-const vaultGeneratePasswordSchema = z.object({
+const vaultListInput = z.object({
 	agentId: z
 		.string()
 		.optional()
 		.describe(
-			"Agent ID requesting the password. REQUIRED when calling with a master key (mk_*) or admin:full OAuth grant — those auth contexts have no implicit agent. Optional only when using an agent API key (ak_*).",
+			"Agent ID whose vault to list. Optional when using an agent-bound credential (ak_* or oat_* with agentId).",
 		),
-	length: z
-		.number()
-		.int()
-		.positive()
+	type: vaultCredentialTypeSchema
 		.optional()
-		.default(32)
-		.describe("Optional password length. Defaults to 32."),
-	uppercase: z
-		.boolean()
-		.optional()
-		.describe("Include uppercase letters when true."),
-	lowercase: z
-		.boolean()
-		.optional()
-		.describe("Include lowercase letters when true."),
-	number: z
-		.boolean()
-		.optional()
-		.describe("Include numeric characters when true."),
-	special: z
-		.boolean()
-		.optional()
-		.describe("Include special characters when true."),
+		.describe("Optional credential type filter."),
 });
 
-const vaultStatusSchema = z.object({
-	agentId: z.string().optional().describe("Agent ID to inspect vault status for. Optional when using an agent API key."),
+const vaultIdInput = z.object({
+	agentId: z
+		.string()
+		.optional()
+		.describe(
+			"Agent ID that owns the credential. Optional when using an agent-bound credential.",
+		),
+	id: z.string().describe("Credential ID."),
+});
+
+const vaultCreateInput = z.object({
+	agentId: z
+		.string()
+		.optional()
+		.describe(
+			"Agent ID that owns the new credential. Optional when using an agent-bound credential.",
+		),
+	type: vaultCredentialTypeSchema.describe("Credential type."),
+	name: z.string().describe("Human-readable credential name."),
+	login: vaultLoginSchema.optional().describe("Login payload for login-type."),
+	card: vaultCardSchema.optional().describe("Card payload for card-type."),
+	identity: vaultIdentitySchema.optional().describe("Identity payload for identity-type."),
+	notes: z.string().optional().describe("Optional secure note text."),
+	fields: z.array(vaultFieldSchema).optional().describe("Optional custom fields."),
+	favorite: z.boolean().optional().describe("Optional favorite flag."),
+});
+
+const vaultUpdateInput = z.object({
+	agentId: z
+		.string()
+		.optional()
+		.describe(
+			"Agent ID that owns the credential. Optional when using an agent-bound credential.",
+		),
+	id: z.string().describe("Credential ID to update."),
+	name: z.string().optional().describe("Optional updated name."),
+	login: vaultLoginSchema.optional().describe("Optional updated login payload."),
+	card: vaultCardSchema.optional().describe("Optional updated card payload."),
+	identity: vaultIdentitySchema.optional().describe("Optional updated identity payload."),
+	notes: z.string().optional().describe("Optional updated note text."),
+	fields: z.array(vaultFieldSchema).optional().describe("Optional updated custom fields."),
+	favorite: z.boolean().optional().describe("Optional updated favorite flag."),
+});
+
+const vaultSearchInput = z.object({
+	agentId: z
+		.string()
+		.optional()
+		.describe(
+			"Agent ID whose vault to search. Optional when using an agent-bound credential.",
+		),
+	search: z.string().describe("Search text matched against names and content."),
+	type: vaultCredentialTypeSchema
+		.optional()
+		.describe("Optional credential type filter."),
 });
 
 export function registerVaultTools(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
 	server.registerTool(
-		"vault_provision",
-		{
-			title: "Provision Vault",
-			description: "Provision a vault for an agent so credentials can be securely stored and managed. Use this before creating vault credentials for a newly onboarded agent.",
-			inputSchema: vaultProvisionSchema.shape,
-			outputSchema: objectOutput(),
-			annotations: {
-				readOnlyHint: false,
-				destructiveHint: false,
-				idempotentHint: true,
-				openWorldHint: true,
-			},
-		},
-		withErrorHandling(async (args, context) => {
-			requireMasterKeyGuard(context);
-			const result = await context.client.post<unknown>("/v1/vault/provision", {
-				agentId: args.agentId,
-			});
-			return toolSuccess(result);
-		}, options.context),
-	);
-
-	server.registerTool(
-		"vault_deprovision",
-		{
-			title: "Deprovision Vault",
-			description: "Deprovision an agent vault and remove its active vault assignment. Use this when retiring an agent or revoking vault access.",
-			inputSchema: vaultDeprovisionSchema.shape,
-			outputSchema: deleteOutput(),
-			annotations: {
-				readOnlyHint: false,
-				destructiveHint: true,
-				idempotentHint: true,
-				openWorldHint: true,
-			},
-		},
-		withErrorHandling(async (args, context) => {
-			requireMasterKeyGuard(context);
-			const result = await context.client.post<unknown>("/v1/vault/deprovision", {
-				agentId: args.agentId,
-			});
-			return toolSuccess(result);
-		}, options.context),
-	);
-
-	server.registerTool(
-		"vault_list_credentials",
+		"vault_credential_list",
 		{
 			title: "List Vault Credentials",
-			description: "List credentials in an agent vault with optional type and search filters. Use this to browse stored secrets before reading, updating, or deleting entries.",
-			inputSchema: vaultListCredentialsSchema.shape,
+			description:
+				"List credentials in an agent vault with optional type filter. Use to browse stored secrets before reading, updating, or deleting entries. Sensitive fields are masked.",
+			inputSchema: vaultListInput.shape,
 			outputSchema: listOutput(),
 			annotations: {
 				readOnlyHint: true,
@@ -296,8 +214,6 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 			const params = new URLSearchParams();
 			if (args.agentId) params.set("agentId", args.agentId);
 			if (args.type) params.set("type", args.type);
-			if (args.search) params.set("search", args.search);
-
 			const result = await context.client.get<unknown>(
 				`/v1/vault/credentials?${params.toString()}`,
 			);
@@ -306,11 +222,12 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 	);
 
 	server.registerTool(
-		"vault_get_credential",
+		"vault_credential_get",
 		{
 			title: "Get Vault Credential",
-			description: "Get a single vault credential by ID. Sensitive fields (passwords, tokens) are masked for security. Use vault_create_token with scope 'autofill' or 'proxy' to access raw credential data securely.",
-			inputSchema: vaultCredentialIdSchema.shape,
+			description:
+				"Get a single vault credential by ID. Sensitive fields (passwords, tokens, SSNs, CVV) are masked. To use the plaintext for autofill or as an upstream credential, mint a vault token at the credential broker — the LLM never sees the secret directly.",
+			inputSchema: vaultIdInput.shape,
 			outputSchema: objectOutput(),
 			annotations: {
 				readOnlyHint: true,
@@ -329,11 +246,12 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 	);
 
 	server.registerTool(
-		"vault_create_credential",
+		"vault_credential_create",
 		{
 			title: "Create Vault Credential",
-			description: "Create a new credential in an agent vault with login, card, identity, or secure note content. Use this to store new secrets for agent automation tasks.",
-			inputSchema: vaultCreateCredentialSchema.shape,
+			description:
+				"Create a new credential in an agent vault. Pass `type` plus the matching payload block (login / card / identity / notes).",
+			inputSchema: vaultCreateInput.shape,
 			outputSchema: objectOutput(),
 			annotations: {
 				readOnlyHint: false,
@@ -349,11 +267,12 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 	);
 
 	server.registerTool(
-		"vault_update_credential",
+		"vault_credential_update",
 		{
 			title: "Update Vault Credential",
-			description: "Update an existing vault credential by ID, including optional structured sections and metadata flags. Use this to rotate passwords or revise stored secret details.",
-			inputSchema: vaultUpdateCredentialSchema.shape,
+			description:
+				"Update an existing vault credential by ID, including optional structured sections and metadata flags. Use to rotate passwords or revise stored details.",
+			inputSchema: vaultUpdateInput.shape,
 			outputSchema: objectOutput(),
 			annotations: {
 				readOnlyHint: false,
@@ -365,18 +284,18 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 		withErrorHandling(async (args, context) => {
 			const { id, ...payload } = args;
 			const path = `/v1/vault/credentials/${encodeURIComponent(id)}`;
-			// agentId is part of payload and sent in the body for PUT
 			const result = await context.client.put<unknown>(path, payload);
 			return toolSuccess(result);
 		}, options.context),
 	);
 
 	server.registerTool(
-		"vault_delete_credential",
+		"vault_credential_delete",
 		{
 			title: "Delete Vault Credential",
-			description: "Delete a credential from vault storage by ID. Use this to remove obsolete or compromised secrets from an agent vault.",
-			inputSchema: vaultCredentialIdSchema.shape,
+			description:
+				"Delete a credential from vault storage by ID. Use to remove obsolete or compromised secrets.",
+			inputSchema: vaultIdInput.shape,
 			outputSchema: deleteOutput(),
 			annotations: {
 				readOnlyHint: false,
@@ -388,71 +307,20 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 		withErrorHandling(async (args, context) => {
 			const path = `/v1/vault/credentials/${encodeURIComponent(args.id)}`;
 			// oRPC DELETE reads agentId from request body
-			const result = await context.client.delete<unknown>(path, { agentId: args.agentId });
+			const result = await context.client.delete<unknown>(path, {
+				agentId: args.agentId,
+			});
 			return toolSuccess(result);
 		}, options.context),
 	);
 
 	server.registerTool(
-		"vault_generate_password",
-		{
-			title: "Generate Vault Password",
-			description: "Generate a secure password using configurable character class options and length. Use this when creating or rotating login credentials in vault.",
-			inputSchema: vaultGeneratePasswordSchema.shape,
-			outputSchema: objectOutput(),
-			annotations: {
-				readOnlyHint: true,
-				destructiveHint: false,
-				idempotentHint: false,
-				openWorldHint: false,
-			},
-		},
-		withErrorHandling(async (args, context) => {
-			const result = await context.client.post<unknown>(
-				"/v1/vault/generate-password",
-				args,
-			);
-			return toolSuccess(result);
-		}, options.context),
-	);
-
-	server.registerTool(
-		"vault_get_totp",
-		{
-			title: "Get Vault TOTP",
-			description: "Get the current TOTP code for a credential that has a TOTP secret configured. Use this for time-based one-time passcode login flows.",
-			inputSchema: vaultCredentialIdSchema.shape,
-			outputSchema: objectOutput(),
-			annotations: {
-				readOnlyHint: true,
-				destructiveHint: false,
-				idempotentHint: false,
-				openWorldHint: true,
-			},
-		},
-		withErrorHandling(async (args, context) => {
-			const params = new URLSearchParams();
-			if (args.agentId) params.set("agentId", args.agentId);
-			const path = `/v1/vault/totp/${encodeURIComponent(args.id)}?${params.toString()}`;
-			const result = await context.client.get<unknown>(path);
-			return toolSuccess(result);
-		}, options.context),
-	);
-
-	const vaultSearchSchema = z.object({
-		agentId: z.string().optional().describe("Agent ID whose vault to search. Optional when using an agent API key."),
-		search: z.string().describe("Search text to match against credential names and content."),
-		type: vaultCredentialTypeSchema
-			.optional()
-			.describe("Optional credential type filter."),
-	});
-
-	server.registerTool(
-		"vault_search",
+		"vault_credential_search",
 		{
 			title: "Search Vault",
-			description: "Search vault credentials by keyword across names and content. Use this for targeted credential lookup when you know part of the name, URL, or username.",
-			inputSchema: vaultSearchSchema.shape,
+			description:
+				"Search vault credentials by keyword across names and content. Use when you know part of the name, URL, or username but not the exact credential ID. Different access pattern from vault_credential_list — list is paginated browsing, search is text-query lookup.",
+			inputSchema: vaultSearchInput.shape,
 			outputSchema: listOutput(),
 			annotations: {
 				readOnlyHint: true,
@@ -473,379 +341,26 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 		}, options.context),
 	);
 
-	const vaultSyncSchema = z.object({
-		agentId: z.string().optional().describe("Agent ID whose vault should be synced. Optional when using an agent API key."),
-	});
-
 	server.registerTool(
-		"vault_sync",
+		"vault_credential_get_totp",
 		{
-			title: "Sync Vault",
-			description: "Force a sync of an agent's vault to ensure local and remote credential state are consistent. Use this after bulk credential changes or when stale data is suspected.",
-			inputSchema: vaultSyncSchema.shape,
+			title: "Get Vault TOTP",
+			description:
+				"Get the current TOTP code for a credential that has a TOTP secret configured. Returns the live 6-digit code derived from the stored secret — the secret itself is never disclosed.",
+			inputSchema: vaultIdInput.shape,
 			outputSchema: objectOutput(),
-			annotations: {
-				readOnlyHint: false,
-				destructiveHint: false,
-				idempotentHint: true,
-				openWorldHint: true,
-			},
-		},
-		withErrorHandling(async (args, context) => {
-			const result = await context.client.post<unknown>("/v1/vault/sync", {
-				agentId: args.agentId,
-			});
-			return toolSuccess(result);
-		}, options.context),
-	);
-
-	server.registerTool(
-		"vault_status",
-		{
-			title: "Vault Status",
-			description: "Get current vault status for an agent, including provisioning and readiness information. Use this to verify vault availability before secret operations.",
-			inputSchema: vaultStatusSchema.shape,
-			outputSchema: statusOutput(),
 			annotations: {
 				readOnlyHint: true,
 				destructiveHint: false,
-				idempotentHint: true,
+				idempotentHint: false,
 				openWorldHint: true,
 			},
 		},
 		withErrorHandling(async (args, context) => {
 			const params = new URLSearchParams();
 			if (args.agentId) params.set("agentId", args.agentId);
-			const result = await context.client.get<unknown>(
-				`/v1/vault/status?${params.toString()}`,
-			);
-			return toolSuccess(result);
-		}, options.context),
-	);
-
-	// -----------------------------------------------------------------------
-	// Sharing tools
-	// -----------------------------------------------------------------------
-
-	const vaultShareSchema = z.object({
-		agentId: z.string().describe("Source agent ID that owns the credential."),
-		credentialId: z.string().describe("Credential ID to share."),
-		targetAgentId: z.string().describe("Agent ID to share the credential with."),
-		permission: z
-			.enum(["READ", "USE", "MANAGE"])
-			.describe("Permission level for the share."),
-		expiresInSeconds: z
-			.number()
-			.int()
-			.positive()
-			.optional()
-			.describe("Optional TTL in seconds for the share."),
-	});
-
-	server.registerTool(
-		"vault_share_credential",
-		{
-			title: "Share Vault Credential",
-			description: "Share a vault credential with another agent at a specified permission level. Use this to grant cross-agent access to secrets for collaborative workflows.",
-			inputSchema: vaultShareSchema.shape,
-			outputSchema: objectOutput(),
-			annotations: {
-				readOnlyHint: false,
-				destructiveHint: false,
-				idempotentHint: false,
-				openWorldHint: true,
-			},
-		},
-		withErrorHandling(async (args, context) => {
-			const result = await context.client.post<unknown>("/v1/vault/share", args);
-			return toolSuccess(result);
-		}, options.context),
-	);
-
-	const vaultListSharesSchema = z.object({
-		agentId: z.string().optional().describe("Agent ID to list shares for. Optional when using an agent API key."),
-		direction: z
-			.enum(["granted", "received"])
-			.describe("Whether to list shares this agent has granted or received."),
-	});
-
-	server.registerTool(
-		"vault_list_shares",
-		{
-			title: "List Vault Shares",
-			description: "List credential shares granted by or received by an agent. Use this to audit cross-agent secret access.",
-			inputSchema: vaultListSharesSchema.shape,
-			outputSchema: listOutput(),
-			annotations: {
-				readOnlyHint: true,
-				destructiveHint: false,
-				idempotentHint: true,
-				openWorldHint: true,
-			},
-		},
-		withErrorHandling(async (args, context) => {
-			const params = new URLSearchParams();
-			if (args.agentId) params.set("agentId", args.agentId);
-			params.set("direction", args.direction);
-			const result = await context.client.get<unknown>(
-				`/v1/vault/shares?${params.toString()}`,
-			);
-			return toolSuccess(result);
-		}, options.context),
-	);
-
-	const vaultRevokeShareSchema = z.object({
-		shareId: z.string().describe("Share ID to revoke."),
-		agentId: z.string().optional().describe("Agent ID that owns the share. Optional when using an agent API key."),
-	});
-
-	server.registerTool(
-		"vault_revoke_share",
-		{
-			title: "Revoke Vault Share",
-			description: "Revoke a previously granted credential share by share ID. Use this to remove cross-agent access when it is no longer needed.",
-			inputSchema: vaultRevokeShareSchema.shape,
-			outputSchema: deleteOutput(),
-			annotations: {
-				readOnlyHint: false,
-				destructiveHint: true,
-				idempotentHint: true,
-				openWorldHint: true,
-			},
-		},
-		withErrorHandling(async (args, context) => {
-			const result = await context.client.post<unknown>(
-				"/v1/vault/share/revoke",
-				args,
-			);
-			return toolSuccess(result);
-		}, options.context),
-	);
-
-	// -----------------------------------------------------------------------
-	// Ephemeral token tools
-	// -----------------------------------------------------------------------
-
-	const vaultCreateTokenSchema = z.object({
-		agentId: z.string().optional().describe("Agent ID that owns the credential. Optional when using an agent API key."),
-		credentialId: z
-			.string()
-			.describe("Credential ID to create an ephemeral token for."),
-		scope: z
-			.enum(["autofill", "proxy", "export"])
-			.describe(
-				"Token scope: autofill for CLI/extension injection, proxy for delegated access, export for one-time reveal.",
-			),
-		ttlSeconds: z
-			.number()
-			.int()
-			.positive()
-			.optional()
-			.describe("Optional TTL in seconds (10–3600, default 60)."),
-	});
-
-	server.registerTool(
-		"vault_create_token",
-		{
-			title: "Create Vault Token",
-			description: "Create a short-lived ephemeral token for a credential. The vtk_ token can be used in commands for CLI/extension auto-fill without exposing the raw secret to the LLM.",
-			inputSchema: vaultCreateTokenSchema.shape,
-			outputSchema: objectOutput(),
-			annotations: {
-				readOnlyHint: false,
-				destructiveHint: false,
-				idempotentHint: false,
-				openWorldHint: true,
-			},
-		},
-		withErrorHandling(async (args, context) => {
-			const result = await context.client.post<unknown>("/v1/vault/token", args);
-			return toolSuccess(result);
-		}, options.context),
-	);
-
-	const vaultExchangeTokenSchema = z.object({
-		token: z
-			.string()
-			.describe(
-				"The vtk_ ephemeral token to exchange for credential data. Single-use.",
-			),
-	});
-
-	server.registerTool(
-		"vault_exchange_token",
-		{
-			title: "Exchange Vault Token",
-			description: "Exchange a vtk_ ephemeral token for the underlying credential data. Tokens are single-use and consumed on exchange. No auth header required.",
-			inputSchema: vaultExchangeTokenSchema.shape,
-			outputSchema: objectOutput(),
-			annotations: {
-				readOnlyHint: false,
-				destructiveHint: true,
-				idempotentHint: false,
-				openWorldHint: true,
-			},
-		},
-		withErrorHandling(async (args, context) => {
-			const result = await context.client.post<unknown>(
-				"/v1/vault/token/exchange",
-				args,
-			);
-			return toolSuccess(result);
-		}, options.context),
-	);
-
-	const vaultRevokeTokensSchema = z.object({
-		agentId: z.string().optional().describe("Agent ID that owns the credential. Optional when using an agent API key."),
-		credentialId: z
-			.string()
-			.describe("Credential ID whose tokens should be revoked."),
-	});
-
-	server.registerTool(
-		"vault_revoke_tokens",
-		{
-			title: "Revoke Vault Tokens",
-			description: "Revoke all active ephemeral tokens for a credential. Use this to invalidate outstanding vtk_ tokens after a security event or credential rotation.",
-			inputSchema: vaultRevokeTokensSchema.shape,
-			outputSchema: deleteOutput(),
-			annotations: {
-				readOnlyHint: false,
-				destructiveHint: true,
-				idempotentHint: true,
-				openWorldHint: true,
-			},
-		},
-		withErrorHandling(async (args, context) => {
-			const result = await context.client.post<unknown>(
-				"/v1/vault/token/revoke",
-				args,
-			);
-			return toolSuccess(result);
-		}, options.context),
-	);
-
-	// -----------------------------------------------------------------------
-	// Zero-knowledge execution primitives (v0.5+)
-	//
-	// These tools match the CLI surface (am vault exec / audit / reload /
-	// unlock / proxy / agent). The contract is ORCHESTRATION-ONLY: the LLM
-	// names which credential goes where, but resolution and substitution
-	// happen in a trusted process (the CLI or daemon). Plaintext is never
-	// returned to the LLM.
-	// -----------------------------------------------------------------------
-
-	const vaultReloadSchema = z.object({
-		agentId: z.string().optional().describe("Agent ID whose snapshot should be reloaded. Optional with an agent API key."),
-	});
-	server.registerTool(
-		"vault_reload",
-		{
-			title: "Reload Vault",
-			description: "Force the server-side vault snapshot to refresh from its backing store. Use after a secret has been rotated at the provider so the next access sees the new value. Atomic swap — last-known-good stays active if the refresh fails.",
-			inputSchema: vaultReloadSchema.shape,
-			outputSchema: objectOutput(),
-			annotations: {
-				readOnlyHint: false,
-				destructiveHint: false,
-				idempotentHint: true,
-				openWorldHint: true,
-			},
-		},
-		withErrorHandling(async (args, context) => {
-			const result = await context.client.post<unknown>("/v1/vault/reload", args);
-			return toolSuccess(result);
-		}, options.context),
-	);
-
-	const vaultPlanExecSchema = z.object({
-		agentId: z.string().optional().describe("Agent ID whose credentials to resolve. Optional with agent API key."),
-		command: z.string().describe("The command to run (e.g. 'node', 'python', './deploy.sh'). Never includes secrets."),
-		args: z.array(z.string()).optional().describe("Arguments to pass to the command. Must NOT contain plaintext secrets — use envBindings instead."),
-		envBindings: z
-			.record(z.string(), z.object({
-				credentialId: z.string(),
-				field: z.string().describe("Dotted path, e.g. 'login.password', 'apiKey.key'."),
-			}))
-			.describe(
-				"Map of env-var-name -> credential ref. The CLI resolves these and injects them into the child process env. The LLM never sees the resolved values.",
-			),
-	});
-	server.registerTool(
-		"vault_plan_exec",
-		{
-			title: "Vault Plan Exec",
-			description: "Plan a credential-injected subprocess run. Returns a plan the CLI (or orchestrator) can apply via `am vault exec` — the LLM describes which credentials go into which env vars, and a trusted local process does the resolution. This tool does NOT itself run anything; it's an orchestration primitive so the LLM can express intent without ever receiving plaintext.",
-			inputSchema: vaultPlanExecSchema.shape,
-			outputSchema: objectOutput(),
-			annotations: {
-				readOnlyHint: false,
-				destructiveHint: false,
-				idempotentHint: false,
-				openWorldHint: true,
-			},
-		},
-		withErrorHandling(async (args, context) => {
-			const result = await context.client.post<unknown>("/v1/vault/plan/exec", args);
-			return toolSuccess(result);
-		}, options.context),
-	);
-
-	const vaultPlanProxySchema = z.object({
-		agentId: z.string().optional().describe("Agent ID. Optional with agent API key."),
-		credentialId: z.string().describe("Credential ID to inject into outbound requests."),
-		field: z.string().default("apiKey.key").describe("Dotted field path to use as the secret value."),
-		allowHosts: z.array(z.string()).min(1).describe("Whitelist of hostnames the proxy may forward to. Required — refusing open proxies."),
-		header: z.string().default("Authorization").describe("Header name to inject (default: Authorization)."),
-		scheme: z.string().default("Bearer ").describe("Prefix for the header value (default: 'Bearer ')."),
-		ttlSeconds: z.number().int().positive().max(86400).default(3600).describe("How long the proxy authorization is valid."),
-	});
-	server.registerTool(
-		"vault_plan_proxy",
-		{
-			title: "Vault Plan Proxy",
-			description: "Plan a local HTTPS proxy that injects a vault credential into outbound requests to an allowlist of hosts. Returns a planId the caller can pass to `am vault proxy --plan <id>`. The LLM specifies intent (which credential, which hosts, which header); a trusted local process does the injection. The LLM never receives the secret value.",
-			inputSchema: vaultPlanProxySchema.shape,
-			outputSchema: objectOutput(),
-			annotations: {
-				readOnlyHint: false,
-				destructiveHint: false,
-				idempotentHint: false,
-				openWorldHint: true,
-			},
-		},
-		withErrorHandling(async (args, context) => {
-			const result = await context.client.post<unknown>("/v1/vault/plan/proxy", args);
-			return toolSuccess(result);
-		}, options.context),
-	);
-
-	const vaultAuditQuerySchema = z.object({
-		agentId: z.string().optional().describe("Agent ID whose audit trail to query. Optional with agent API key."),
-		credentialId: z.string().optional().describe("Filter by credential."),
-		action: z
-			.enum(["access", "access_reveal", "create", "update", "delete", "share", "token_create", "token_exchange", "token_revoke"])
-			.optional()
-			.describe("Filter by audit action type."),
-		since: z.string().optional().describe("ISO-8601 timestamp — only return entries on or after this time."),
-		limit: z.number().int().positive().max(200).optional().default(50),
-	});
-	server.registerTool(
-		"vault_audit_query",
-		{
-			title: "Audit Vault Query",
-			description: "Query the vault audit log for a credential or agent. Use this to surface every access (including plaintext reveals via master key) with timestamps and actor metadata. Safe for LLM consumption — the audit log itself contains no plaintext secrets.",
-			inputSchema: vaultAuditQuerySchema.shape,
-			outputSchema: listOutput(),
-			annotations: {
-				readOnlyHint: true,
-				destructiveHint: false,
-				idempotentHint: true,
-				openWorldHint: true,
-			},
-		},
-		withErrorHandling(async (args, context) => {
-			const result = await context.client.get<unknown>("/v1/vault/audit", args as Record<string, unknown>);
+			const path = `/v1/vault/totp/${encodeURIComponent(args.id)}?${params.toString()}`;
+			const result = await context.client.get<unknown>(path);
 			return toolSuccess(result);
 		}, options.context),
 	);
