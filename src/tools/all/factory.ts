@@ -18,7 +18,7 @@ import { registerSmsTools } from "../phone/sms/index.js";
 import { registerPhoneCallTools } from "../phone/phone_call/index.js";
 
 // Platform domain
-import { registerUtilityTools } from "../platform/utility/index.js";
+import { registerWorkspaceTools } from "../platform/workspace/index.js";
 import { registerWebhookTools } from "../platform/webhook/index.js";
 
 // Vault domain
@@ -60,7 +60,7 @@ export function buildAllToolsServer(client: ApiClient): McpServer {
 	registerPhoneCallTools(context);
 
 	// Platform
-	registerUtilityTools(context);
+	registerWorkspaceTools(context);
 	registerWebhookTools(context);
 
 	// Vault

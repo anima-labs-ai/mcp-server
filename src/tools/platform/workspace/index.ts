@@ -2,18 +2,16 @@ import { z } from "zod";
 import type { ToolRegistrationOptions } from "../../../shared/index.js";
 import { objectOutput, toolSuccess, withErrorHandling } from "../../../shared/index.js";
 
-// 2026-05-20: utility group reduced to two self-introspection tools.
-// Anything message-shaped (messages_check, tasks_check, spam_manage,
-// pending_manage), inter-agent (agent_message, agent_call), MCP-stateful
-// (followups_check, email_wait), generic-debug (health_check), or
-// meta-discovery (anima_discover) was dropped to keep this group focused
-// on "what is my workspace?" reads.
+// 2026-05-20: workspace group (renamed from "utility") holds the two
+// self-introspection tools. Anything message-shaped, inter-agent,
+// MCP-stateful, generic-debug, or meta-discovery (anima_discover) was
+// dropped to keep this group focused on "what is my workspace?" reads.
 //
 // Earlier removals: whoami + workspace_health + me_update folded into
-// account_overview (me_update had a design bug — see prior commits).
-// Concepts + List_Capabilities removed 2026-05-13 (static JSON, not tool
-// material). setup_email_domain + send_test_email removed 2026-05-13 as
-// dupes of domain_add + email_send.
+// account_overview (me_update had a design bug). Concepts +
+// List_Capabilities removed 2026-05-13 (static JSON, not tool material).
+// setup_email_domain + send_test_email removed 2026-05-13 as dupes of
+// domain_create + email_send.
 
 /**
  * Deploy identity surfaced via account_overview.mcpServer.
@@ -156,7 +154,7 @@ function registerUsageOverviewTool(options: ToolRegistrationOptions): void {
 	);
 }
 
-export function registerUtilityTools(options: ToolRegistrationOptions): void {
+export function registerWorkspaceTools(options: ToolRegistrationOptions): void {
 	registerAccountOverviewTool(options);
 	registerUsageOverviewTool(options);
 }

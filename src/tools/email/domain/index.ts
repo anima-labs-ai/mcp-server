@@ -28,10 +28,10 @@ export function registerDomainTools(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
 	server.registerTool(
-		"domain_add",
+		"domain_create",
 		{
-			title: "Add Domain",
-			description: "Add a custom sending domain to the workspace so it can be configured for email traffic. Use this before DNS setup and verification.",
+			title: "Create Domain",
+			description: "Register a custom sending domain in the workspace so it can be configured for email traffic. Use this before DNS setup and verification.",
 			inputSchema: domainAddSchema.shape,
 			outputSchema: objectOutput(),
 			annotations: {

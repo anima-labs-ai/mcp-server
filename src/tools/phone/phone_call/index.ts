@@ -170,11 +170,11 @@ export function registerPhoneCallTools(options: ToolRegistrationOptions): void {
 	);
 
 	server.registerTool(
-		"voices_list",
+		"voice_list",
 		{
 			title: "List AI Voices",
 			description:
-				"List available AI voices for placing phone calls. Filter by tier (basic for low-latency, premium for natural voices), gender, or language. Returns voice IDs needed for phone_call.",
+				"List available AI voices for placing phone calls. Filter by tier (basic for low-latency, premium for natural voices), gender, or language. Returns voice IDs needed for phone_call_create.",
 			inputSchema: voicesListSchema.shape,
 			outputSchema: listOutput(),
 			annotations: {

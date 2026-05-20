@@ -67,7 +67,7 @@ const inputSchema = {
 		.string()
 		.optional()
 		.describe(
-			"Optional voice override. Use voices_list to list valid IDs for the chosen tier.",
+			"Optional voice override. Use voice_list to list valid IDs for the chosen tier.",
 		),
 	fromNumber: z
 		.string()
@@ -127,7 +127,7 @@ export function registerPhoneCallLiveTool(
 	context: ToolContext,
 ): void {
 	server.registerTool(
-		"phone_call",
+		"phone_call_create",
 		{
 			title: "Phone Call (Live)",
 			description:

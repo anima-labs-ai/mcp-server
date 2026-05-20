@@ -7,7 +7,7 @@
 /** Tool names that require master key access */
 export const MASTER_KEY_TOOLS = new Set([
 	"agent_delete",
-	"domain_add",
+	"domain_create",
 	"domain_delete",
 	"domain_verify",
 ]);
