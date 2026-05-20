@@ -96,8 +96,14 @@ const callAgentInput = z.object({
 		.describe("Timeout in seconds for waiting on reply (default 30)"),
 });
 
-const updateMetadataInput = z.object({
-	metadata: z.record(z.string()).describe("Metadata key-value pairs to set"),
+const usageOverviewInput = z.object({
+	period: z
+		.string()
+		.regex(/^\d{4}-\d{2}$/)
+		.optional()
+		.describe(
+			"Billing period in YYYY-MM format (e.g. '2026-05'). Defaults to the current calendar month in UTC.",
+		),
 });
 
 const manageSpamInput = z.object({
@@ -294,37 +300,98 @@ function registerDiscoverTool(options: ToolRegistrationOptions): void {
 	);
 }
 
-// 2026-05-12: renamed Who Am I / Check Health / Workspace Health from
-// space-separated names to lower_snake_case to fix MCP SDK identifier
-// warnings ("Tool name contains spaces, which may cause parsing issues").
-// Each keeps the old space-name AND the underscore-normalized form
-// ("Who_Am_I") as deprecated aliases — clients pin to one or the other
-// depending on their tools/list normalization rules, so both must
-// remain callable until usage logs go quiet.
-// Added MCP-spec `title` field so clients render the human-readable
-// label in pickers — customer feedback: "names should be human like
-// `email_send` → `Send Email`".
+// 2026-05-20: account_overview replaces whoami + workspace_health. The
+// old pair forced agents into two round-trips ("who am I?" then "can I
+// send?") even though workspace-health already includes the auth + org
+// context whoami used to return. account_overview is the strict superset:
+// it composes /orgs/me + /orgs/me/workspace-health in parallel, enriches
+// blockers with the canonical remediation tool, and injects the running
+// MCP server's deploy identity (commitSha, revision) so an agent can
+// answer "did my fix actually land?" in the same call.
+//
+// Pre-2026-05-12 history: Who Am I / Check Health / Workspace Health used
+// space-separated names that tripped MCP SDK identifier warnings. Those
+// names were renamed to lower_snake_case; whoami + workspace_health are
+// now retired entirely in favor of account_overview.
 
-function registerWhoAmITool(options: ToolRegistrationOptions): void {
+function registerAccountOverviewTool(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
 	server.registerTool(
-		"whoami",
+		"account_overview",
 		{
-			title: "Who Am I",
+			title: "Account Overview",
 			description:
-				"Return identity details for the current API credential, plus the running MCP server's deploy identity (commitSha, revision, buildId). Use to verify which account and scope you're operating under AND which version of the MCP server is actually serving you. The mcpServer block answers 'did my fix actually land?' in one call — compare commitSha against the merge commit you expected to deploy.",
+				"Single-call workspace snapshot: organization context, credential identity, send-capability flags (canSendEmail / canSendSms), inventory counts (agents, domains, phones), active blockers (each carrying the canonical MCP tool that resolves it), and the running MCP server's deploy identity (commitSha, revision, buildId, startedAt). Strict superset of the legacy whoami + workspace_health pair. Use before any non-trivial workflow to answer 'who am I, can I do X right now, and which deploy is serving me?' in one round-trip — no real send needed to find out.",
 			inputSchema: noInput.shape,
 			outputSchema: objectOutput(),
 			annotations: { readOnlyHint: true, destructiveHint: false },
 		},
 		withErrorHandling(async (_args, context) => {
-			const result = await context.client.get<Record<string, unknown>>("/v1/orgs/me");
+			// Two parallel reads: /orgs/me gives the full org profile
+			// (slug, keyRotatedAt, createdAt) while /orgs/me/workspace-health
+			// gives status, capabilities, inventory, blockers, and the
+			// auth-context block that whoami used to surface.
+			const [org, health] = await Promise.all([
+				context.client.get<Record<string, unknown>>("/v1/orgs/me"),
+				context.client.get<Record<string, unknown>>(
+					"/v1/orgs/me/workspace-health",
+				),
+			]);
+
+			// Defensive: contract says blockers is an array, but don't crash
+			// the whole response if a future contract change drops the field.
+			const rawBlockers = Array.isArray(health.blockers)
+				? (health.blockers as Array<{ code: string; hint: string }>)
+				: [];
+
+			const enrichedBlockers = rawBlockers.map((b) => {
+				const remediation = BLOCKER_REMEDIATION[b.code];
+				if (!remediation) return b;
+				return { ...b, tool: remediation.tool, toolHint: remediation.toolHint };
+			});
+
 			return toolSuccess({
-				...result,
+				...health,
+				blockers: enrichedBlockers,
+				organization: {
+					id: org.id,
+					name: org.name,
+					slug: org.slug,
+					tier: org.tier,
+					keyRotatedAt: org.keyRotatedAt,
+					createdAt: org.createdAt,
+				},
 				mcpServer: getMcpServerInfo(),
 			});
 		}, options.context),
+	);
+}
+
+function registerUsageOverviewTool(options: ToolRegistrationOptions): void {
+	const { server } = options;
+
+	server.registerTool(
+		"usage_overview",
+		{
+			title: "Usage Overview",
+			description:
+				"Usage rollup for a billing period. Returns counters keyed by usage type (e.g. 'email_sent', 'sms_sent', 'voice_call_minutes') plus the latest update timestamp. Defaults to the current calendar month in UTC when `period` is omitted. Read-only, callable by any authenticated credential — scoped to the caller's org. Use to answer 'where am I against my tier limits?' without paying for per-event detail (UsageEvent is operator-tier).",
+			inputSchema: usageOverviewInput.shape,
+			outputSchema: objectOutput(),
+			annotations: { readOnlyHint: true, destructiveHint: false },
+		},
+		withErrorHandling<z.infer<typeof usageOverviewInput>>(
+			async (args, context) => {
+				const params = new URLSearchParams();
+				if (args.period) params.set("period", args.period);
+				const qs = params.toString();
+				const url = qs ? `/v1/orgs/me/usage?${qs}` : "/v1/orgs/me/usage";
+				const result = await context.client.get(url);
+				return toolSuccess(result);
+			},
+			options.context,
+		),
 	);
 }
 
@@ -376,41 +443,11 @@ const BLOCKER_REMEDIATION: Record<
 	// contact support@useanima.sh, which is a human action, not an MCP call.
 };
 
-function registerWorkspaceHealthTool(options: ToolRegistrationOptions): void {
-	const { server } = options;
-
-	server.registerTool(
-		"workspace_health",
-		{
-			title: "Workspace Health",
-			description:
-				"Workspace-level self-diagnosis: returns canSendEmail, canSendSms, current credential context, inventory counts (agents, domains, phones), and a list of typed blockers. Each blocker carries `tool` (the canonical MCP tool that resolves it) and `toolHint` (how to call it) when an automated remediation exists — so you can go from diagnosis to action in one round-trip. Callable by ANY authenticated credential — agent-key, master, or admin:full OAuth — no escalation required. Use this before non-trivial workflows to check 'can I do X right now?' without paying a real send/call to find out. Closes the gap that health_check (server-only health) and whoami (identity only) leave open.",
-			inputSchema: noInput.shape,
-			outputSchema: objectOutput(),
-			annotations: { readOnlyHint: true, destructiveHint: false },
-		},
-		withErrorHandling(async (_args, context) => {
-			const result = await context.client.get<Record<string, unknown>>(
-				"/v1/orgs/me/workspace-health",
-			);
-
-			// Defensive: the API contract says blockers is an array, but we
-			// shouldn't crash the whole response if a future contract change
-			// drops the field or returns null. Preserve everything else.
-			const rawBlockers = Array.isArray(result.blockers)
-				? (result.blockers as Array<{ code: string; hint: string }>)
-				: [];
-
-			const enrichedBlockers = rawBlockers.map((b) => {
-				const remediation = BLOCKER_REMEDIATION[b.code];
-				if (!remediation) return b;
-				return { ...b, tool: remediation.tool, toolHint: remediation.toolHint };
-			});
-
-			return toolSuccess({ ...result, blockers: enrichedBlockers });
-		}, options.context),
-	);
-}
+// workspace_health removed 2026-05-20: folded into account_overview, which
+// now returns the workspace-health payload plus the org profile and the
+// mcpServer deploy block in a single call. Keeping two tools forced agents
+// to choose ("do I need identity OR capability?") when the realistic
+// pre-flight is always "I need both, give me the workspace snapshot."
 
 // Concepts + List_Capabilities removed 2026-05-13: PascalCase identifiers
 // that the MCP SDK flagged on every server boot ("Tool name contains
@@ -647,44 +684,12 @@ function registerCallAgentTool(options: ToolRegistrationOptions): void {
 	);
 }
 
-function registerUpdateMetadataTool(options: ToolRegistrationOptions): void {
-	const { server } = options;
-
-	server.registerTool(
-		"me_update",
-		{
-			title: "Update Metadata",
-			description: "Update metadata for the current agent identity.",
-			inputSchema: updateMetadataInput.shape,
-			outputSchema: objectOutput(),
-			annotations: { readOnlyHint: false, destructiveHint: false },
-		},
-		withErrorHandling<z.infer<typeof updateMetadataInput>>(async (args, context) => {
-			// Resolve the "current agent" via OAuth userinfo. For agent-bound
-			// oat_* grants (`anima.agentId` non-null) this returns the
-			// delegated agent's ID. For user-bound grants and non-OAuth
-			// credentials there is no implicit "current agent" — point the
-			// caller at agent_update with an explicit ID instead of guessing.
-			const userinfo = await context.client
-				.get("/v1/oauth/userinfo")
-				.catch(() => null);
-			const userinfoObject = asObject(userinfo);
-			const animaContext = asObject(userinfoObject?.anima);
-			const agentId = asString(animaContext?.agentId);
-
-			if (!agentId) {
-				return toolError(
-					"No 'current agent' bound to this credential. Use agent_update with an explicit agent ID instead.",
-				);
-			}
-
-			const result = await context.client.patch(`/v1/agents/${agentId}`, {
-				metadata: args.metadata,
-			});
-			return toolSuccess(result);
-		}, options.context),
-	);
-}
+// me_update removed 2026-05-20: even the OAuth-userinfo lookup leaves the
+// non-agent-bound credential paths (user-bound oat_*, plain master keys)
+// with nothing useful to do. Callers always know the agent ID they want
+// to update — agent_update({ id, metadata }) is the explicit path. The
+// implicit-resolution variant was a footgun that masked which agent was
+// being modified, with no upside over the explicit form.
 
 // setup_email_domain + send_test_email removed 2026-05-13: pure duplicates
 // of domain_add and email_send. Use those canonical tools instead.
@@ -774,16 +779,15 @@ function registerCheckTasksTool(options: ToolRegistrationOptions): void {
 
 export function registerUtilityTools(options: ToolRegistrationOptions): void {
 	registerDiscoverTool(options);
-	registerWhoAmITool(options);
+	registerAccountOverviewTool(options);
+	registerUsageOverviewTool(options);
 	registerCheckHealthTool(options);
-	registerWorkspaceHealthTool(options);
 	registerManagePendingTool(options);
 	registerCheckFollowupsTool(options);
 	registerMessageAgentTool(options);
 	registerCheckMessagesTool(options);
 	registerWaitForEmailTool(options);
 	registerCallAgentTool(options);
-	registerUpdateMetadataTool(options);
 	registerManageSpamTool(options);
 	registerCheckTasksTool(options);
 }

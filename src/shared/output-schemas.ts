@@ -84,7 +84,7 @@ export function deleteOutput() {
 }
 
 /**
- * Status / health response. Used for whoami, check_health, vault_status,
+ * Status / health response. Used for check_health, vault_status,
  * phone_status, link_status — any tool whose return is a state snapshot.
  */
 export function statusOutput() {
