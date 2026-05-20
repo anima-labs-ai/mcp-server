@@ -56,4 +56,27 @@ describe("mcp-server e2e", () => {
     });
     expect(r.status).toBe(401);
   });
+
+  // 2026-05-20: /platform hosts the renamed `workspace` group + the new
+  // `webhook` group. Same auth model as the other domain mounts — 401
+  // without a bearer token, full surface available with one.
+  it("401s unauthenticated initialize on /platform (workspace + webhook tools)", async () => {
+    const r = await fetch(`${baseUrl}/platform`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "t", version: "0" } } }),
+    });
+    expect(r.status).toBe(401);
+  });
+
+  it("rejects non-MCP requests on /platform", async () => {
+    // A plain GET on an MCP transport endpoint should not return a JSON-RPC
+    // response — confirms the transport handler is wired and not letting
+    // arbitrary HTTP requests through. Acceptable rejections: 400 (the
+    // streamable-http transport returns "Bad Request" for an empty GET),
+    // 401 (auth checked first), or 405 (method not allowed). All three
+    // mean "you didn't get past the front door."
+    const r = await fetch(`${baseUrl}/platform`, { method: "GET" });
+    expect([400, 401, 405]).toContain(r.status);
+  });
 });
