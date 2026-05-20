@@ -19,6 +19,14 @@
  * which is enough for permission UIs, downstream tool-chaining, and
  * structured-content rendering.
  *
+ * 2026-05-20 fix: the previous version returned `.shape` (the raw fields
+ * object) which loses Zod modifiers. The MCP SDK's normalizeObjectSchema
+ * re-wraps a raw shape via `z.object(shape)` — STRICT mode, no passthrough
+ * — so any unknown top-level key in the response (e.g. `pagination` on
+ * list responses) failed validation client-side and surfaced as a
+ * generic 500. Returning the full schema keeps `.passthrough()` intact
+ * through the SDK's normalization.
+ *
  * For tools where the response shape is well-known and stable, prefer
  * defining a tighter inline Zod schema rather than reaching for one of
  * these — the tighter the schema, the more useful the type info to the
@@ -33,7 +41,7 @@ import { z } from "zod";
  * GET/POST/PATCH endpoints).
  */
 export function objectOutput() {
-	return z.object({}).passthrough().shape;
+	return z.object({}).passthrough();
 }
 
 /**
@@ -53,7 +61,7 @@ export function listOutput() {
 			next_offset: z.number().optional(),
 			count: z.number().optional(),
 		})
-		.passthrough().shape;
+		.passthrough();
 }
 
 /**
@@ -67,7 +75,7 @@ export function sendOutput() {
 			messageId: z.string().optional(),
 			status: z.string().optional(),
 		})
-		.passthrough().shape;
+		.passthrough();
 }
 
 /**
@@ -80,7 +88,7 @@ export function deleteOutput() {
 			deleted: z.boolean().optional(),
 			id: z.string().optional(),
 		})
-		.passthrough().shape;
+		.passthrough();
 }
 
 /**
@@ -93,5 +101,5 @@ export function statusOutput() {
 			status: z.string().optional(),
 			ok: z.boolean().optional(),
 		})
-		.passthrough().shape;
+		.passthrough();
 }
