@@ -6,7 +6,7 @@
  * the voice-call surface (see tools/phone/voice/) — this group is purely
  * about the lifecycle of E.164 numbers attached to an agent.
  *
- *   - phone_number_list:      list numbers (optionally filtered by agent)
+ *   - phone_number_list:      list numbers assigned to an agent
  *   - phone_number_provision: provision a new number from the carrier pool
  *   - phone_number_release:   release a number back to the carrier
  */
@@ -25,8 +25,7 @@ import {
 const phoneNumberListSchema = z.object({
 	agentId: z
 		.string()
-		.optional()
-		.describe("Filter by agent. Omit to list all phone numbers in the workspace."),
+		.describe("Agent whose phone numbers to list."),
 });
 
 const phoneNumberProvisionSchema = z.object({
@@ -64,7 +63,7 @@ export function registerPhoneTools(options: ToolRegistrationOptions): void {
 		{
 			title: "List Phone Numbers",
 			description:
-				"List provisioned phone numbers, optionally filtered by agent. Each result includes status and capability flags (sms/mms/voice).",
+				"List phone numbers assigned to an agent. Each result includes status and capability flags (sms/mms/voice).",
 			inputSchema: phoneNumberListSchema.shape,
 			outputSchema: listOutput(),
 			annotations: {
@@ -75,10 +74,8 @@ export function registerPhoneTools(options: ToolRegistrationOptions): void {
 			},
 		},
 		withErrorHandling(async (args, context) => {
-			const params = new URLSearchParams();
-			if (args.agentId) params.set("agentId", args.agentId);
-			const path = params.toString() ? `/v1/phone/numbers?${params}` : "/v1/phone/numbers";
-			const result = await context.client.get<unknown>(path);
+			const params = new URLSearchParams({ agentId: args.agentId });
+			const result = await context.client.get<unknown>(`/v1/phone/numbers?${params}`);
 			return toolSuccess(result);
 		}, options.context),
 	);
