@@ -160,6 +160,15 @@ export function registerPhoneCallLiveTool(
 						}),
 					)
 					.describe("Full transcript with role labels in chronological order."),
+				error: z
+					.object({
+						code: z.string(),
+						message: z.string(),
+					})
+					.optional()
+					.describe(
+						"Present when `endedReason` is `error` or `elicitation_unsupported` — carries the underlying code+message so callers can distinguish capability gaps from real failures.",
+					),
 			},
 			annotations: {
 				destructiveHint: false,
