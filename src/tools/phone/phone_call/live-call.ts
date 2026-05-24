@@ -155,6 +155,29 @@ interface VoiceCallResult {
 	durationSec: number;
 	transcript: TranscriptTurn[];
 	error?: { code: string; message: string };
+	/** Per-turn latency snapshot from the API's LatencyTracker. Present
+	 *  when the API includes it on call.ended (Wave 3K+). Each entry has
+	 *  millisecond timestamps for the turn's lifecycle marks — diff to
+	 *  compute stage durations (e.g. perceived turn latency =
+	 *  t_speak_dispatch_ms - t_caller_speech_end_ms). */
+	latencyTurns?: Array<{
+		turnId: string;
+		turnIndex: number;
+		t_first_interim_ms?: number;
+		t_caller_speech_end_ms?: number;
+		t_final_ms?: number;
+		t_session_dispatch_ms?: number;
+		t_ws_send_ms?: number;
+		t_ws_recv_ms?: number;
+		t_speak_dispatch_ms?: number;
+		t_tts_ws_open_ms?: number;
+		t_tts_first_byte_ms?: number;
+		t_tts_first_tx_ms?: number;
+		t_tts_complete_ms?: number;
+		t_speak_first_chunk_ms?: number;
+		t_vad_speech_end_ms?: number;
+		t_backchannel_dispatched_ms?: number;
+	}>;
 }
 
 // ── Public registration ──
@@ -199,6 +222,31 @@ export function registerPhoneCallLiveTool(
 					.optional()
 					.describe(
 						"Present when `endedReason` is `error` or `elicitation_unsupported` — carries the underlying code+message so callers can distinguish capability gaps from real failures.",
+					),
+				latencyTurns: z
+					.array(
+						z.object({
+							turnId: z.string(),
+							turnIndex: z.number().int(),
+							t_first_interim_ms: z.number().optional(),
+							t_caller_speech_end_ms: z.number().optional(),
+							t_final_ms: z.number().optional(),
+							t_session_dispatch_ms: z.number().optional(),
+							t_ws_send_ms: z.number().optional(),
+							t_ws_recv_ms: z.number().optional(),
+							t_speak_dispatch_ms: z.number().optional(),
+							t_tts_ws_open_ms: z.number().optional(),
+							t_tts_first_byte_ms: z.number().optional(),
+							t_tts_first_tx_ms: z.number().optional(),
+							t_tts_complete_ms: z.number().optional(),
+							t_speak_first_chunk_ms: z.number().optional(),
+							t_vad_speech_end_ms: z.number().optional(),
+							t_backchannel_dispatched_ms: z.number().optional(),
+						}),
+					)
+					.optional()
+					.describe(
+						"Per-turn latency breakdown captured by the API's LatencyTracker. Each entry is a turn; the t_*_ms fields are absolute millisecond timestamps. Diff adjacent marks to compute stage durations — common ones: perceived_latency_ms = t_speak_dispatch_ms - t_caller_speech_end_ms (basic) or t_tts_first_tx_ms - t_caller_speech_end_ms (premium), endpoint_wait_ms = t_final_ms - t_caller_speech_end_ms, ws_round_trip_ms = t_ws_recv_ms - t_ws_send_ms. Omitted if the API didn't send latency data (pre-Wave-3K servers).",
 					),
 			},
 			annotations: {
@@ -275,6 +323,11 @@ async function runVoiceCall(
 		transcript.push(turn);
 	};
 
+	// Captured from `call.ended` if the API sent it. Surfaced in the
+	// final result so callers can render per-turn latency breakdown
+	// without scraping logs.
+	let latencyTurns: VoiceCallResult["latencyTurns"];
+
 	const buildResult = (
 		callId: string | null,
 		endedReason: VoiceCallResult["endedReason"],
@@ -285,6 +338,7 @@ async function runVoiceCall(
 		durationSec: Math.round((Date.now() - startedAtMs) / 1000),
 		transcript,
 		error,
+		latencyTurns,
 	});
 
 	// ── 1. Open the WS ──
@@ -409,6 +463,9 @@ async function runVoiceCall(
 			emitProgress,
 			recordTurn,
 			serverSideAgent: args.agentConfig !== undefined,
+			recordLatencyTurns: (turns) => {
+				latencyTurns = turns;
+			},
 		});
 
 		// Lift state out of handler — keeps the loop linear.
@@ -447,6 +504,13 @@ interface HandlerDeps {
 	 * waits for `call.ended`.
 	 */
 	serverSideAgent: boolean;
+	/**
+	 * Optional sink for the per-turn latency snapshot the API includes on
+	 * `call.ended` (Wave 3K+). The handler invokes this when the ended
+	 * frame carries `latencyTurns`; the closing tool result then surfaces
+	 * the data in `VoiceCallResult.latencyTurns`.
+	 */
+	recordLatencyTurns: (turns: VoiceCallResult["latencyTurns"]) => void;
 }
 
 interface HandlerOutcome {
@@ -553,6 +617,11 @@ async function handleServerMessage(
 					: msg.reason === "CALLER_HANGUP" || msg.reason === "completed"
 						? "caller_hangup"
 						: "completed";
+			// Wave 3K+ servers include a per-turn latency snapshot here.
+			// Older servers omit the field — guard accordingly.
+			if (msg.latencyTurns && msg.latencyTurns.length > 0) {
+				deps.recordLatencyTurns(msg.latencyTurns);
+			}
 			await deps.emitProgress(
 				`Call ended: ${msg.reason} (duration ${msg.duration}s)`,
 			);

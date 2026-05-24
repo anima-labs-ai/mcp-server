@@ -53,6 +53,28 @@ export type VoiceServerMessage =
 			reason: string;
 			duration: number;
 			tier: string;
+			/** Per-turn latency snapshot from the API's LatencyTracker.
+			 *  Optional because pre-Wave 3K servers won't send it. Each
+			 *  entry mirrors @anima/phone TurnTimings — turnId, turnIndex,
+			 *  and a set of t_*_ms millisecond timestamps. */
+			latencyTurns?: Array<{
+				turnId: string;
+				turnIndex: number;
+				t_first_interim_ms?: number;
+				t_caller_speech_end_ms?: number;
+				t_final_ms?: number;
+				t_session_dispatch_ms?: number;
+				t_ws_send_ms?: number;
+				t_ws_recv_ms?: number;
+				t_speak_dispatch_ms?: number;
+				t_tts_ws_open_ms?: number;
+				t_tts_first_byte_ms?: number;
+				t_tts_first_tx_ms?: number;
+				t_tts_complete_ms?: number;
+				t_speak_first_chunk_ms?: number;
+				t_vad_speech_end_ms?: number;
+				t_backchannel_dispatched_ms?: number;
+			}>;
 	  }
 	| {
 			type: "call.error";
