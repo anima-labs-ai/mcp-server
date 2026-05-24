@@ -84,6 +84,12 @@ export type VoiceClientMessage =
 			voice?: { voiceId?: string };
 			greeting?: string;
 			fromNumber?: string;
+			/** Required when the WS auth is user-bound (no agentId in the auth
+			 *  context, e.g. master key or user-bound Anima Connect grant) —
+			 *  selects which of the org's agents to bind the conn to. The API
+			 *  rejects with AGENT_MISMATCH if the conn is already bound to a
+			 *  different agent. */
+			agentId?: string;
 	  }
 	| { type: "call.speak"; callId: string; text: string; turnId?: string }
 	| { type: "call.speak.cancel"; callId: string }
