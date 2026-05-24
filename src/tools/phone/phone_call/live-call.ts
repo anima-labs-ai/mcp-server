@@ -148,11 +148,18 @@ export function registerPhoneCallLiveTool(
 					),
 				endedReason: z.string().describe("Why the call ended (hangup, timeout, error, etc.)."),
 				durationSec: z.number().optional().describe("Total call duration in seconds."),
-				transcript: z.array(z.object({
-					speaker: z.enum(["caller", "agent"]),
-					text: z.string(),
-					at: z.string().optional(),
-				})).describe("Full transcript with speaker labels in chronological order."),
+				transcript: z
+					.array(
+						z.object({
+							role: z
+								.enum(["caller", "agent"])
+								.describe("Who spoke this turn — `caller` is the human, `agent` is the AI."),
+							text: z.string(),
+							at: z.string().optional().describe("ISO 8601 timestamp."),
+							turnId: z.string().optional(),
+						}),
+					)
+					.describe("Full transcript with role labels in chronological order."),
 			},
 			annotations: {
 				destructiveHint: false,
