@@ -624,7 +624,17 @@ async function elicitAndSpeak(
 		//   1. Client explicitly says "does not support elicitation" → fix client
 		//   2. Our timeout fired → client probably silent-dropped the request
 		//   3. Anything else → real error (network, schema mismatch, etc.)
-		const isCapabilityError = /does not support elicitation/i.test(message);
+		// Capability-error detection: clients signal "I don't do elicitation"
+		// in a few different phrasings. Match any of:
+		//   - "does not support elicitation"  (some MCP SDKs)
+		//   - "Elicitation not supported"     (Claude Code's MCP client)
+		//   - "elicitation is unsupported"
+		//   - JSON-RPC -32600 / -32601 (Invalid Request / Method Not Found)
+		//     when the message also mentions elicitation
+		const mentionsElicitation = /elicitation/i.test(message);
+		const isCapabilityError =
+			mentionsElicitation &&
+			(/(not\s+support|unsupported|-32600|-32601)/i.test(message));
 		const isTimeout = /elicitation\/create timed out/i.test(message);
 		console.error(
 			`[phone_call_create] elicitation/create ✗ failed (callId=${deps.callId}, elapsedMs=${elapsedMs}, isCapability=${isCapabilityError}, isTimeout=${isTimeout}, error=${message.slice(0, 200)})`,
