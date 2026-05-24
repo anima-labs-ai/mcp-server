@@ -4,9 +4,9 @@
  * every server.registerTool / registerToolWithAliases call.
  *
  * Why generated, not hand-maintained:
- *   190+ tools. Hand-maintaining a markdown copy means it drifts the
- *   moment a description changes. The generator reads the actual source
- *   so the doc stays in sync — re-run on every release.
+ *   Hand-maintaining a markdown copy means it drifts the moment a
+ *   description changes. The generator reads the actual source so the
+ *   doc stays in sync — re-run on every release.
  *
  * Run with:
  *   bun run scripts/generate-tool-catalog.ts
