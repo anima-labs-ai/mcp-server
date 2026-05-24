@@ -90,6 +90,14 @@ export type VoiceClientMessage =
 			 *  rejects with AGENT_MISMATCH if the conn is already bound to a
 			 *  different agent. */
 			agentId?: string;
+			/** Opt in to the API's server-side conversation loop. When
+			 *  present (even as `{}`), the API answers caller turns itself
+			 *  via session.speak() and the WS client receives both sides
+			 *  of the transcript without needing to handle elicitation. */
+			agentConfig?: {
+				systemPrompt?: string;
+				maxHistoryTurns?: number;
+			};
 	  }
 	| { type: "call.speak"; callId: string; text: string; turnId?: string }
 	| { type: "call.speak.cancel"; callId: string }
