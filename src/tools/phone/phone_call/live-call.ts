@@ -109,6 +109,27 @@ const inputSchema = {
 		.describe(
 			"Required when the API key / OAuth grant is user-bound (no agentId in the auth context, e.g. a master key or a user-consented Anima Connect grant) — picks which of the org's agents places the call. Ignored when the auth is already agent-bound (the bound agent wins; mismatches are rejected with AGENT_MISMATCH). Use agent_list to find valid IDs.",
 		),
+	agentConfig: z
+		.object({
+			systemPrompt: z
+				.string()
+				.optional()
+				.describe(
+					"System prompt the server-side LLM uses to shape the agent's persona for this call. Defaults to a generic voice-assistant persona. Keep responses short and TTS-friendly (no markdown, no bullets) — the LLM is told this in the default prompt; if you override, mirror that guidance.",
+				),
+			maxHistoryTurns: z
+				.number()
+				.int()
+				.positive()
+				.optional()
+				.describe(
+					"Max user+assistant turn pairs the server-side LLM retains in context. Defaults to 20. Long calls drop the oldest turns to keep the model's context window bounded.",
+				),
+		})
+		.optional()
+		.describe(
+			"Opt in to the server-side conversation loop. When present (even as `{}`), the Anima API runs the LLM-backed conversation loop on each caller turn and speaks the reply through Telnyx — the MCP tool just records both sides of the transcript and returns it when the call ends. **Required when the connecting MCP client doesn't implement elicitation** (e.g. Claude Code returns `-32600 Elicitation not supported`). Omit ONLY if you have your own bot ready to subscribe to MCP elicitation requests and reply via the `say` field per turn.",
+		),
 };
 
 // Output shape — returned as the tool result content.
@@ -204,6 +225,10 @@ type VoiceCallArgs = {
 	maxDurationSec?: number;
 	silenceTimeoutSec?: number;
 	agentId?: string;
+	agentConfig?: {
+		systemPrompt?: string;
+		maxHistoryTurns?: number;
+	};
 };
 
 // biome-ignore lint/suspicious/noExplicitAny: SDK's RequestHandlerExtra type is generic over the server's request/notification unions; mirroring those generics here would require ~30 lines of type plumbing for no runtime benefit. We use `extra` for two specific calls (sendNotification, sendRequest); both are typed on the SDK side.
@@ -307,6 +332,7 @@ async function runVoiceCall(
 			greeting: args.firstMessage,
 			fromNumber: args.fromNumber,
 			agentId: args.agentId,
+			agentConfig: args.agentConfig,
 		});
 	} catch (err) {
 		socket.close();
@@ -382,6 +408,7 @@ async function runVoiceCall(
 			extra,
 			emitProgress,
 			recordTurn,
+			serverSideAgent: args.agentConfig !== undefined,
 		});
 
 		// Lift state out of handler — keeps the loop linear.
@@ -412,6 +439,14 @@ interface HandlerDeps {
 	extra: ToolHandlerExtra;
 	emitProgress: (message: string) => Promise<void>;
 	recordTurn: (turn: TranscriptTurn) => void;
+	/**
+	 * When true, the API attached its built-in conversation loop to this
+	 * call's session via `agentConfig` on call.create — caller turns are
+	 * answered by the server's LLM, NOT by elicitation back to this MCP
+	 * client. The tool just streams transcript events for visibility and
+	 * waits for `call.ended`.
+	 */
+	serverSideAgent: boolean;
 }
 
 interface HandlerOutcome {
@@ -456,7 +491,10 @@ async function handleServerMessage(
 				return {};
 			}
 
-			// Caller, final → record + elicit Claude for the reply.
+			// Caller, final → record. In server-side-agent mode the API runs
+			// its own LLM loop and will fire back a call.speak; we just
+			// stream and wait. In client-side mode, elicit the connecting
+			// MCP client (Claude / Claude Code / IDE) for the reply.
 			deps.recordTurn({
 				role: "caller",
 				text: msg.text,
@@ -465,6 +503,9 @@ async function handleServerMessage(
 			});
 			await deps.emitProgress(`Caller: ${msg.text}`);
 
+			if (deps.serverSideAgent) {
+				return {};
+			}
 			return await elicitAndSpeak(msg, deps);
 		}
 
@@ -479,6 +520,12 @@ async function handleServerMessage(
 			await deps.emitProgress(
 				`Caller interrupted (agent had spoken up to: "${msg.spokenUntil}"). Caller: ${msg.newTranscription}`,
 			);
+
+			// In server-side-agent mode the API's conversation-loop handles
+			// the barge-in itself — we just record + stream and stay quiet.
+			if (deps.serverSideAgent) {
+				return {};
+			}
 
 			return await elicitAndSpeak(
 				{
