@@ -93,6 +93,12 @@ const inputSchema = {
 		.describe(
 			`If no caller utterance arrives within this many seconds (measured from the last agent utterance), the call hangs up automatically. Default ${DEFAULT_SILENCE_TIMEOUT_SEC}.`,
 		),
+	agentId: z
+		.string()
+		.optional()
+		.describe(
+			"Required when the API key / OAuth grant is user-bound (no agentId in the auth context, e.g. a master key or a user-consented Anima Connect grant) — picks which of the org's agents places the call. Ignored when the auth is already agent-bound (the bound agent wins; mismatches are rejected with AGENT_MISMATCH). Use agent_list to find valid IDs.",
+		),
 };
 
 // Output shape — returned as the tool result content.
@@ -171,6 +177,7 @@ type VoiceCallArgs = {
 	fromNumber?: string;
 	maxDurationSec?: number;
 	silenceTimeoutSec?: number;
+	agentId?: string;
 };
 
 // biome-ignore lint/suspicious/noExplicitAny: SDK's RequestHandlerExtra type is generic over the server's request/notification unions; mirroring those generics here would require ~30 lines of type plumbing for no runtime benefit. We use `extra` for two specific calls (sendNotification, sendRequest); both are typed on the SDK side.
@@ -273,6 +280,7 @@ async function runVoiceCall(
 			voice: args.voiceId ? { voiceId: args.voiceId } : undefined,
 			greeting: args.firstMessage,
 			fromNumber: args.fromNumber,
+			agentId: args.agentId,
 		});
 	} catch (err) {
 		socket.close();
