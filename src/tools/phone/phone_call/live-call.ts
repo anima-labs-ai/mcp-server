@@ -37,6 +37,16 @@ import {
 
 // ── Tool config ──
 
+/**
+ * Per-turn elicitation timeout. The MCP `elicitation/create` request blocks
+ * the entire conversation loop while waiting for the client to respond. If
+ * the client doesn't implement elicitation (or hands it off in a way that
+ * never resolves), the call hangs and the only signal we get is the caller
+ * eventually giving up. Capping at 30s gives a slow LLM enough headroom
+ * while still failing loudly within one turn.
+ */
+const ELICITATION_TIMEOUT_MS = 30_000;
+
 const DEFAULT_MAX_DURATION_SEC = 600; // 10 min
 const HARD_CAP_DURATION_SEC = 1800; // 30 min — matches max_call_duration on the API
 const DEFAULT_SILENCE_TIMEOUT_SEC = 30;
@@ -565,39 +575,81 @@ async function elicitAndSpeak(
 	}
 
 	let elicitResult: { action: string; content?: Record<string, unknown> };
+	const elicitStartedAt = Date.now();
+	const turnTextPreview = transcription.text.slice(0, 80);
+	console.log(
+		`[phone_call_create] elicitation/create → sending (callId=${deps.callId}, callerTextLen=${transcription.text.length}, preview="${turnTextPreview}", timeoutMs=${ELICITATION_TIMEOUT_MS})`,
+	);
 	try {
-		elicitResult = await deps.extra.sendRequest(
-			{
-				method: "elicitation/create",
-				params: {
-					mode: "form",
-					message: `Caller said: "${transcription.text}"\n\nWhat should the agent say next? Set endCallAfterSpoken=true to hang up after speaking (e.g. for a goodbye).`,
-					requestedSchema: ELICIT_SCHEMA,
-				},
-			},
-			ElicitResultSchema,
+		// Race the SDK request against an explicit timeout. Without this the
+		// request blocks forever when the client doesn't surface elicitation
+		// to its end user — the only symptom the caller hears is silence.
+		let timer: ReturnType<typeof setTimeout> | undefined;
+		const timeoutPromise = new Promise<never>((_, reject) => {
+			timer = setTimeout(() => {
+				reject(
+					new Error(
+						`elicitation/create timed out after ${ELICITATION_TIMEOUT_MS}ms — the client did not respond. The most common cause is an MCP client that doesn't surface elicitation requests to its end user (Claude Code mid-tool-call, some IDEs, some agent harnesses). Consider switching to a client that supports elicitation, or splitting the call into discrete tool invocations.`,
+					),
+				);
+			}, ELICITATION_TIMEOUT_MS);
+		});
+		try {
+			elicitResult = await Promise.race([
+				deps.extra.sendRequest(
+					{
+						method: "elicitation/create",
+						params: {
+							mode: "form",
+							message: `Caller said: "${transcription.text}"\n\nWhat should the agent say next? Set endCallAfterSpoken=true to hang up after speaking (e.g. for a goodbye).`,
+							requestedSchema: ELICIT_SCHEMA,
+						},
+					},
+					ElicitResultSchema,
+				),
+				timeoutPromise,
+			]);
+		} finally {
+			if (timer) clearTimeout(timer);
+		}
+		console.log(
+			`[phone_call_create] elicitation/create ← resolved (callId=${deps.callId}, action=${elicitResult.action}, elapsedMs=${Date.now() - elicitStartedAt}, contentKeys=${
+				elicitResult.content ? Object.keys(elicitResult.content).join(",") : "none"
+			})`,
 		);
 	} catch (err) {
-		// Capability-not-supported errors from the SDK include the string
-		// "does not support elicitation". Surface that distinctly so the
-		// caller can update their client.
 		const message = err instanceof Error ? err.message : String(err);
+		const elapsedMs = Date.now() - elicitStartedAt;
+		// Distinguish three failure modes so callers can act on them:
+		//   1. Client explicitly says "does not support elicitation" → fix client
+		//   2. Our timeout fired → client probably silent-dropped the request
+		//   3. Anything else → real error (network, schema mismatch, etc.)
 		const isCapabilityError = /does not support elicitation/i.test(message);
+		const isTimeout = /elicitation\/create timed out/i.test(message);
+		console.error(
+			`[phone_call_create] elicitation/create ✗ failed (callId=${deps.callId}, elapsedMs=${elapsedMs}, isCapability=${isCapabilityError}, isTimeout=${isTimeout}, error=${message.slice(0, 200)})`,
+		);
 		try {
 			deps.socket.send({
 				type: "call.hangup",
 				callId: deps.callId,
 				reason: isCapabilityError
 					? "client_no_elicitation"
-					: "elicitation_failed",
+					: isTimeout
+						? "elicitation_timeout"
+						: "elicitation_failed",
 			});
 		} catch {
 			// proceed
 		}
 		return {
 			terminate: {
-				reason: isCapabilityError ? "elicitation_unsupported" : "error",
-				error: { code: "ELICITATION_FAILED", message },
+				reason:
+					isCapabilityError || isTimeout ? "elicitation_unsupported" : "error",
+				error: {
+					code: isTimeout ? "ELICITATION_TIMEOUT" : "ELICITATION_FAILED",
+					message,
+				},
 			},
 		};
 	}
