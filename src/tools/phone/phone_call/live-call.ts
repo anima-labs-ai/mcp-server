@@ -113,9 +113,13 @@ const inputSchema = {
 		.object({
 			systemPrompt: z
 				.string()
+				.max(
+					600,
+					"systemPrompt must be 600 characters or fewer. Long prompts add 50-150ms LLM TTFT per turn (the prompt is rehashed every reply) — keep persona concise and let the model improvise.",
+				)
 				.optional()
 				.describe(
-					"System prompt the server-side LLM uses to shape the agent's persona for this call. Defaults to a generic voice-assistant persona. Keep responses short and TTS-friendly (no markdown, no bullets) — the LLM is told this in the default prompt; if you override, mirror that guidance.",
+					"System prompt the server-side LLM uses to shape the agent's persona for this call. Defaults to a generic voice-assistant persona. Max 600 characters (~100 words) — long prompts add 50-150ms per-turn TTFT, the model is rehashing them every reply. Keep responses short and TTS-friendly (no markdown, no bullets); if you override, mirror that guidance.",
 				),
 			maxHistoryTurns: z
 				.number()
