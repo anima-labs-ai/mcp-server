@@ -52,7 +52,12 @@ const HARD_CAP_DURATION_SEC = 1800; // 30 min — matches max_call_duration on t
 const DEFAULT_SILENCE_TIMEOUT_SEC = 30;
 const HARD_CAP_SILENCE_SEC = 120;
 
-const inputSchema = {
+/**
+ * Exported for direct schema testing — see tool-registration.test.ts.
+ * Not re-exported via the package barrel because callers should reach
+ * for the registered tool's schema via the MCP SDK instead.
+ */
+export const inputSchema = {
 	to: z
 		.string()
 		.regex(
