@@ -198,6 +198,40 @@ const vaultProvisionInput = z.object({
 		.describe("Agent ID to provision a vault for. Master-key only."),
 });
 
+const vaultCredentialRequestCreateInput = z.object({
+	agentId: z
+		.string()
+		.optional()
+		.describe(
+			"Agent ID whose vault the requested credential lands in. Optional when using an agent-bound credential.",
+		),
+	type: vaultCredentialTypeSchema.describe(
+		"Credential type the human will be asked to fill (same types as vault_credential_create).",
+	),
+	name: z.string().describe("Human-readable name for the requested credential."),
+	reason: z
+		.string()
+		.describe(
+			"Plain-language reason shown to the human explaining why the credential is needed.",
+		),
+	ttlSeconds: z
+		.number()
+		.optional()
+		.describe(
+			"Optional fill-link lifetime in seconds before the request expires.",
+		),
+	notifyOwner: z
+		.boolean()
+		.optional()
+		.describe(
+			"Whether to email the single-use fill link to the org owner. Defaults to true.",
+		),
+});
+
+const vaultCredentialRequestIdInput = z.object({
+	requestId: z.string().describe("Credential-request ID."),
+});
+
 export function registerVaultTools(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
@@ -390,6 +424,77 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 			if (args.agentId) params.set("agentId", args.agentId);
 			const path = `/v1/vault/totp/${encodeURIComponent(args.id)}?${params.toString()}`;
 			const result = await context.client.get<unknown>(path);
+			return toolSuccess(result);
+		}, options.context),
+	);
+
+	server.registerTool(
+		"vault_credential_request_create",
+		{
+			title: "Request Credential From Human",
+			description:
+				"Request a credential from a HUMAN without the agent or LLM ever seeing the secret. Returns a single-use fill link (`fillUrl`, also emailed to the org owner) where the human enters the value directly into the vault. Poll vault_credential_request_status until status is FULFILLED, then use the returned `credentialId` as a normal vault credential. Use this when a flow needs a secret the agent doesn't hold and can't safely be given (passwords, API keys, card numbers, identity details).",
+			inputSchema: vaultCredentialRequestCreateInput.shape,
+			outputSchema: objectOutput(),
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: false,
+				openWorldHint: true,
+			},
+		},
+		withErrorHandling(async (args, context) => {
+			const result = await context.client.post<unknown>(
+				"/v1/vault/credential-requests",
+				{
+					...args,
+					notifyOwner: args.notifyOwner ?? true,
+				},
+			);
+			return toolSuccess(result);
+		}, options.context),
+	);
+
+	server.registerTool(
+		"vault_credential_request_status",
+		{
+			title: "Get Credential Request Status",
+			description:
+				"Get the status of a pending credential request by ID. Poll this after vault_credential_request_create until `status` is FULFILLED, then use `credentialId` as a normal vault credential. `maskedPreview` shows a redacted hint of the filled value once available — the plaintext is never returned.",
+			inputSchema: vaultCredentialRequestIdInput.shape,
+			outputSchema: objectOutput(),
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
+		},
+		withErrorHandling(async (args, context) => {
+			const path = `/v1/vault/credential-requests/${encodeURIComponent(args.requestId)}`;
+			const result = await context.client.get<unknown>(path);
+			return toolSuccess(result);
+		}, options.context),
+	);
+
+	server.registerTool(
+		"vault_credential_request_cancel",
+		{
+			title: "Cancel Credential Request",
+			description:
+				"Cancel a pending credential request by ID. Invalidates the single-use fill link so the human can no longer submit a value. Use when the request is no longer needed or was created in error.",
+			inputSchema: vaultCredentialRequestIdInput.shape,
+			outputSchema: objectOutput(),
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: true,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
+		},
+		withErrorHandling(async (args, context) => {
+			const path = `/v1/vault/credential-requests/${encodeURIComponent(args.requestId)}/cancel`;
+			const result = await context.client.post<unknown>(path);
 			return toolSuccess(result);
 		}, options.context),
 	);
