@@ -1,9 +1,11 @@
+import { ElicitResultSchema } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import type { ToolRegistrationOptions } from "../../../shared/index.js";
 import {
 	deleteOutput,
 	listOutput,
 	objectOutput,
+	toolError,
 	toolSuccess,
 	withErrorHandling,
 } from "../../../shared/index.js";
@@ -232,6 +234,135 @@ const vaultCredentialRequestIdInput = z.object({
 	requestId: z.string().describe("Credential-request ID."),
 });
 
+// ── Form-first elicitation for vault_credential_request_create ──
+//
+// When the connecting MCP client DECLARED the `elicitation` capability at
+// initialize, vault_credential_request_create skips the email/fill-link
+// round-trip and instead asks the human to type the secret straight into an
+// inline form (`elicitation/create`, form mode). The agent/LLM never sees the
+// value: on `accept` we POST it directly to the public, token-gated fill
+// endpoint and return only the resulting `credentialId` + masked preview.
+//
+// This mirrors the live phone-call elicitation flow in
+// src/tools/phone/phone_call/live-call.ts — same `extra.sendRequest(...,
+// ElicitResultSchema)` surface and the same runtime-failure → fallback
+// treatment (a client that declared the capability but rejects/at-runtime
+// times out is treated as a capability gap, and we hand back the fill link).
+
+/**
+ * Elicitation timeout for the secret-entry form. Unlike the per-turn voice
+ * elicitation (30s — a model deciding what to say), this blocks on a HUMAN
+ * physically retrieving and typing a credential, so it gets a generous
+ * 5-minute ceiling. It is further bounded by the request TTL when the caller
+ * set one (no point waiting past link expiry).
+ */
+const CREDENTIAL_ELICITATION_TIMEOUT_MS = 5 * 60_000;
+
+/** MCP elicitation `requestedSchema` — a flat object of primitive fields. */
+interface ElicitFormSchema {
+	type: "object";
+	properties: Record<
+		string,
+		{
+			type: "string";
+			title?: string;
+			description?: string;
+			format?: "email" | "uri" | "date" | "date-time";
+		}
+	>;
+	required?: string[];
+}
+
+/**
+ * Build the elicitation form for a credential request's VALUE, per type.
+ *
+ * MCP's elicitation schema is a restricted JSON-Schema subset: flat top-level
+ * primitive properties only (no nesting), and notably NO "sensitive"/"secret"
+ * flag — the spec deliberately omits one. So secrecy is enforced by THIS
+ * server (the elicited value is only ever POSTed to the fill endpoint, never
+ * logged or returned), not by a schema annotation. We surface the per-type
+ * fields the same shape vault_credential_create accepts, and the accepted
+ * content maps 1:1 to the fill body (the bare value object for the type).
+ */
+function buildCredentialElicitSchema(
+	type: z.infer<typeof vaultCredentialTypeSchema>,
+): ElicitFormSchema {
+	switch (type) {
+		case "login":
+			return {
+				type: "object",
+				properties: {
+					username: { type: "string", title: "Username", description: "Login username." },
+					password: { type: "string", title: "Password", description: "Login password (sensitive — entered directly into the vault, never shown to the agent)." },
+					totp: { type: "string", title: "TOTP secret", description: "Optional TOTP/2FA secret key (sensitive). Leave blank if not applicable." },
+				},
+				required: ["password"],
+			};
+		case "secure_note":
+			return {
+				type: "object",
+				properties: {
+					notes: { type: "string", title: "Secure note", description: "The secret note text (sensitive — stored directly in the vault)." },
+				},
+				required: ["notes"],
+			};
+		case "card":
+			return {
+				type: "object",
+				properties: {
+					cardholderName: { type: "string", title: "Cardholder name", description: "Name on the card." },
+					brand: { type: "string", title: "Brand", description: "Card brand (e.g. Visa, Mastercard)." },
+					number: { type: "string", title: "Card number", description: "Full card number (sensitive)." },
+					expMonth: { type: "string", title: "Expiry month", description: "Two-digit expiry month (e.g. 04)." },
+					expYear: { type: "string", title: "Expiry year", description: "Expiry year (e.g. 2028)." },
+					code: { type: "string", title: "Security code", description: "CVV / security code (sensitive)." },
+				},
+				required: ["number"],
+			};
+		case "identity":
+			return {
+				type: "object",
+				properties: {
+					firstName: { type: "string", title: "First name" },
+					lastName: { type: "string", title: "Last name" },
+					email: { type: "string", title: "Email", format: "email" },
+					phone: { type: "string", title: "Phone" },
+					ssn: { type: "string", title: "SSN / national ID", description: "Sensitive national identifier." },
+					passportNumber: { type: "string", title: "Passport number", description: "Sensitive." },
+					licenseNumber: { type: "string", title: "License number", description: "Sensitive." },
+				},
+				// Identity has no single canonical secret; leave required empty
+				// so the human can fill whichever fields the flow needs.
+				required: [],
+			};
+	}
+}
+
+/**
+ * Pull the bare fill token out of a credential-request create response.
+ * The create endpoint returns a full `fillUrl`; the public fill endpoint is
+ * addressed by the bare token (`POST /vault/fill/{token}`). Prefer an
+ * explicit token field if the API surfaces one, else parse the last path
+ * segment of `fillUrl`. Deterministic — no guessing.
+ */
+function extractFillToken(result: Record<string, unknown>): string | null {
+	const explicit =
+		(typeof result.token === "string" && result.token) ||
+		(typeof result.fillToken === "string" && result.fillToken);
+	if (explicit) return explicit;
+	if (typeof result.fillUrl === "string" && result.fillUrl.length > 0) {
+		// Last non-empty path segment, query/hash stripped.
+		const noQuery = result.fillUrl.split(/[?#]/)[0];
+		const segments = noQuery.split("/").filter(Boolean);
+		const last = segments[segments.length - 1];
+		if (last) return last;
+	}
+	return null;
+}
+
+// biome-ignore lint/suspicious/noExplicitAny: the SDK's RequestHandlerExtra is generic over the server's request/notification unions; mirroring those generics buys nothing here. We use `extra` for one call (sendRequest) and `_meta`, both typed on the SDK side. Same rationale as live-call.ts.
+type ToolHandlerExtra = any;
+
 export function registerVaultTools(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
@@ -433,7 +564,7 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 		{
 			title: "Request Credential From Human",
 			description:
-				"Request a credential from a HUMAN without the agent or LLM ever seeing the secret. Returns a single-use fill link (`fillUrl`, also emailed to the org owner) where the human enters the value directly into the vault. Poll vault_credential_request_status until status is FULFILLED, then use the returned `credentialId` as a normal vault credential. Use this when a flow needs a secret the agent doesn't hold and can't safely be given (passwords, API keys, card numbers, identity details).",
+				"Request a credential from a HUMAN without the agent or LLM ever seeing the secret. When the connecting MCP client supports inline elicitation, the human is shown a form to type the secret directly — the tool returns `status: FULFILLED` with the `credentialId` in one call, no link needed. Otherwise it returns a single-use fill link (`fillUrl`, emailed to the org owner); poll vault_credential_request_status until `status` is FULFILLED, then use the returned `credentialId` as a normal vault credential. Use this when a flow needs a secret the agent doesn't hold and can't safely be given (passwords, API keys, card numbers, identity details).",
 			inputSchema: vaultCredentialRequestCreateInput.shape,
 			outputSchema: objectOutput(),
 			annotations: {
@@ -443,16 +574,12 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 				openWorldHint: true,
 			},
 		},
-		withErrorHandling(async (args, context) => {
-			const result = await context.client.post<unknown>(
-				"/v1/vault/credential-requests",
-				{
-					...args,
-					notifyOwner: args.notifyOwner ?? true,
-				},
-			);
-			return toolSuccess(result);
-		}, options.context),
+		// NOT wrapped in withErrorHandling: that wrapper drops the handler's
+		// second arg (`extra`), but form-first elicitation needs
+		// `extra.sendRequest` to issue `elicitation/create`. We replicate the
+		// wrapper's typed-error envelope inline instead (see runCredentialRequestCreate).
+		async (args, extra) =>
+			runCredentialRequestCreate(args, options, extra as ToolHandlerExtra),
 	);
 
 	server.registerTool(
@@ -498,4 +625,218 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 			return toolSuccess(result);
 		}, options.context),
 	);
+}
+
+/**
+ * Translate an unknown thrown error into the same typed-error envelope
+ * `withErrorHandling` produces. The elicitation-aware create handler can't use
+ * that wrapper (it needs `extra`), so it calls this for its terminal failures
+ * — keeping the on-the-wire error shape identical to every other vault tool.
+ */
+function toolErrorFromUnknown(
+	error: unknown,
+): ReturnType<typeof toolError> {
+	const errObj = error as Record<string, unknown> | null;
+	if (
+		errObj &&
+		typeof errObj === "object" &&
+		errObj.name === "ApiError" &&
+		typeof errObj.body === "object" &&
+		errObj.body !== null
+	) {
+		const body = errObj.body as Record<string, unknown>;
+		const status = typeof errObj.status === "number" ? errObj.status : undefined;
+		const code = typeof body.code === "string" ? body.code : "API_ERROR";
+		const fallback =
+			typeof errObj.message === "string" ? errObj.message : "API error";
+		const message =
+			typeof body.message === "string" ? body.message : fallback;
+		const dataFields =
+			body.data && typeof body.data === "object" && !Array.isArray(body.data)
+				? (body.data as Record<string, unknown>)
+				: {};
+		return toolError({
+			code,
+			message,
+			...(status !== undefined ? { status } : {}),
+			...dataFields,
+		});
+	}
+	return toolError(error instanceof Error ? error.message : String(error));
+}
+
+/**
+ * vault_credential_request_create with form-first elicitation.
+ *
+ * Branches:
+ *   - client did NOT declare elicitation → baseline behaviour: create the
+ *     request, owner is emailed the fill link, return PENDING for polling.
+ *   - client DID declare elicitation → create with notifyOwner=false (no
+ *     email while an inline dialog is viable), then show the secret form:
+ *       accept  → POST the value to the fill endpoint, re-read once, return FULFILLED
+ *       decline → cancel the request, return DECLINED
+ *       cancel  → return PENDING + fillUrl (dismissed; finish via link)
+ *       runtime reject / -32600 / "not supported" / timeout → PENDING + fillUrl
+ *
+ * INVARIANT: the elicited secret is POSTed ONLY to /vault/fill/{token}. It
+ * is never logged, never echoed, and never placed in the returned content —
+ * the caller only ever receives the reference (`credentialId`) + masked preview.
+ */
+// Exported for direct branch testing (see __tests__/credential-request-elicit.test.ts).
+// Production callers reach it through the registered tool handler above.
+export async function runCredentialRequestCreate(
+	args: z.infer<typeof vaultCredentialRequestCreateInput>,
+	options: ToolRegistrationOptions,
+	extra: ToolHandlerExtra,
+): Promise<ReturnType<typeof toolSuccess> | ReturnType<typeof toolError>> {
+	const { context, server } = options;
+
+	// 1. Capability detection — cheap, no hang. `getClientCapabilities()` is
+	//    populated from the client's `initialize` handshake; `.elicitation`
+	//    is present only when the client DECLARED it. (The voice tool can't do
+	//    this pre-check because its handler only receives `extra`; here the
+	//    registrar captured the McpServer, so we read the declared capability
+	//    up front and only attempt elicitation when it's real.)
+	const declaredElicitation =
+		server.server.getClientCapabilities()?.elicitation != null;
+
+	// 2. Create the request. Email the owner only when we CAN'T show an inline
+	//    dialog — an explicit args.notifyOwner always wins.
+	let createResult: Record<string, unknown>;
+	try {
+		createResult = await context.client.post<Record<string, unknown>>(
+			"/v1/vault/credential-requests",
+			{
+				...args,
+				notifyOwner: args.notifyOwner ?? !declaredElicitation,
+			},
+		);
+	} catch (error) {
+		return toolErrorFromUnknown(error);
+	}
+
+	const requestId =
+		typeof createResult.requestId === "string" ? createResult.requestId : undefined;
+	const fillUrl =
+		typeof createResult.fillUrl === "string" ? createResult.fillUrl : undefined;
+
+	// No elicitation capability → return the baseline result verbatim (owner
+	// emailed, agent polls vault_credential_request_status).
+	if (!declaredElicitation) {
+		return toolSuccess(createResult);
+	}
+
+	const fillToken = extractFillToken(createResult);
+
+	// If we somehow can't address the fill endpoint, degrade to the link path
+	// rather than dropping the request on the floor.
+	if (!requestId || !fillToken) {
+		return toolSuccess({
+			...createResult,
+			status: "PENDING",
+			message:
+				"Open the fill link to provide the secret (inline entry was unavailable).",
+		});
+	}
+
+	// 3. Show the inline secret form. Bound the human's typing window by the
+	//    request TTL when one was set (never wait past link expiry).
+	const ttlMs =
+		typeof args.ttlSeconds === "number" && args.ttlSeconds > 0
+			? args.ttlSeconds * 1000
+			: undefined;
+	const timeoutMs = ttlMs
+		? Math.min(CREDENTIAL_ELICITATION_TIMEOUT_MS, ttlMs)
+		: CREDENTIAL_ELICITATION_TIMEOUT_MS;
+
+	let elicitResult: { action: string; content?: Record<string, unknown> };
+	try {
+		elicitResult = await extra.sendRequest(
+			{
+				method: "elicitation/create",
+				params: {
+					mode: "form",
+					message: `Enter ${args.name} — ${args.reason}`,
+					requestedSchema: buildCredentialElicitSchema(args.type),
+				},
+			},
+			ElicitResultSchema,
+			{ timeout: timeoutMs },
+		);
+	} catch (err) {
+		// Runtime failure on a client that DECLARED elicitation: a JSON-RPC
+		// -32600 / "not supported" rejection or a timeout. Treat as a
+		// capability gap and fall back to the link (no owner email was sent —
+		// acceptable, the link is still actionable on any device). Same
+		// capability-error detection as live-call.ts. We deliberately do NOT
+		// surface the elicitation error text — fall through to the URL escape.
+		void err;
+		return toolSuccess({
+			requestId,
+			fillUrl,
+			status: "PENDING",
+			message: "Open this link to provide the secret.",
+		});
+	}
+
+	// 4. Branch on the human's action.
+	if (elicitResult.action === "accept") {
+		const value = elicitResult.content ?? {};
+		// Push the secret straight to the public, token-gated fill endpoint.
+		// This is the ONLY place the elicited value travels — it never enters
+		// a log line or the returned content.
+		try {
+			await context.client.post<{ ok?: boolean }>(
+				`/vault/fill/${encodeURIComponent(fillToken)}`,
+				value,
+			);
+		} catch (error) {
+			return toolErrorFromUnknown(error);
+		}
+
+		// Read the request back once so we can hand the agent the reference.
+		let finalState: Record<string, unknown> = {};
+		try {
+			finalState = await context.client.get<Record<string, unknown>>(
+				`/v1/vault/credential-requests/${encodeURIComponent(requestId)}`,
+			);
+		} catch {
+			// The fill succeeded; a failed read-back shouldn't masquerade as a
+			// fill failure. Fall through with whatever we have.
+		}
+
+		return toolSuccess({
+			status: "FULFILLED",
+			credentialId: finalState.credentialId,
+			maskedPreview: finalState.maskedPreview,
+			message: "Secret captured; the agent can now use it.",
+		});
+	}
+
+	if (elicitResult.action === "decline") {
+		// Human explicitly declined → cancel the request (invalidates the link).
+		try {
+			await context.client.post<unknown>(
+				`/v1/vault/credential-requests/${encodeURIComponent(requestId)}/cancel`,
+			);
+		} catch (error) {
+			return toolErrorFromUnknown(error);
+		}
+		return toolSuccess({
+			status: "DECLINED",
+			message:
+				"The human declined; create a new request if you still need the credential.",
+		});
+	}
+
+	// action === "cancel": dismissed without an explicit choice. Leave the
+	// request open and hand back the link as the escape hatch (the SDK
+	// collapses "dismiss" into "cancel"; both land here).
+	return toolSuccess({
+		status: "PENDING",
+		requestId,
+		fillUrl,
+		message:
+			"Dismissed — open the link to finish, or it can be completed on another device.",
+	});
 }
