@@ -39,17 +39,22 @@ const webhookAuthConfigInput = z
 		z.object({ type: z.literal("none") }),
 		z.object({
 			type: z.literal("bearer"),
-			token: z.string().describe("Sent as `Authorization: Bearer <token>`"),
+			token: z.string().min(1).max(4096).describe("Sent as `Authorization: Bearer <token>`"),
 		}),
 		z.object({
 			type: z.literal("basic"),
-			username: z.string(),
-			password: z.string(),
+			username: z.string().min(1).max(256),
+			password: z.string().min(1).max(1024),
 		}),
 		z.object({
 			type: z.literal("custom_header"),
-			headerName: z.string().describe("Custom header name, e.g. `X-My-Secret`"),
-			value: z.string(),
+			headerName: z
+				.string()
+				.min(1)
+				.max(128)
+				.regex(/^[A-Za-z0-9!#$%&'*+.^_`|~-]+$/, "Must be a valid HTTP header name")
+				.describe("Custom header name, e.g. `X-My-Secret`"),
+			value: z.string().min(1).max(4096),
 		}),
 	])
 	.describe(
@@ -86,6 +91,7 @@ export const webhookSetInput = z.object({
 		.number()
 		.int()
 		.positive()
+		.max(100000)
 		.optional()
 		.describe("Max deliveries per minute to this endpoint; omit for unlimited"),
 	maxAttempts: z

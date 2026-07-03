@@ -48,4 +48,18 @@ describe("webhook_set input schema — advanced settings parity", () => {
 		expect(parsed.authConfig).toBeUndefined();
 		expect(parsed.rateLimitPerMinute).toBeUndefined();
 	});
+
+	test("rejects a custom_header with an invalid header name (API parity)", () => {
+		expect(() =>
+			webhookSetInput.parse({
+				authConfig: { type: "custom_header", headerName: "Bad Header!", value: "v" },
+			}),
+		).toThrow();
+	});
+
+	test("rejects an over-length bearer token (API parity)", () => {
+		expect(() =>
+			webhookSetInput.parse({ authConfig: { type: "bearer", token: "x".repeat(4097) } }),
+		).toThrow();
+	});
 });
