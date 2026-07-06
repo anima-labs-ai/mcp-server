@@ -86,6 +86,20 @@ const vaultLoginSchema = z.object({
 	totp: z.string().optional().describe("Optional TOTP secret."),
 });
 
+const vaultGeneratePasswordSchema = z.object({
+	length: z
+		.number()
+		.int()
+		.min(8)
+		.max(128)
+		.optional()
+		.describe("Desired password length (8-128 characters, default 24)."),
+	uppercase: z.boolean().optional().describe("Include uppercase letters (default true)."),
+	lowercase: z.boolean().optional().describe("Include lowercase letters (default true)."),
+	number: z.boolean().optional().describe("Include numeric digits (default true)."),
+	special: z.boolean().optional().describe("Include special characters (default true)."),
+});
+
 const vaultCardSchema = z.object({
 	cardholderName: z.string().optional().describe("Optional cardholder name."),
 	brand: z.string().optional().describe("Optional card brand."),
@@ -155,6 +169,14 @@ const vaultCreateInput = z.object({
 	type: vaultCredentialTypeSchema.describe("Credential type."),
 	name: z.string().describe("Human-readable credential name."),
 	login: vaultLoginSchema.optional().describe("Login payload for login-type."),
+	generatePassword: vaultGeneratePasswordSchema
+		.optional()
+		.describe(
+			"Generate the login password server-side instead of supplying login.password. " +
+				"Preferred for login credentials: the password is created and stored inside the " +
+				"vault and never enters the conversation. Only valid for login-type; mutually " +
+				"exclusive with login.password. Pass {} for defaults.",
+		),
 	card: vaultCardSchema.optional().describe("Card payload for card-type."),
 	identity: vaultIdentitySchema.optional().describe("Identity payload for identity-type."),
 	notes: z.string().optional().describe("Optional secure note text."),
@@ -279,7 +301,9 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 		{
 			title: "Create Vault Credential",
 			description:
-				"Create a new credential in an agent vault. Pass `type` plus the matching payload block (login / card / identity / notes).",
+				"Create a new credential in an agent vault. Pass `type` plus the matching payload block (login / card / identity / notes). " +
+				"For login credentials, prefer `generatePassword` over supplying `login.password` — the vault generates and stores the " +
+				"password server-side and returns only the credential reference, so the secret never enters the conversation.",
 			inputSchema: vaultCreateInput.shape,
 			outputSchema: objectOutput(),
 			annotations: {
@@ -291,7 +315,14 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 		},
 		withErrorHandling(async (args, context) => {
 			const result = await context.client.post<unknown>("/v1/vault/credentials", args);
-			return toolSuccess(result);
+			// The API already masks create responses; mask again client-side so
+			// the "LLMs never see plaintext through tools" invariant holds even
+			// if the upstream response shape changes.
+			const masked =
+				result && typeof result === "object"
+					? maskCredentialFields(result as Record<string, unknown>)
+					: result;
+			return toolSuccess(masked);
 		}, options.context),
 	);
 
@@ -314,7 +345,12 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 			const { id, ...payload } = args;
 			const path = `/v1/vault/credentials/${encodeURIComponent(id)}`;
 			const result = await context.client.put<unknown>(path, payload);
-			return toolSuccess(result);
+			// Same defense-in-depth masking as create — never echo secrets.
+			const masked =
+				result && typeof result === "object"
+					? maskCredentialFields(result as Record<string, unknown>)
+					: result;
+			return toolSuccess(masked);
 		}, options.context),
 	);
 

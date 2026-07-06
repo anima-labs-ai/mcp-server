@@ -514,7 +514,7 @@ Create a new credential in an agent vault. Pass
 
 **Input schema:** `vaultCreateInput` — see source for fields.
 
-**Source:** `src/tools/vault/vault/index.ts:277`
+**Source:** `src/tools/vault/vault/index.ts:299`
 
 ### `vault_credential_delete`
 
@@ -522,7 +522,7 @@ Delete a credential from vault storage by ID. Use to remove obsolete or compromi
 
 **Input schema:** `vaultIdInput` — see source for fields.
 
-**Source:** `src/tools/vault/vault/index.ts:321`
+**Source:** `src/tools/vault/vault/index.ts:357`
 
 ### `vault_credential_get`
 
@@ -530,7 +530,7 @@ Get a single vault credential by ID. Sensitive fields (passwords, tokens, SSNs, 
 
 **Input schema:** `vaultIdInput` — see source for fields.
 
-**Source:** `src/tools/vault/vault/index.ts:253`
+**Source:** `src/tools/vault/vault/index.ts:275`
 
 ### `vault_credential_get_totp`
 
@@ -538,7 +538,7 @@ Get the current TOTP code for a credential that has a TOTP secret configured. Re
 
 **Input schema:** `vaultIdInput` — see source for fields.
 
-**Source:** `src/tools/vault/vault/index.ts:373`
+**Source:** `src/tools/vault/vault/index.ts:409`
 
 ### `vault_credential_list`
 
@@ -546,7 +546,7 @@ List credentials in an agent vault with optional type filter. Use to browse stor
 
 **Input schema:** `vaultListInput` — see source for fields.
 
-**Source:** `src/tools/vault/vault/index.ts:227`
+**Source:** `src/tools/vault/vault/index.ts:249`
 
 ### `vault_credential_search`
 
@@ -554,7 +554,7 @@ Search vault credentials by keyword across names and content. Use when you know 
 
 **Input schema:** `vaultSearchInput` — see source for fields.
 
-**Source:** `src/tools/vault/vault/index.ts:346`
+**Source:** `src/tools/vault/vault/index.ts:382`
 
 ### `vault_credential_update`
 
@@ -562,7 +562,7 @@ Update an existing vault credential by ID, including optional structured section
 
 **Input schema:** `vaultUpdateInput` — see source for fields.
 
-**Source:** `src/tools/vault/vault/index.ts:298`
+**Source:** `src/tools/vault/vault/index.ts:329`
 
 ### `vault_provision`
 
@@ -570,5 +570,5 @@ Provision a credential vault for an agent. Required before vault_credential_crea
 
 **Input schema:** `vaultProvisionInput` — see source for fields.
 
-**Source:** `src/tools/vault/vault/index.ts:204`
+**Source:** `src/tools/vault/vault/index.ts:226`
 
