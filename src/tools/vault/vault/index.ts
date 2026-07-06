@@ -22,48 +22,78 @@ import {
 // implicitly. npm requires explicit agentId because static keys have no
 // implicit agent.
 
+const MASK = "****";
+
+/**
+ * Mask an API key like the server does: keep the identifying prefix
+ * (sk_, ak_, ...) and last 4 chars. Idempotent on an already-masked
+ * "sk_****abcd".
+ */
+function maskApiKeyValue(key: string): string {
+	const prefix = key.match(/^([a-z]{1,6}[_-])/i)?.[1] ?? "";
+	if (key.length <= prefix.length + 4) return `${prefix}${MASK}`;
+	return `${prefix}${MASK}${key.slice(-4)}`;
+}
+
+type CredentialSection = Record<string, unknown>;
+
+/**
+ * Per-section maskers, mirroring the API's server-side masker (anima
+ * monorepo, packages/vault/src/credential-masking.ts) — same sections,
+ * same fields. Each mutates the section COPY handed to it.
+ */
+const SECTION_MASKERS: Record<string, (section: CredentialSection) => void> = {
+	login: (login) => {
+		if (login.password) login.password = MASK;
+		if (login.totp) login.totp = MASK;
+	},
+	card: (card) => {
+		if (card.code) card.code = MASK;
+		if (card.number && typeof card.number === "string") {
+			card.number = `${MASK}${card.number.slice(-4)}`;
+		}
+	},
+	oauthToken: (oauth) => {
+		delete oauth.refreshToken; // never returned, not even masked
+		if (oauth.accessToken) oauth.accessToken = MASK;
+		if (oauth.idToken) oauth.idToken = MASK;
+		if (oauth.clientSecret) oauth.clientSecret = MASK;
+	},
+	apiKey: (apiKey) => {
+		if (apiKey.key && typeof apiKey.key === "string") {
+			apiKey.key = maskApiKeyValue(apiKey.key);
+		}
+	},
+	certificate: (certificate) => {
+		// The certificate itself and its chain are public material.
+		if (certificate.privateKey) certificate.privateKey = MASK;
+	},
+	identity: (identity) => {
+		if (identity.ssn) identity.ssn = MASK;
+		if (identity.passportNumber) identity.passportNumber = MASK;
+		if (identity.licenseNumber) identity.licenseNumber = MASK;
+	},
+};
+
 /**
  * Masks sensitive fields in a vault credential response.
  * Invariant: "LLMs never see plaintext through tools." Callers that need
  * plaintext use the autofill/proxy token flow at the credential-broker.
+ * Idempotent over already-masked values, so it can safely re-run on
+ * responses the API has already masked. Exported for tests.
  */
-function maskCredentialFields(
+export function maskCredentialFields(
 	cred: Record<string, unknown>,
 ): Record<string, unknown> {
 	const masked = { ...cred };
-
-	if (masked.login && typeof masked.login === "object") {
-		const login = { ...(masked.login as Record<string, unknown>) };
-		if (login.password) login.password = "****";
-		if (login.totp) login.totp = "****";
-		masked.login = login;
-	}
-
-	if (masked.card && typeof masked.card === "object") {
-		const card = { ...(masked.card as Record<string, unknown>) };
-		if (card.code) card.code = "****";
-		if (card.number && typeof card.number === "string") {
-			card.number = `****${(card.number as string).slice(-4)}`;
+	for (const [field, maskSection] of Object.entries(SECTION_MASKERS)) {
+		const value = masked[field];
+		if (value && typeof value === "object") {
+			const section = { ...(value as CredentialSection) };
+			maskSection(section);
+			masked[field] = section;
 		}
-		masked.card = card;
 	}
-
-	if (masked.oauth && typeof masked.oauth === "object") {
-		const oauth = { ...(masked.oauth as Record<string, unknown>) };
-		if (oauth.accessToken) oauth.accessToken = "****";
-		delete oauth.refreshToken;
-		if (oauth.idToken) oauth.idToken = "****";
-		masked.oauth = oauth;
-	}
-
-	if (masked.identity && typeof masked.identity === "object") {
-		const identity = { ...(masked.identity as Record<string, unknown>) };
-		if (identity.ssn) identity.ssn = "****";
-		if (identity.passportNumber) identity.passportNumber = "****";
-		if (identity.licenseNumber) identity.licenseNumber = "****";
-		masked.identity = identity;
-	}
-
 	return masked;
 }
 
@@ -84,6 +114,20 @@ const vaultLoginSchema = z.object({
 	password: z.string().optional().describe("Optional login password."),
 	uris: z.array(vaultUriSchema).optional().describe("Optional list of login URIs."),
 	totp: z.string().optional().describe("Optional TOTP secret."),
+});
+
+const vaultGeneratePasswordSchema = z.object({
+	length: z
+		.number()
+		.int()
+		.min(8)
+		.max(128)
+		.optional()
+		.describe("Desired password length (8-128 characters, default 24)."),
+	uppercase: z.boolean().optional().describe("Include uppercase letters (default true)."),
+	lowercase: z.boolean().optional().describe("Include lowercase letters (default true)."),
+	number: z.boolean().optional().describe("Include numeric digits (default true)."),
+	special: z.boolean().optional().describe("Include special characters (default true)."),
 });
 
 const vaultCardSchema = z.object({
@@ -155,6 +199,14 @@ const vaultCreateInput = z.object({
 	type: vaultCredentialTypeSchema.describe("Credential type."),
 	name: z.string().describe("Human-readable credential name."),
 	login: vaultLoginSchema.optional().describe("Login payload for login-type."),
+	generatePassword: vaultGeneratePasswordSchema
+		.optional()
+		.describe(
+			"Generate the login password server-side instead of supplying login.password. " +
+				"Preferred for login credentials: the password is created and stored inside the " +
+				"vault and never enters the conversation. Only valid for login-type; mutually " +
+				"exclusive with login.password. Pass {} for defaults.",
+		),
 	card: vaultCardSchema.optional().describe("Card payload for card-type."),
 	identity: vaultIdentitySchema.optional().describe("Identity payload for identity-type."),
 	notes: z.string().optional().describe("Optional secure note text."),
@@ -279,7 +331,9 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 		{
 			title: "Create Vault Credential",
 			description:
-				"Create a new credential in an agent vault. Pass `type` plus the matching payload block (login / card / identity / notes).",
+				"Create a new credential in an agent vault. Pass `type` plus the matching payload block (login / card / identity / notes). " +
+				"For login credentials, prefer `generatePassword` over supplying `login.password` — the vault generates and stores the " +
+				"password server-side and returns only the credential reference, so the secret never enters the conversation.",
 			inputSchema: vaultCreateInput.shape,
 			outputSchema: objectOutput(),
 			annotations: {
@@ -290,8 +344,13 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 			},
 		},
 		withErrorHandling(async (args, context) => {
-			const result = await context.client.post<unknown>("/v1/vault/credentials", args);
-			return toolSuccess(result);
+			const result = await context.client.post<Record<string, unknown>>(
+				"/v1/vault/credentials",
+				args,
+			);
+			// The API already masks create responses; re-mask client-side so the
+			// invariant holds even if the upstream response shape changes.
+			return toolSuccess(maskCredentialFields(result));
 		}, options.context),
 	);
 
@@ -313,8 +372,9 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 		withErrorHandling(async (args, context) => {
 			const { id, ...payload } = args;
 			const path = `/v1/vault/credentials/${encodeURIComponent(id)}`;
-			const result = await context.client.put<unknown>(path, payload);
-			return toolSuccess(result);
+			const result = await context.client.put<Record<string, unknown>>(path, payload);
+			// Same defense-in-depth masking as create/get — never echo secrets.
+			return toolSuccess(maskCredentialFields(result));
 		}, options.context),
 	);
 
