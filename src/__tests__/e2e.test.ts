@@ -19,11 +19,11 @@ describe("mcp-server e2e", () => {
     await handle.close();
   });
 
-  it("lists /mcp plus all 5 scoped domains on /health", async () => {
+  it("lists /mcp plus all 6 scoped domains on /health", async () => {
     const r = await fetch(`${baseUrl}/health`);
     expect(r.status).toBe(200);
     const body = await r.json() as { domains: string[] };
-    expect(body.domains.slice().sort()).toEqual(["/agent", "/email", "/mcp", "/phone", "/platform", "/vault"]);
+    expect(body.domains.slice().sort()).toEqual(["/agent", "/email", "/extension", "/mcp", "/phone", "/platform", "/vault"]);
   });
 
   it("401s unauthenticated initialize on /agent", async () => {

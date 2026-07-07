@@ -1,12 +1,13 @@
 # @anima-labs/mcp-server
 
-Unified MCP server for the Anima platform. Exposes five domain endpoints:
+Unified MCP server for the Anima platform. Exposes six domain endpoints:
 
 - `/agent` — agent, organization, identity, registry, A2A tools
 - `/email` — Gmail/SMTP email tools
 - `/phone` — Telnyx voice + SMS tools
 - `/platform` — messaging, spam, webhooks, pods, agent orchestration
 - `/vault` — credential vault, OAuth connections, Connect Links
+- `/extension` — browser extension connect (headless / Puppeteer)
 
 Run:
 ```

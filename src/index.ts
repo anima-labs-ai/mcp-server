@@ -8,6 +8,7 @@ import { buildEmailServer } from "./tools/email/factory.js";
 import { buildPhoneServer } from "./tools/phone/factory.js";
 import { buildPlatformServer } from "./tools/platform/factory.js";
 import { buildVaultServer } from "./tools/vault/factory.js";
+import { buildExtensionServer } from "./tools/extension/factory.js";
 import { buildAllToolsServer } from "./tools/all/factory.js";
 
 export type UnifiedServerHandle = HttpTransportServer;
@@ -26,6 +27,7 @@ export async function buildUnifiedServer(opts: { port?: number } = {}): Promise<
     "/phone":    (ctx) => buildPhoneServer(ctx.client),
     "/platform": (ctx) => buildPlatformServer(ctx.client),
     "/vault":    (ctx) => buildVaultServer(ctx.client),
+    "/extension":(ctx) => buildExtensionServer(ctx.client),
   };
 
   const mcpBaseUrl = process.env.MCP_BASE_URL ?? "https://mcp.useanima.sh";
@@ -55,7 +57,7 @@ async function main() {
     const addr = handle.httpServer.address();
     const port = typeof addr === "object" && addr ? addr.port : config.httpPort;
     console.error(`Anima MCP server running on http://localhost:${port}`);
-    console.error("Domains: /mcp (all), /agent, /email, /phone, /platform, /vault");
+    console.error("Domains: /mcp (all), /agent, /email, /phone, /platform, /vault, /extension");
   });
 
   const shutdown = async () => { await handle.close(); process.exit(0); };
