@@ -14,8 +14,8 @@ import { toolSuccess, withErrorHandling } from "../../../shared/index.js";
 //   - master key (mk_): `agentId` is REQUIRED (no implicit agent).
 //   - agent key (ak_ / oat_): OMIT `agentId` — the server resolves the
 //     agent from the key. Passing it is unnecessary.
-// `ttl` is optional and shorten-only: the API caps it at the policy
-// maximum, so a larger value is silently clamped, never extended.
+// `ttl` is optional: a value longer than the org's policy maximum is
+// rejected (not silently shortened). Omit it to use the policy default.
 
 const extensionConnectInput = z.object({
 	agentId: z
@@ -28,7 +28,7 @@ const extensionConnectInput = z.object({
 		.enum(["15m", "1h", "session"])
 		.optional()
 		.describe(
-			"Requested lifetime of the connection. Shorten-only: the server clamps to its policy maximum, so a longer value is capped rather than extended. Defaults to the server's policy default when omitted.",
+			"Requested lifetime of the connection. A value longer than the org's policy maximum is rejected (not silently shortened); omit to use the policy default.",
 		),
 });
 
@@ -57,7 +57,7 @@ export function registerExtensionTools(options: ToolRegistrationOptions): void {
 				"Create a short-lived, single-use connect URL that links a browser extension (or a headless Puppeteer worker) to an Anima agent. " +
 				"Returns `connectUrl` — hand it to the extension to complete the handshake before `exchangeExpiresAt`. The response carries no token or secret. " +
 				"Auth: with a master key you MUST pass `agentId`; with an agent key OMIT `agentId` (the server resolves it from the key). " +
-				"`ttl` is optional and shorten-only.",
+				"`ttl` is optional; a value above the org's maximum is rejected.",
 			inputSchema: extensionConnectInput.shape,
 			outputSchema: extensionConnectOutput,
 			annotations: {
