@@ -7,9 +7,9 @@ change to keep this in sync. Do NOT edit by hand.*
 
 | Metric | Value |
 |---|---|
-| Total registered tools | 53 |
+| Total registered tools | 54 |
 | Tools with aliases | 0 |
-| Total callable names (incl. aliases) | 53 |
+| Total callable names (incl. aliases) | 54 |
 | Master-key required | 0 |
 | Read-only | 0 |
 
@@ -268,6 +268,22 @@ Fetch all email messages in one or more threads. Pass
 **Input schema:** `emailThreadGetSchema` — see source for fields.
 
 **Source:** `src/tools/email/email/index.ts`
+
+## extension / extension
+
+1 tool.
+
+| Name | Description | Flags |
+|---|---|---|
+| `extension_connect` | Create a short-lived, single-use connect URL that links a browser extension (or … | — |
+
+### `extension_connect`
+
+Create a short-lived, single-use connect URL that links a browser extension (or a headless Puppeteer worker) to an Anima agent.
+
+**Input schema:** `extensionConnectInput` — see source for fields.
+
+**Source:** `src/tools/extension/extension/index.ts`
 
 ## phone / phone
 

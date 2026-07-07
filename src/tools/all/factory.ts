@@ -24,12 +24,15 @@ import { registerWebhookTools } from "../platform/webhook/index.js";
 // Vault domain
 import { registerVaultTools } from "../vault/vault/index.js";
 
+// Extension domain
+import { registerExtensionTools } from "../extension/extension/index.js";
+
 const SERVER_INFO = {
 	...CORE_SERVER_INFO,
 	name: "anima-mcp",
 	version: "0.1.0",
 	description:
-		"Anima MCP Server — unified endpoint exposing all Anima tools (agent, email, phone, platform, vault).",
+		"Anima MCP Server — unified endpoint exposing all Anima tools (agent, email, phone, platform, vault, extension).",
 };
 
 /**
@@ -37,7 +40,7 @@ const SERVER_INFO = {
  * `/mcp` endpoint that clients use for a one-URL install experience.
  *
  * For scoped / tailored access, clients can hit per-domain paths instead
- * (/agent, /email, /phone, /platform, /vault) — each of those
+ * (/agent, /email, /phone, /platform, /vault, /extension) — each of those
  * registers only that domain's tools.
  */
 export function buildAllToolsServer(client: ApiClient): McpServer {
@@ -65,6 +68,9 @@ export function buildAllToolsServer(client: ApiClient): McpServer {
 
 	// Vault
 	registerVaultTools(context);
+
+	// Extension
+	registerExtensionTools(context);
 
 	return server;
 }
