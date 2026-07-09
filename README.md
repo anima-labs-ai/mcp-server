@@ -2,7 +2,7 @@
 
 Unified MCP server for the Anima platform. Exposes six domain endpoints:
 
-- `/agent` — agent, organization, identity, registry, A2A tools
+- `/agent` — agent tools
 - `/email` — Gmail/SMTP email tools
 - `/phone` — Telnyx voice + SMS tools
 - `/platform` — messaging, spam, webhooks, pods, agent orchestration
