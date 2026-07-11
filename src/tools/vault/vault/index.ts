@@ -669,10 +669,12 @@ function toolErrorFromUnknown(
  * vault_credential_request_create with form-first elicitation.
  *
  * Branches:
- *   - client did NOT declare elicitation → baseline behaviour: create the
- *     request, owner is emailed the fill link, return PENDING for polling.
- *   - client DID declare elicitation → create with notifyOwner=false (no
- *     email while an inline dialog is viable), then show the secret form:
+ *   - client can't render the inline form (no elicitation, or url-mode only
+ *     like Claude Desktop) → baseline behaviour: create the request, owner is
+ *     emailed the fill link, return PENDING for polling.
+ *   - client can render the form (bare `elicitation: {}` or `form` sub-mode) →
+ *     create with notifyOwner=false (no email while an inline dialog is
+ *     viable), then show the secret form:
  *       accept  → POST the value to the fill endpoint, re-read once, return FULFILLED
  *       decline → cancel the request, return DECLINED
  *       cancel  → return PENDING + fillUrl (dismissed; finish via link)
@@ -692,13 +694,21 @@ export async function runCredentialRequestCreate(
 	const { context, server } = options;
 
 	// 1. Capability detection — cheap, no hang. `getClientCapabilities()` is
-	//    populated from the client's `initialize` handshake; `.elicitation`
-	//    is present only when the client DECLARED it. (The voice tool can't do
-	//    this pre-check because its handler only receives `extra`; here the
-	//    registrar captured the McpServer, so we read the declared capability
-	//    up front and only attempt elicitation when it's real.)
-	const declaredElicitation =
-		server.server.getClientCapabilities()?.elicitation != null;
+	//    populated from the client's `initialize` handshake. We only show the
+	//    inline secret form to clients that can actually render it: either a
+	//    legacy client that declared bare `elicitation: {}` (predating the
+	//    form/url sub-modes) or one that explicitly advertises `form`. A client
+	//    that advertises ONLY `url` (e.g. Claude Desktop) cannot render a
+	//    form-mode dialog — sending it one is a request it never agreed to
+	//    handle — so it falls through to the baseline link/email path. (The
+	//    voice tool can't do this pre-check because its handler only receives
+	//    `extra`; here the registrar captured the McpServer.)
+	const elicitationCap = server.server.getClientCapabilities()?.elicitation as
+		| { form?: unknown; url?: unknown }
+		| undefined;
+	const supportsFormElicitation =
+		elicitationCap != null &&
+		(elicitationCap.form != null || elicitationCap.url == null);
 
 	// 2. Create the request. Email the owner only when we CAN'T show an inline
 	//    dialog — an explicit args.notifyOwner always wins.
@@ -708,7 +718,7 @@ export async function runCredentialRequestCreate(
 			"/v1/vault/credential-requests",
 			{
 				...args,
-				notifyOwner: args.notifyOwner ?? !declaredElicitation,
+				notifyOwner: args.notifyOwner ?? !supportsFormElicitation,
 			},
 		);
 	} catch (error) {
@@ -720,9 +730,9 @@ export async function runCredentialRequestCreate(
 	const fillUrl =
 		typeof createResult.fillUrl === "string" ? createResult.fillUrl : undefined;
 
-	// No elicitation capability → return the baseline result verbatim (owner
+	// Can't show the inline form → return the baseline result verbatim (owner
 	// emailed, agent polls vault_credential_request_status).
-	if (!declaredElicitation) {
+	if (!supportsFormElicitation) {
 		return toolSuccess(createResult);
 	}
 

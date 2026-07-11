@@ -26,7 +26,13 @@ type Call = { method: string; path: string; body?: unknown };
  * McpServer reports the given declared `elicitation` capability.
  */
 function makeOptions(opts: {
-	elicitationDeclared: boolean;
+	elicitationDeclared?: boolean;
+	/**
+	 * Exact `elicitation` capability value to report (overrides
+	 * `elicitationDeclared`). Use `{ form: {} }` / `{ url: {} }` to model
+	 * elicitation sub-modes; `null` to report no elicitation capability at all.
+	 */
+	elicitationCap?: Record<string, unknown> | null;
 	createResult?: Record<string, unknown>;
 	getResult?: Record<string, unknown>;
 	onFill?: (body: unknown) => void;
@@ -64,6 +70,11 @@ function makeOptions(opts: {
 	const server = {
 		server: {
 			getClientCapabilities() {
+				if (opts.elicitationCap !== undefined) {
+					return opts.elicitationCap === null
+						? {}
+						: { elicitation: opts.elicitationCap };
+				}
 				return opts.elicitationDeclared ? { elicitation: {} } : {};
 			},
 		},
@@ -120,6 +131,46 @@ describe("vault_credential_request_create — form-first elicitation", () => {
 		const create = calls.find((c) => c.path === "/v1/vault/credential-requests");
 		expect((create?.body as { notifyOwner?: boolean }).notifyOwner).toBe(true);
 		expect(serialize(result)).toContain("PENDING");
+	});
+
+	test("url-only elicitation (Claude Desktop declares { url: {} }) → baseline: never sends a form-mode request, notifyOwner=true", async () => {
+		// A client that advertises ONLY url-mode elicitation cannot render the
+		// inline secret form. Sending it a form-mode `elicitation/create` is a
+		// request it never agreed to handle, so we must route to the baseline
+		// link/email path instead — the same as a client with no elicitation.
+		const { options, calls } = makeOptions({ elicitationCap: { url: {} } });
+		let elicitCalled = false;
+		const extra = {
+			async sendRequest() {
+				elicitCalled = true;
+				return { action: "cancel" };
+			},
+		};
+
+		const result = await runCredentialRequestCreate(baseArgs, options, extra);
+
+		expect(elicitCalled).toBe(false);
+		const create = calls.find((c) => c.path === "/v1/vault/credential-requests");
+		expect((create?.body as { notifyOwner?: boolean }).notifyOwner).toBe(true);
+		expect(serialize(result)).toContain("PENDING");
+	});
+
+	test("form+url elicitation (Inspector 0.22 declares { form: {}, url: {} }) → inline form is shown", async () => {
+		const { options, calls } = makeOptions({
+			elicitationCap: { form: {}, url: {} },
+		});
+		const extra = makeExtra({
+			action: "accept",
+			content: { username: "svc-acme", password: SECRET },
+		});
+
+		const result = await runCredentialRequestCreate(baseArgs, options, extra);
+
+		// Form was viable → no owner email, secret went to the fill endpoint.
+		const create = calls.find((c) => c.path === "/v1/vault/credential-requests");
+		expect((create?.body as { notifyOwner?: boolean }).notifyOwner).toBe(false);
+		expect(calls.some((c) => c.path.includes("/vault/fill/"))).toBe(true);
+		expect(serialize(result)).toContain("FULFILLED");
 	});
 
 	test("accept → POSTs secret to fill endpoint, returns FULFILLED with credentialId, and the secret is NOT in the result", async () => {
