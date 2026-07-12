@@ -823,6 +823,26 @@ async function deliverViaUrlDialog(
 }
 
 /**
+ * `ui` tier — an MCP-Apps host (Claude Desktop) renders our linked
+ * `ui://anima/credential-request` widget from THIS tool result. CD advertises
+ * `extensions["io.modelcontextprotocol/ui"]` but no elicitation capability, so
+ * we must NOT elicit — we return the render-data the widget needs (the fill
+ * target + field schema) to draw the branded form and POST the secret straight
+ * to the token-gated fill endpoint. The value never returns through the agent.
+ */
+async function deliverViaUiApp(
+	d: CredentialDelivery,
+): Promise<ReturnType<typeof toolSuccess>> {
+	return toolSuccess({
+		status: "AWAITING_INPUT",
+		requestId: d.requestId,
+		fillUrl: d.fillUrl,
+		requestedSchema: buildCredentialElicitSchema(d.args.type),
+		message: `Enter ${d.args.name} in the form.`,
+	});
+}
+
+/**
  * vault_credential_request_create with form-first elicitation.
  *
  * Branches:
@@ -857,6 +877,11 @@ export async function runCredentialRequestCreate(
 		server.server.getClientCapabilities() as
 			| { extensions?: Record<string, unknown>; elicitation?: { form?: unknown; url?: unknown } }
 			| undefined,
+	);
+	// TEMP DEBUG (remove after Claude Desktop `ui`-tier validation): surfaces the
+	// exact capabilities the connecting client declared + the tier chosen.
+	console.error(
+		`[credreq] client caps: ${JSON.stringify(server.server.getClientCapabilities())} → tier: ${tier}`,
 	);
 
 	// 2. Create the request. Email the owner only when there's no interactive
@@ -914,12 +939,13 @@ export async function runCredentialRequestCreate(
 		sendRequest: extra.sendRequest,
 		timeoutMs,
 	};
-	// `url` shows a native dialog linking to our fill page. `ui` and `form` both
-	// send the form-mode elicitation below: a ui-capable host (Claude Desktop)
-	// renders the tool's linked `ui://anima/credential-request` resource as our
-	// branded form; every other form-capable client shows its own generic form.
-	// Either way the secret comes back as the elicitation result — off the agent.
+	// `url` shows a native dialog linking to our fill page. `ui` renders our
+	// linked `ui://` widget from the tool RESULT (Claude Desktop's MCP-Apps model
+	// is widget-from-result, NOT elicitation — CD advertises the ui extension but
+	// no elicitation capability), so we return render-data instead of eliciting.
+	// `form` (below) is the generic inline elicitation form.
 	if (tier === "url") return deliverViaUrlDialog(delivery);
+	if (tier === "ui") return deliverViaUiApp(delivery);
 
 	let elicitResult: { action: string; content?: Record<string, unknown> };
 	try {
