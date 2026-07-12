@@ -665,6 +665,151 @@ function toolErrorFromUnknown(
 	return toolError(error instanceof Error ? error.message : String(error));
 }
 
+/** MCP Apps UI capability key (SEP-1865). Present in a client's declared
+ *  `capabilities.extensions` when it can render server-provided `ui://`
+ *  resources (`text/html;profile=mcp-app`) inline — e.g. Claude Desktop. */
+export const MCP_UI_EXTENSION = "io.modelcontextprotocol/ui";
+
+/** How a human is asked for a secret, best-to-most-universal. */
+export type CredentialDeliveryTier = "ui" | "url" | "form" | "email";
+
+/**
+ * Choose the credential-entry surface from the client's DECLARED capabilities.
+ * See credential-delivery-tier.test.ts for the ordering rationale. A client is
+ * only ever handed a surface it advertised — an unadvertised mode fails at
+ * runtime — and for a *credential* a branded/masked surface (`url` → our fill
+ * page) beats a generic inline `form`.
+ */
+export function selectCredentialDeliveryTier(
+	capabilities:
+		| {
+				extensions?: Record<string, unknown>;
+				elicitation?: { form?: unknown; url?: unknown };
+		  }
+		| undefined,
+): CredentialDeliveryTier {
+	if (capabilities?.extensions?.[MCP_UI_EXTENSION] != null) return "ui";
+	const elicitation = capabilities?.elicitation;
+	if (elicitation?.url != null) return "url"; // native dialog → our fill page
+	if (elicitation != null) return "form"; // form / bare `{}` → generic inline form
+	return "email";
+}
+
+/** Resolved request + the surfaces a delivery helper needs. The secret only
+ *  ever travels to /vault/fill/{token}; it never enters a log or the result. */
+interface CredentialDelivery {
+	client: ToolRegistrationOptions["context"]["client"];
+	args: z.infer<typeof vaultCredentialRequestCreateInput>;
+	requestId: string;
+	fillToken: string;
+	fillUrl: string | undefined;
+	sendRequest: ToolHandlerExtra["sendRequest"];
+	timeoutMs: number;
+}
+
+/** Best-effort single read-back of a request's current state. */
+async function readbackRequest(
+	client: CredentialDelivery["client"],
+	requestId: string,
+): Promise<Record<string, unknown>> {
+	try {
+		return await client.get<Record<string, unknown>>(
+			`/v1/vault/credential-requests/${encodeURIComponent(requestId)}`,
+		);
+	} catch {
+		return {}; // fill (if any) already happened; a failed read isn't a failure
+	}
+}
+
+/** Terminal FULFILLED result from a read-back state (reference + masked preview only). */
+function fulfilledResult(state: Record<string, unknown>): ReturnType<typeof toolSuccess> {
+	return toolSuccess({
+		status: "FULFILLED",
+		credentialId: state.credentialId,
+		maskedPreview: state.maskedPreview,
+		message: "Secret captured; the agent can now use it.",
+	});
+}
+
+/**
+ * `url` tier — the client shows a native dialog linking to our branded, masked
+ * fill page. The human enters the secret THERE (the page POSTs to
+ * /vault/fill/{token}), never through the agent. On accept we read the request
+ * back: FULFILLED if already completed, else PENDING with the link to finish.
+ */
+async function deliverViaUrlDialog(
+	d: CredentialDelivery,
+): Promise<ReturnType<typeof toolSuccess> | ReturnType<typeof toolError>> {
+	let action: string;
+	try {
+		const result = (await d.sendRequest(
+			{
+				method: "elicitation/create",
+				params: {
+					mode: "url",
+					message: `Provide ${d.args.name} — ${d.args.reason}`,
+					url: d.fillUrl,
+					elicitationId: d.requestId,
+				},
+			},
+			ElicitResultSchema,
+			{ timeout: d.timeoutMs },
+		)) as { action: string };
+		action = result.action;
+	} catch {
+		// Declared url but rejected/timed out → hand back the link (no leak of err).
+		return toolSuccess({
+			status: "PENDING",
+			requestId: d.requestId,
+			fillUrl: d.fillUrl,
+			message: "Open this link to provide the secret.",
+		});
+	}
+
+	if (action === "decline") {
+		try {
+			await d.client.post<unknown>(
+				`/v1/vault/credential-requests/${encodeURIComponent(d.requestId)}/cancel`,
+			);
+		} catch (error) {
+			return toolErrorFromUnknown(error);
+		}
+		return toolSuccess({
+			status: "DECLINED",
+			message:
+				"The human declined; create a new request if you still need the credential.",
+		});
+	}
+
+	// accept / dismiss: the fill (if any) happened on the page — reflect reality.
+	const state = await readbackRequest(d.client, d.requestId);
+	if (state.status === "FULFILLED") return fulfilledResult(state);
+	return toolSuccess({
+		status: "PENDING",
+		requestId: d.requestId,
+		fillUrl: d.fillUrl,
+		message:
+			"Opened the fill page — finish there, then poll vault_credential_request_status.",
+	});
+}
+
+/**
+ * `ui` tier — the host renders our branded MCP-App form inline. Slice D wires
+ * the `ui://anima/credential-request` resource + `_meta.ui` render-data (the
+ * single-use fill token) so the app POSTs the secret straight to the fill
+ * endpoint. Until then this returns the link as a graceful fallback.
+ */
+async function deliverViaUiApp(
+	d: CredentialDelivery,
+): Promise<ReturnType<typeof toolSuccess>> {
+	return toolSuccess({
+		status: "AWAITING_INPUT",
+		requestId: d.requestId,
+		fillUrl: d.fillUrl,
+		message: `Enter ${d.args.name} in the form.`,
+	});
+}
+
 /**
  * vault_credential_request_create with form-first elicitation.
  *
@@ -693,33 +838,22 @@ export async function runCredentialRequestCreate(
 ): Promise<ReturnType<typeof toolSuccess> | ReturnType<typeof toolError>> {
 	const { context, server } = options;
 
-	// 1. Capability detection — cheap, no hang. `getClientCapabilities()` is
-	//    populated from the client's `initialize` handshake. We only show the
-	//    inline secret form to clients that can actually render it: either a
-	//    legacy client that declared bare `elicitation: {}` (predating the
-	//    form/url sub-modes) or one that explicitly advertises `form`. A client
-	//    that advertises ONLY `url` (e.g. Claude Desktop) cannot render a
-	//    form-mode dialog — sending it one is a request it never agreed to
-	//    handle — so it falls through to the baseline link/email path. (The
-	//    voice tool can't do this pre-check because its handler only receives
-	//    `extra`; here the registrar captured the McpServer.)
-	const elicitationCap = server.server.getClientCapabilities()?.elicitation as
-		| { form?: unknown; url?: unknown }
-		| undefined;
-	const supportsFormElicitation =
-		elicitationCap != null &&
-		(elicitationCap.form != null || elicitationCap.url == null);
+	// 1. Pick the entry surface from the client's declared capabilities
+	//    (populated from the `initialize` handshake). See
+	//    selectCredentialDeliveryTier for the ordering rationale.
+	const tier = selectCredentialDeliveryTier(
+		server.server.getClientCapabilities() as
+			| { extensions?: Record<string, unknown>; elicitation?: { form?: unknown; url?: unknown } }
+			| undefined,
+	);
 
-	// 2. Create the request. Email the owner only when we CAN'T show an inline
-	//    dialog — an explicit args.notifyOwner always wins.
+	// 2. Create the request. Email the owner only when there's no interactive
+	//    surface to enter the secret — an explicit args.notifyOwner always wins.
 	let createResult: Record<string, unknown>;
 	try {
 		createResult = await context.client.post<Record<string, unknown>>(
 			"/v1/vault/credential-requests",
-			{
-				...args,
-				notifyOwner: args.notifyOwner ?? !supportsFormElicitation,
-			},
+			{ ...args, notifyOwner: args.notifyOwner ?? tier === "email" },
 		);
 	} catch (error) {
 		return toolErrorFromUnknown(error);
@@ -730,9 +864,9 @@ export async function runCredentialRequestCreate(
 	const fillUrl =
 		typeof createResult.fillUrl === "string" ? createResult.fillUrl : undefined;
 
-	// Can't show the inline form → return the baseline result verbatim (owner
+	// No interactive surface → return the baseline result verbatim (owner
 	// emailed, agent polls vault_credential_request_status).
-	if (!supportsFormElicitation) {
+	if (tier === "email") {
 		return toolSuccess(createResult);
 	}
 
@@ -759,6 +893,23 @@ export async function runCredentialRequestCreate(
 		? Math.min(CREDENTIAL_ELICITATION_TIMEOUT_MS, ttlMs)
 		: CREDENTIAL_ELICITATION_TIMEOUT_MS;
 
+	const delivery: CredentialDelivery = {
+		client: context.client,
+		args,
+		requestId,
+		fillToken,
+		fillUrl,
+		sendRequest: extra.sendRequest,
+		timeoutMs,
+	};
+	// `ui` renders our branded MCP-App form inline; `url` shows a native dialog
+	// linking to our fill page. Both keep the secret off the agent. `form`
+	// (generic inline form, below) is the fallback for clients that support
+	// form but neither ui nor url.
+	if (tier === "ui") return deliverViaUiApp(delivery);
+	if (tier === "url") return deliverViaUrlDialog(delivery);
+
+	// tier === "form": generic inline elicitation form.
 	let elicitResult: { action: string; content?: Record<string, unknown> };
 	try {
 		elicitResult = await extra.sendRequest(

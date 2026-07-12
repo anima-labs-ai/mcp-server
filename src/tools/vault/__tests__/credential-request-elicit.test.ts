@@ -133,43 +133,48 @@ describe("vault_credential_request_create — form-first elicitation", () => {
 		expect(serialize(result)).toContain("PENDING");
 	});
 
-	test("url-only elicitation (Claude Desktop declares { url: {} }) → baseline: never sends a form-mode request, notifyOwner=true", async () => {
-		// A client that advertises ONLY url-mode elicitation cannot render the
-		// inline secret form. Sending it a form-mode `elicitation/create` is a
-		// request it never agreed to handle, so we must route to the baseline
-		// link/email path instead — the same as a client with no elicitation.
-		const { options, calls } = makeOptions({ elicitationCap: { url: {} } });
-		let elicitCalled = false;
+	test("url-only elicitation (Claude Desktop declares { url: {} }) → url-mode dialog, notifyOwner=false", async () => {
+		// A url-only client can't render the inline form, but it CAN show a native
+		// dialog linking to our fill page. We send mode:"url" (never a form it
+		// can't render), and since a surface exists we don't email the owner.
+		// Read-back shows the request still open (human dismissed without filling).
+		const { options, calls } = makeOptions({
+			elicitationCap: { url: {} },
+			getResult: { status: "PENDING" },
+		});
+		let sentMode: string | undefined;
 		const extra = {
-			async sendRequest() {
-				elicitCalled = true;
+			async sendRequest(req: unknown) {
+				sentMode = (req as { params?: { mode?: string } }).params?.mode;
 				return { action: "cancel" };
 			},
 		};
 
 		const result = await runCredentialRequestCreate(baseArgs, options, extra);
 
-		expect(elicitCalled).toBe(false);
+		expect(sentMode).toBe("url");
 		const create = calls.find((c) => c.path === "/v1/vault/credential-requests");
-		expect((create?.body as { notifyOwner?: boolean }).notifyOwner).toBe(true);
-		expect(serialize(result)).toContain("PENDING");
+		expect((create?.body as { notifyOwner?: boolean }).notifyOwner).toBe(false);
+		expect(serialize(result)).toContain("PENDING"); // dismissed + unfilled → link to finish
 	});
 
-	test("form+url elicitation (Inspector 0.22 declares { form: {}, url: {} }) → inline form is shown", async () => {
-		const { options, calls } = makeOptions({
-			elicitationCap: { form: {}, url: {} },
-		});
-		const extra = makeExtra({
-			action: "accept",
-			content: { username: "svc-acme", password: SECRET },
-		});
+	test("form+url (Inspector) → url dialog, NOT the generic form — and the tool never POSTs the secret itself in url-mode", async () => {
+		// A branded, masked fill page beats a plaintext generic form for a secret,
+		// so form+url routes to url. The human fills ON the page, so the tool
+		// makes no /vault/fill POST; accept → read-back reflects FULFILLED.
+		const { options, calls } = makeOptions({ elicitationCap: { form: {}, url: {} } });
+		let sentMode: string | undefined;
+		const extra = {
+			async sendRequest(req: unknown) {
+				sentMode = (req as { params?: { mode?: string } }).params?.mode;
+				return { action: "accept" };
+			},
+		};
 
 		const result = await runCredentialRequestCreate(baseArgs, options, extra);
 
-		// Form was viable → no owner email, secret went to the fill endpoint.
-		const create = calls.find((c) => c.path === "/v1/vault/credential-requests");
-		expect((create?.body as { notifyOwner?: boolean }).notifyOwner).toBe(false);
-		expect(calls.some((c) => c.path.includes("/vault/fill/"))).toBe(true);
+		expect(sentMode).toBe("url");
+		expect(calls.some((c) => c.path.includes("/vault/fill/"))).toBe(false);
 		expect(serialize(result)).toContain("FULFILLED");
 	});
 
