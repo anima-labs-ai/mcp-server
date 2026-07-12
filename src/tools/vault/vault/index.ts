@@ -1,5 +1,6 @@
 import { ElicitResultSchema } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
+import { CREDENTIAL_UI_HTML, CREDENTIAL_UI_RESOURCE } from "./credential-ui.js";
 import type { ToolRegistrationOptions } from "../../../shared/index.js";
 import {
 	deleteOutput,
@@ -366,6 +367,30 @@ type ToolHandlerExtra = any;
 export function registerVaultTools(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
+	// Branded MCP-App form for the `ui` tier of vault_credential_request_create
+	// (linked from that tool via `_meta.ui.resourceUri`). The app returns the
+	// secret via the host's elicitation bridge and makes no network calls, so
+	// its CSP needs no allowed domains.
+	server.registerResource(
+		"credential-request-ui",
+		CREDENTIAL_UI_RESOURCE,
+		{
+			title: "Anima credential form",
+			description: "Branded inline form for vault_credential_request_create.",
+			mimeType: "text/html;profile=mcp-app",
+		},
+		async () => ({
+			contents: [
+				{
+					uri: CREDENTIAL_UI_RESOURCE,
+					mimeType: "text/html;profile=mcp-app",
+					text: CREDENTIAL_UI_HTML,
+					_meta: { ui: { csp: { connectDomains: [], resourceDomains: [] } } },
+				},
+			],
+		}),
+	);
+
 	server.registerTool(
 		"vault_provision",
 		{
@@ -573,6 +598,10 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 				idempotentHint: false,
 				openWorldHint: true,
 			},
+			// MCP Apps (SEP-1865): links this tool to our branded credential form.
+			// A ui-capable host (Claude Desktop) renders the resource inline and
+			// drives it as the elicitation surface; other clients ignore this.
+			_meta: { ui: { resourceUri: CREDENTIAL_UI_RESOURCE } },
 		},
 		// NOT wrapped in withErrorHandling: that wrapper drops the handler's
 		// second arg (`extra`), but form-first elicitation needs
@@ -794,23 +823,6 @@ async function deliverViaUrlDialog(
 }
 
 /**
- * `ui` tier — the host renders our branded MCP-App form inline. Slice D wires
- * the `ui://anima/credential-request` resource + `_meta.ui` render-data (the
- * single-use fill token) so the app POSTs the secret straight to the fill
- * endpoint. Until then this returns the link as a graceful fallback.
- */
-async function deliverViaUiApp(
-	d: CredentialDelivery,
-): Promise<ReturnType<typeof toolSuccess>> {
-	return toolSuccess({
-		status: "AWAITING_INPUT",
-		requestId: d.requestId,
-		fillUrl: d.fillUrl,
-		message: `Enter ${d.args.name} in the form.`,
-	});
-}
-
-/**
  * vault_credential_request_create with form-first elicitation.
  *
  * Branches:
@@ -902,14 +914,13 @@ export async function runCredentialRequestCreate(
 		sendRequest: extra.sendRequest,
 		timeoutMs,
 	};
-	// `ui` renders our branded MCP-App form inline; `url` shows a native dialog
-	// linking to our fill page. Both keep the secret off the agent. `form`
-	// (generic inline form, below) is the fallback for clients that support
-	// form but neither ui nor url.
-	if (tier === "ui") return deliverViaUiApp(delivery);
+	// `url` shows a native dialog linking to our fill page. `ui` and `form` both
+	// send the form-mode elicitation below: a ui-capable host (Claude Desktop)
+	// renders the tool's linked `ui://anima/credential-request` resource as our
+	// branded form; every other form-capable client shows its own generic form.
+	// Either way the secret comes back as the elicitation result — off the agent.
 	if (tier === "url") return deliverViaUrlDialog(delivery);
 
-	// tier === "form": generic inline elicitation form.
 	let elicitResult: { action: string; content?: Record<string, unknown> };
 	try {
 		elicitResult = await extra.sendRequest(
