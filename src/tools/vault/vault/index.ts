@@ -77,6 +77,13 @@ const vaultCredentialTypeSchema = z.enum([
 	"identity",
 ]);
 
+// The request (human-in-the-loop) flow deliberately supports a narrower set
+// than the vault can store: the three types with a concrete agent use case —
+// sign-in, arbitrary secret, and checkout. `identity` is omitted until an
+// autofill consumer exists; the vault still stores identities directly via
+// vault_credential_create.
+const credentialRequestTypeSchema = z.enum(["login", "secure_note", "card"]);
+
 const vaultUriSchema = z.object({
 	uri: z.string().optional().describe("URI value."),
 	match: z.string().optional().describe("Optional URI match mode."),
@@ -208,8 +215,8 @@ const vaultCredentialRequestCreateInput = z.object({
 		.describe(
 			"Agent ID whose vault the requested credential lands in. Optional when using an agent-bound credential.",
 		),
-	type: vaultCredentialTypeSchema.describe(
-		"Credential type the human will be asked to fill (same types as vault_credential_create).",
+	type: credentialRequestTypeSchema.describe(
+		"Credential type the human will be asked to fill: login, secure_note, or card.",
 	),
 	name: z.string().describe("Human-readable name for the requested credential."),
 	reason: z
@@ -293,7 +300,7 @@ interface ElicitFormSchema {
  * content maps 1:1 to the fill body (the bare value object for the type).
  */
 function buildCredentialElicitSchema(
-	type: z.infer<typeof vaultCredentialTypeSchema>,
+	type: z.infer<typeof credentialRequestTypeSchema>,
 ): ElicitFormSchema {
 	switch (type) {
 		case "login":
@@ -319,29 +326,14 @@ function buildCredentialElicitSchema(
 				type: "object",
 				properties: {
 					cardholderName: { type: "string", title: "Cardholder name", description: "Name on the card." },
-					brand: { type: "string", title: "Brand", description: "Card brand (e.g. Visa, Mastercard)." },
 					number: { type: "string", title: "Card number", description: "Full card number (sensitive)." },
 					expMonth: { type: "string", title: "Expiry month", description: "Two-digit expiry month (e.g. 04)." },
 					expYear: { type: "string", title: "Expiry year", description: "Expiry year (e.g. 2028)." },
 					code: { type: "string", title: "Security code", description: "CVV / security code (sensitive)." },
 				},
-				required: ["number"],
-			};
-		case "identity":
-			return {
-				type: "object",
-				properties: {
-					firstName: { type: "string", title: "First name" },
-					lastName: { type: "string", title: "Last name" },
-					email: { type: "string", title: "Email", format: "email" },
-					phone: { type: "string", title: "Phone" },
-					ssn: { type: "string", title: "SSN / national ID", description: "Sensitive national identifier." },
-					passportNumber: { type: "string", title: "Passport number", description: "Sensitive." },
-					licenseNumber: { type: "string", title: "License number", description: "Sensitive." },
-				},
-				// Identity has no single canonical secret; leave required empty
-				// so the human can fill whichever fields the flow needs.
-				required: [],
+				// Brand is auto-detected from the number by the vault, so we don't
+				// ask the human for it. All remaining fields are needed to transact.
+				required: ["cardholderName", "number", "expMonth", "expYear", "code"],
 			};
 	}
 }
@@ -614,7 +606,7 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 		{
 			title: "Request Credential From Human",
 			description:
-				"Request a credential from a HUMAN without the agent or LLM ever seeing the secret. When the connecting MCP client supports inline elicitation, the human is shown a form to type the secret directly — the tool returns `status: FULFILLED` with the `credentialId` in one call, no link needed. Otherwise it returns a single-use fill link (`fillUrl`, emailed to the org owner); poll vault_credential_request_status until `status` is FULFILLED, then use the returned `credentialId` as a normal vault credential. Use this when a flow needs a secret the agent doesn't hold and can't safely be given (passwords, API keys, card numbers, identity details).",
+				"Request a credential from a HUMAN without the agent or LLM ever seeing the secret. When the connecting MCP client supports inline elicitation, the human is shown a form to type the secret directly — the tool returns `status: FULFILLED` with the `credentialId` in one call, no link needed. Otherwise it returns a single-use fill link (`fillUrl`, emailed to the org owner); poll vault_credential_request_status until `status` is FULFILLED, then use the returned `credentialId` as a normal vault credential. Use this when a flow needs a secret the agent doesn't hold and can't safely be given (passwords, API keys, card numbers).",
 			inputSchema: vaultCredentialRequestCreateInput.shape,
 			outputSchema: objectOutput(),
 			annotations: {

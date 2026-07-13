@@ -264,4 +264,34 @@ describe("vault_credential_request_create — form-first elicitation", () => {
 		const create = calls.find((c) => c.path === "/v1/vault/credential-requests");
 		expect((create?.body as { notifyOwner?: boolean }).notifyOwner).toBe(true);
 	});
+
+	test("card request asks for every field needed to transact — name, number, exp, cvv — and never brand", async () => {
+		// A card is only usable if the human fills all of it: an agent handed back
+		// a card missing the expiry or CVV can't charge it. Brand is derived from
+		// the number by the vault, so asking the human for it is redundant. This
+		// test fails loudly if the required set is ever loosened or `brand` creeps
+		// back into the form.
+		const { options } = makeOptions({ elicitationCap: {} }); // bare elicitation → form tier
+		let captured:
+			| { params?: { requestedSchema?: { properties?: Record<string, unknown>; required?: string[] } } }
+			| undefined;
+		const extra = {
+			async sendRequest(req: unknown) {
+				captured = req as typeof captured;
+				return { action: "cancel" }; // the schema we asked for is the subject under test
+			},
+		};
+
+		await runCredentialRequestCreate(
+			{ type: "card", name: "Acme corporate card", reason: "pay the SaaS invoice" },
+			options,
+			extra,
+		);
+
+		const schema = captured?.params?.requestedSchema;
+		const fields = ["cardholderName", "code", "expMonth", "expYear", "number"];
+		expect(Object.keys(schema?.properties ?? {}).sort()).toEqual(fields);
+		expect((schema?.required ?? []).slice().sort()).toEqual(fields);
+		expect(schema?.properties?.brand).toBeUndefined();
+	});
 });
