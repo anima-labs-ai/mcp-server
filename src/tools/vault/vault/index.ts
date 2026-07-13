@@ -895,15 +895,22 @@ async function deliverViaUiApp(
 		process.env.ANIMA_API_URL ??
 		"https://api.useanima.sh"
 	).replace(/\/+$/, "");
+	const consoleUrl = (
+		process.env.CONSOLE_URL ??
+		process.env.CONNECT_URL ??
+		"https://console.useanima.sh"
+	).replace(/\/+$/, "");
 	return toolSuccess({
 		status: "AWAITING_INPUT",
 		requestId: d.requestId,
 		fillUrl: d.fillUrl,
-		// The widget submits the secret via `callTool(vault_credential_request_fill)`
+		// The widget submits the secret via `callServerTool(vault_credential_request_fill)`
 		// (host-bridged, so no cross-origin fetch/CSP). fillEndpoint is a direct-POST
 		// fallback for hosts that allow it.
 		fillToken: d.fillToken,
 		fillEndpoint: `${apiBase}/vault/fill/${encodeURIComponent(d.fillToken)}`,
+		// Where the human can view the stored secret after saving.
+		vaultUrl: `${consoleUrl}/vault`,
 		requestedSchema: buildCredentialElicitSchema(d.args.type),
 		message: `Enter ${d.args.name} — ${d.args.reason}`,
 	});
