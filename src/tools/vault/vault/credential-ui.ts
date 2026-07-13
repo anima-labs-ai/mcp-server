@@ -24,7 +24,7 @@ const SDK_JS = readFileSync(
 
 const WIDGET_JS = `
 (async () => {
-  const dbg = (m) => { const d = document.getElementById("debug"); if (d) { d.textContent += "\\n" + m; d.scrollTop = d.scrollHeight; } };
+  const dbg = (m) => { try { console.log("[anima-vault]", m); } catch (e) {} };
   const SECRET = /pass|secret|totp|token|key|code|cvv|pin|ssn|private|credential/i;
   const state = { requestId: null, fillToken: null, fillEndpoint: null, vaultUrl: null };
   let app = null;
@@ -199,7 +199,6 @@ export const CREDENTIAL_UI_HTML = `<!doctype html>
   .done .t { font: 650 16px var(--sans); }
   .done .s { color: var(--muted); font-size: 12.5px; margin: 6px 0 20px; }
   .hidden { display: none; }
-  #debug { margin-top: 14px; padding: 8px 10px; background: var(--input); border: 1px dashed var(--line-soft); color: var(--dim); font: 10.5px/1.45 var(--mono); white-space: pre-wrap; word-break: break-all; max-height: 130px; overflow: auto; }
 </style>
 </head>
 <body>
@@ -222,7 +221,6 @@ export const CREDENTIAL_UI_HTML = `<!doctype html>
       <div class="s">The agent can use it now — but never sees the value.</div>
       <button type="button" class="btn primary hidden" id="openVault">Open in Anima Vault →</button>
     </div>
-    <div id="debug">debug ready…</div>
   </div>
 <script>${SDK_JS}</script>
 <script>${WIDGET_JS}</script>
