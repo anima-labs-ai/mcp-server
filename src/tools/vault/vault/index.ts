@@ -235,6 +235,13 @@ const vaultCredentialRequestIdInput = z.object({
 	requestId: z.string().describe("Credential-request ID."),
 });
 
+const vaultCredentialRequestFillInput = z.object({
+	fillToken: z.string().describe("Single-use fill token from the ui-tier render-data."),
+	values: z
+		.record(z.string(), z.string())
+		.describe("The secret field values the human entered in the widget."),
+});
+
 // ── Form-first elicitation for vault_credential_request_create ──
 //
 // When the connecting MCP client DECLARED the `elicitation` capability at
@@ -672,6 +679,38 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 			return toolSuccess(result);
 		}, options.context),
 	);
+
+	// App-only: the branded ui-tier widget submits the human's secret through this
+	// tool (host-bridged callTool) instead of a cross-origin fetch, which some
+	// hosts' widget CSP blocks. `visibility: ["app"]` keeps it — and the secret in
+	// its args — off the model. The value only ever travels to /vault/fill/{token}.
+	server.registerTool(
+		"vault_credential_request_fill",
+		{
+			title: "Submit Credential (widget)",
+			description:
+				"Internal: submit a credential-request secret from the Anima UI widget. Not for direct agent use.",
+			inputSchema: vaultCredentialRequestFillInput.shape,
+			outputSchema: objectOutput(),
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: false,
+				openWorldHint: true,
+			},
+			_meta: { ui: { visibility: ["app"] } },
+		},
+		withErrorHandling(async (args, context) => {
+			await context.client.post<{ ok?: boolean }>(
+				`/vault/fill/${encodeURIComponent(args.fillToken)}`,
+				args.values,
+			);
+			return toolSuccess({
+				status: "FULFILLED",
+				message: "Secret captured; the agent can now use it.",
+			});
+		}, options.context),
+	);
 }
 
 /**
@@ -860,7 +899,10 @@ async function deliverViaUiApp(
 		status: "AWAITING_INPUT",
 		requestId: d.requestId,
 		fillUrl: d.fillUrl,
-		// The widget POSTs the secret straight here (token-gated, public).
+		// The widget submits the secret via `callTool(vault_credential_request_fill)`
+		// (host-bridged, so no cross-origin fetch/CSP). fillEndpoint is a direct-POST
+		// fallback for hosts that allow it.
+		fillToken: d.fillToken,
 		fillEndpoint: `${apiBase}/vault/fill/${encodeURIComponent(d.fillToken)}`,
 		requestedSchema: buildCredentialElicitSchema(d.args.type),
 		message: `Enter ${d.args.name} — ${d.args.reason}`,

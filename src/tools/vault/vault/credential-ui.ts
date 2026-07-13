@@ -26,7 +26,8 @@ const WIDGET_JS = `
 (async () => {
   const dbg = (m) => { const d = document.getElementById("debug"); if (d) { d.textContent += "\\n" + m; d.scrollTop = d.scrollHeight; } };
   const SECRET = /pass|secret|totp|token|key|code|cvv|pin|ssn|private|credential/i;
-  const state = { fillEndpoint: null };
+  const state = { fillEndpoint: null, fillToken: null };
+  let app = null;
 
   function draw(message, schema) {
     const dash = (message || "").indexOf(" \\u2014 ");
@@ -59,18 +60,31 @@ const WIDGET_JS = `
     if (!data) { dbg("no data in result: " + JSON.stringify(payload).slice(0, 160)); return; }
     dbg("data ok: " + JSON.stringify(data).slice(0, 160));
     state.fillEndpoint = data.fillEndpoint || null;
+    state.fillToken = data.fillToken || null;
     draw(data.message, data.requestedSchema);
   }
+
+  function done() { document.getElementById("form").classList.add("hidden"); document.getElementById("actions").classList.add("hidden"); document.getElementById("done").classList.remove("hidden"); }
 
   document.getElementById("submit").addEventListener("click", async () => {
     const content = {};
     document.querySelectorAll("#form input").forEach((i) => { if (i.value) content[i.name] = i.value; });
-    if (!state.fillEndpoint) { dbg("ERROR: no fillEndpoint"); return; }
+    if (!app) { dbg("ERROR: not connected"); return; }
+    // Submit through the host bridge (callTool) — NOT a cross-origin fetch, which
+    // the widget CSP blocks. The secret reaches the vault via the app-only fill
+    // tool; it never enters the model's context.
     try {
-      const res = await fetch(state.fillEndpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(content) });
-      dbg("fill status: " + res.status);
-      if (res.ok) { document.getElementById("form").classList.add("hidden"); document.getElementById("actions").classList.add("hidden"); document.getElementById("done").classList.remove("hidden"); }
-    } catch (e) { dbg("fill error: " + (e && e.message)); }
+      await app.callServerTool({ name: "vault_credential_request_fill", arguments: { fillToken: state.fillToken || "", values: content } });
+      dbg("saved via callServerTool");
+      done();
+    } catch (e) {
+      dbg("callServerTool error: " + (e && e.message));
+      // Fallback: direct POST (works where the host permits it, e.g. prod https).
+      if (state.fillEndpoint) {
+        try { const r = await fetch(state.fillEndpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(content) }); dbg("fetch fallback: " + r.status); if (r.ok) done(); }
+        catch (e2) { dbg("fetch fallback error: " + (e2 && e2.message)); }
+      }
+    }
   });
   document.getElementById("decline").addEventListener("click", () => { document.getElementById("actions").classList.add("hidden"); });
 
@@ -78,11 +92,17 @@ const WIDGET_JS = `
     const api = window.__ANIMA_EXTAPPS;
     if (!api || !api.App) { dbg("FATAL: SDK global missing"); return; }
     dbg("SDK inlined ok");
-    const app = new api.App({ name: "anima-credential-form", version: "1.0.0" }, {}, { autoResize: true });
+    app = new api.App({ name: "anima-credential-form", version: "1.0.0" }, {}, { autoResize: true });
     app.ontoolinput = () => {};
     app.ontoolresult = (p) => ingest(p);
     await app.connect();
     dbg("connected to host");
+    // Ask the host to show the widget prominently (best-effort — hosts may ignore).
+    try {
+      const ctx = app.getHostContext && app.getHostContext();
+      const modes = (ctx && ctx.availableDisplayModes) || [];
+      if (modes.includes("fullscreen")) await app.requestDisplayMode({ mode: "fullscreen" });
+    } catch (e) { dbg("displayMode: " + (e && e.message)); }
     const report = () => { try { app.sendSizeChanged({ width: document.documentElement.scrollWidth || 460, height: document.documentElement.scrollHeight || 400 }); } catch (e) { dbg("size err: " + (e && e.message)); } };
     report();
     try { new ResizeObserver(report).observe(document.documentElement); } catch {}
