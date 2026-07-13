@@ -195,7 +195,7 @@ export const CREDENTIAL_UI_HTML = `<!doctype html>
   .safe { margin-top: 14px; font: 10.5px var(--mono); letter-spacing: .3px; color: var(--dim); text-align: center; }
   /* saved state */
   .done { text-align: center; padding: 30px 22px; }
-  .done .check { width: 46px; height: 46px; margin: 0 auto 14px; display: grid; place-items: center; color: var(--accent); border: 1px solid rgba(34,197,94,0.3); background: var(--accent-mut); font-size: 22px; }
+  .done .check { width: 46px; height: 46px; margin: 24px auto 16px; display: grid; place-items: center; color: var(--accent); border: 1px solid rgba(34,197,94,0.3); background: var(--accent-mut); font-size: 22px; }
   .done .t { font: 650 16px var(--sans); }
   .done .s { color: var(--muted); font-size: 12.5px; margin: 6px 0 20px; }
   .hidden { display: none; }
