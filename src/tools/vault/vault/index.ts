@@ -368,9 +368,20 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
 	// Branded MCP-App form for the `ui` tier of vault_credential_request_create
-	// (linked from that tool via `_meta.ui.resourceUri`). The app returns the
-	// secret via the host's elicitation bridge and makes no network calls, so
-	// its CSP needs no allowed domains.
+	// (linked from that tool via `_meta.ui.resourceUri`). CSP: the widget loads
+	// the ext-apps SDK from esm.sh (resourceDomains) and POSTs the secret to our
+	// token-gated fill endpoint (connectDomains) — nothing else.
+	const apiOrigin = (() => {
+		try {
+			return new URL(
+				process.env.ANIMA_PUBLIC_API_URL ??
+					process.env.ANIMA_API_URL ??
+					"https://api.useanima.sh",
+			).origin;
+		} catch {
+			return "https://api.useanima.sh";
+		}
+	})();
 	server.registerResource(
 		"credential-request-ui",
 		CREDENTIAL_UI_RESOURCE,
@@ -385,7 +396,14 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 					uri: CREDENTIAL_UI_RESOURCE,
 					mimeType: "text/html;profile=mcp-app",
 					text: CREDENTIAL_UI_HTML,
-					_meta: { ui: { csp: { connectDomains: [], resourceDomains: [] } } },
+					_meta: {
+						ui: {
+							csp: {
+								connectDomains: [apiOrigin],
+								resourceDomains: ["https://esm.sh"],
+							},
+						},
+					},
 				},
 			],
 		}),
@@ -833,12 +851,19 @@ async function deliverViaUrlDialog(
 async function deliverViaUiApp(
 	d: CredentialDelivery,
 ): Promise<ReturnType<typeof toolSuccess>> {
+	const apiBase = (
+		process.env.ANIMA_PUBLIC_API_URL ??
+		process.env.ANIMA_API_URL ??
+		"https://api.useanima.sh"
+	).replace(/\/+$/, "");
 	return toolSuccess({
 		status: "AWAITING_INPUT",
 		requestId: d.requestId,
 		fillUrl: d.fillUrl,
+		// The widget POSTs the secret straight here (token-gated, public).
+		fillEndpoint: `${apiBase}/vault/fill/${encodeURIComponent(d.fillToken)}`,
 		requestedSchema: buildCredentialElicitSchema(d.args.type),
-		message: `Enter ${d.args.name} in the form.`,
+		message: `Enter ${d.args.name} — ${d.args.reason}`,
 	});
 }
 

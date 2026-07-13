@@ -1,24 +1,95 @@
 // Branded MCP-App UI for the `ui` tier of vault_credential_request_create.
 //
-// Served as the `ui://anima/credential-request` resource
-// (`text/html;profile=mcp-app`) and linked from the tool via
-// `_meta.ui.resourceUri`. An MCP-App host (Claude Desktop) renders it inline in
-// a sandboxed iframe and drives it over postMessage:
+// Served as `ui://anima/credential-request` (`text/html;profile=mcp-app`) and
+// linked from the tool via `_meta.ui.resourceUri`. An MCP-Apps host (Claude
+// Desktop) renders it inline and drives it with the official SEP-1865 protocol
+// via the `@modelcontextprotocol/ext-apps` `App` client (inlined below — no
+// CDN, self-contained). The tool RESULT (our render-data: fill endpoint + field
+// schema) arrives on `ontoolresult`; the human fills the branded form; the app
+// POSTs the secret straight to the token-gated fill endpoint — the value never
+// returns through the agent/host.
 //
-//   host → app:  { type: "elicitation",        seq, params }   (params = the
-//                 elicitation/create payload: message + requestedSchema)
-//   app  → host: { type: "elicitationResult",  seq, result }   (result =
-//                 { action: "accept", content } | { action: "decline" })
-//
-// The human types the secret HERE; the app returns it to the host, which hands
-// it back to the server as the elicitation result — the server POSTs it to the
-// token-gated fill endpoint. The value never reaches the agent/LLM, and the app
-// makes NO network calls of its own (no CSP connect-src needed).
+// The App reports its content height to the host (`autoResize` + an explicit
+// ResizeObserver → `sendSizeChanged`); without that the host renders the iframe
+// at 0px (blank).
+import { readFileSync } from "node:fs";
 
 export const CREDENTIAL_UI_RESOURCE = "ui://anima/credential-request";
 
-/** Static, self-contained page. Per-request fields arrive via the host's
- *  `elicitation` message (requestedSchema), so the HTML itself is generic. */
+/** The ext-apps App SDK, transformed to expose `globalThis.__ANIMA_EXTAPPS`. */
+const SDK_JS = readFileSync(
+	new URL("./credential-ui-sdk.js", import.meta.url),
+	"utf8",
+);
+
+const WIDGET_JS = `
+(async () => {
+  const dbg = (m) => { const d = document.getElementById("debug"); if (d) { d.textContent += "\\n" + m; d.scrollTop = d.scrollHeight; } };
+  const SECRET = /pass|secret|totp|token|key|code|cvv|pin|ssn|private|credential/i;
+  const state = { fillEndpoint: null };
+
+  function draw(message, schema) {
+    const dash = (message || "").indexOf(" \\u2014 ");
+    document.getElementById("title").textContent = dash > 0 ? message.slice(0, dash) : (message || "Provide a credential");
+    document.getElementById("reason").textContent = dash > 0 ? message.slice(dash + 3) : "";
+    const form = document.getElementById("form");
+    form.textContent = "";
+    const props = (schema && schema.properties) || {};
+    const required = (schema && schema.required) || [];
+    for (const key of Object.keys(props)) {
+      const spec = props[key] || {};
+      const secret = SECRET.test(key);
+      const lab = document.createElement("label");
+      lab.textContent = (spec.title || key) + (required.indexOf(key) < 0 ? " (optional)" : "");
+      const inp = document.createElement("input");
+      inp.type = secret ? "password" : "text"; inp.id = "f_" + key; inp.name = key;
+      form.appendChild(lab); form.appendChild(inp);
+      if (spec.description) { const p = document.createElement("p"); p.className = "desc"; p.textContent = spec.description; form.appendChild(p); }
+    }
+    document.getElementById("actions").classList.remove("hidden");
+  }
+
+  function ingest(payload) {
+    const sc = payload && (payload.structuredContent || (payload.result && payload.result.structuredContent));
+    let data = sc;
+    if (!data && payload && Array.isArray(payload.content)) {
+      const t = payload.content.find((c) => c.type === "text");
+      if (t) { try { data = JSON.parse(t.text); } catch {} }
+    }
+    if (!data) { dbg("no data in result: " + JSON.stringify(payload).slice(0, 160)); return; }
+    dbg("data ok: " + JSON.stringify(data).slice(0, 160));
+    state.fillEndpoint = data.fillEndpoint || null;
+    draw(data.message, data.requestedSchema);
+  }
+
+  document.getElementById("submit").addEventListener("click", async () => {
+    const content = {};
+    document.querySelectorAll("#form input").forEach((i) => { if (i.value) content[i.name] = i.value; });
+    if (!state.fillEndpoint) { dbg("ERROR: no fillEndpoint"); return; }
+    try {
+      const res = await fetch(state.fillEndpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(content) });
+      dbg("fill status: " + res.status);
+      if (res.ok) { document.getElementById("form").classList.add("hidden"); document.getElementById("actions").classList.add("hidden"); document.getElementById("done").classList.remove("hidden"); }
+    } catch (e) { dbg("fill error: " + (e && e.message)); }
+  });
+  document.getElementById("decline").addEventListener("click", () => { document.getElementById("actions").classList.add("hidden"); });
+
+  try {
+    const api = window.__ANIMA_EXTAPPS;
+    if (!api || !api.App) { dbg("FATAL: SDK global missing"); return; }
+    dbg("SDK inlined ok");
+    const app = new api.App({ name: "anima-credential-form", version: "1.0.0" }, {}, { autoResize: true });
+    app.ontoolinput = () => {};
+    app.ontoolresult = (p) => ingest(p);
+    await app.connect();
+    dbg("connected to host");
+    const report = () => { try { app.sendSizeChanged({ width: document.documentElement.scrollWidth || 460, height: document.documentElement.scrollHeight || 400 }); } catch (e) { dbg("size err: " + (e && e.message)); } };
+    report();
+    try { new ResizeObserver(report).observe(document.documentElement); } catch {}
+  } catch (e) { dbg("connect error: " + (e && e.message)); }
+})();
+`;
+
 export const CREDENTIAL_UI_HTML = `<!doctype html>
 <html lang="en">
 <head>
@@ -27,112 +98,42 @@ export const CREDENTIAL_UI_HTML = `<!doctype html>
 <style>
   :root { color-scheme: dark; }
   * { box-sizing: border-box; }
-  body {
-    margin: 0; padding: 20px;
-    font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-    background: #0b0f0d; color: #e8ece9;
-  }
-  .card {
-    max-width: 460px; margin: 0 auto;
-    background: #11161300; border: 1px solid #1f2a24; border-radius: 14px; padding: 22px 22px 18px;
-  }
-  .brand { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  body { margin: 0; padding: 18px; font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; background: #0b0f0d; color: #e8ece9; }
+  .card { max-width: 460px; margin: 0 auto; border: 1px solid #1f2a24; border-radius: 14px; padding: 20px; }
+  .brand { display: flex; align-items: center; gap: 8px; }
   .dot { width: 9px; height: 9px; border-radius: 50%; background: #00e08a; box-shadow: 0 0 10px #00e08a88; }
   .brand span { font-weight: 600; letter-spacing: .2px; color: #00e08a; font-size: 13px; }
-  h1 { font-size: 17px; margin: 6px 0 2px; font-weight: 650; }
-  .reason { color: #9aa8a0; font-size: 13px; margin: 0 0 16px; }
+  h1 { font-size: 17px; margin: 8px 0 2px; font-weight: 650; }
+  .reason { color: #9aa8a0; font-size: 13px; margin: 0 0 14px; }
   label { display: block; font-size: 12px; color: #b8c4bd; margin: 14px 0 5px; font-weight: 550; }
   .desc { color: #7f8d85; font-size: 11.5px; margin: 3px 0 0; }
-  input {
-    width: 100%; padding: 10px 12px; border-radius: 9px;
-    border: 1px solid #26332c; background: #0e1411; color: #eef2ef; font-size: 14px; outline: none;
-  }
+  input { width: 100%; padding: 10px 12px; border-radius: 9px; border: 1px solid #26332c; background: #0e1411; color: #eef2ef; font-size: 14px; outline: none; }
   input:focus { border-color: #00e08a; box-shadow: 0 0 0 3px #00e08a22; }
   .row { display: flex; gap: 10px; margin-top: 20px; }
-  button {
-    flex: 1; padding: 11px; border-radius: 9px; border: 0; font-size: 14px; font-weight: 600; cursor: pointer;
-  }
+  button { flex: 1; padding: 11px; border-radius: 9px; border: 0; font-size: 14px; font-weight: 600; cursor: pointer; }
   .submit { background: #00e08a; color: #04140d; }
-  .submit:hover { background: #1ceb9b; }
   .decline { background: transparent; color: #9aa8a0; border: 1px solid #26332c; }
-  .decline:hover { border-color: #3a4a41; color: #cdd6d1; }
   .safe { margin-top: 14px; font-size: 11px; color: #6f7d75; text-align: center; }
-  .ok { text-align: center; padding: 26px 8px; }
-  .ok .check { width: 42px; height: 42px; border-radius: 50%; background: #00e08a1a; color: #00e08a; display: grid; place-items: center; font-size: 22px; margin: 0 auto 12px; }
+  .ok { text-align: center; padding: 24px 8px; color: #00e08a; }
   .hidden { display: none; }
+  #debug { margin-top: 16px; padding: 8px 10px; border-radius: 8px; background: #0e1411; border: 1px dashed #26332c; color: #7f8d85; font: 11px/1.45 ui-monospace, Menlo, monospace; white-space: pre-wrap; word-break: break-all; max-height: 150px; overflow: auto; }
 </style>
 </head>
 <body>
   <div class="card">
     <div class="brand"><div class="dot"></div><span>ANIMA VAULT</span></div>
     <h1 id="title">Provide a credential</h1>
-    <p class="reason" id="reason"></p>
+    <p class="reason" id="reason">Connecting…</p>
     <form id="form"></form>
-    <div class="row" id="actions">
-      <button type="button" class="decline" id="decline">Decline</button>
+    <div class="row hidden" id="actions">
+      <button type="button" class="decline" id="decline">Cancel</button>
       <button type="button" class="submit" id="submit">Save to vault</button>
     </div>
+    <div class="ok hidden" id="done">✓ Saved to your vault. The agent never sees it.</div>
     <p class="safe">🔒 Entered directly into your vault — the agent never sees it.</p>
+    <div id="debug">debug ready…</div>
   </div>
-  <div class="card hidden" id="done">
-    <div class="ok"><div class="check">✓</div><div>Saved to your vault. The agent can now use it.</div></div>
-  </div>
-<script>
-(function () {
-  var SECRET = /pass|secret|totp|token|key|code|cvv|pin|ssn|private|credential/i;
-  var seq = null;
-  var el = function (id) { return document.getElementById(id); };
-
-  function render(params) {
-    var msg = (params && params.message) || "Provide a credential";
-    // message is "Enter <name> — <reason>"; split for title/subtitle.
-    var dash = msg.indexOf(" — ");
-    el("title").textContent = dash > 0 ? msg.slice(0, dash) : msg;
-    el("reason").textContent = dash > 0 ? msg.slice(dash + 3) : "";
-    var schema = (params && params.requestedSchema) || { properties: {} };
-    var required = schema.required || [];
-    var form = el("form");
-    form.innerHTML = "";
-    Object.keys(schema.properties || {}).forEach(function (key) {
-      var spec = schema.properties[key] || {};
-      var secret = SECRET.test(key);
-      var lab = document.createElement("label");
-      lab.textContent = (spec.title || key) + (required.indexOf(key) < 0 ? " (optional)" : "");
-      var inp = document.createElement("input");
-      inp.type = secret ? "password" : "text";
-      inp.id = "f_" + key; inp.name = key;
-      inp.autocomplete = secret ? "new-password" : "off";
-      form.appendChild(lab); form.appendChild(inp);
-      if (spec.description) { var d = document.createElement("p"); d.className = "desc"; d.textContent = spec.description; form.appendChild(d); }
-    });
-  }
-
-  function reply(result) {
-    if (seq == null) return;
-    parent.postMessage({ type: "elicitationResult", seq: seq, result: result }, "*");
-    if (result.action === "accept") { el("done").classList.remove("hidden"); el("done").previousElementSibling; document.querySelector(".card").classList.add("hidden"); }
-  }
-
-  el("submit").addEventListener("click", function () {
-    var content = {};
-    document.querySelectorAll("#form input").forEach(function (i) { if (i.value) content[i.name] = i.value; });
-    reply({ action: "accept", content: content });
-  });
-  el("decline").addEventListener("click", function () { reply({ action: "decline" }); });
-
-  window.addEventListener("message", function (e) {
-    var d = e.data || {};
-    if (d.type === "elicitation") { seq = d.seq; render(d.params); }
-    // mcp-ui.com hosts deliver render-data differently; support it defensively.
-    if (d.type === "ui-lifecycle-iframe-render-data" && d.payload && d.payload.renderData) {
-      render(d.payload.renderData);
-    }
-  });
-
-  // Announce readiness to whichever host is embedding us.
-  parent.postMessage({ type: "getEnvironment" }, "*");
-  parent.postMessage({ type: "ui-lifecycle-iframe-ready" }, "*");
-})();
-</script>
+<script>${SDK_JS}</script>
+<script>${WIDGET_JS}</script>
 </body>
 </html>`;
