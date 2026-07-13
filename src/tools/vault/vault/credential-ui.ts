@@ -26,8 +26,24 @@ const WIDGET_JS = `
 (async () => {
   const dbg = (m) => { const d = document.getElementById("debug"); if (d) { d.textContent += "\\n" + m; d.scrollTop = d.scrollHeight; } };
   const SECRET = /pass|secret|totp|token|key|code|cvv|pin|ssn|private|credential/i;
-  const state = { fillToken: null, fillEndpoint: null, vaultUrl: null };
+  const state = { requestId: null, fillToken: null, fillEndpoint: null, vaultUrl: null };
   let app = null;
+
+  function statusOf(result) {
+    let s = result && (result.structuredContent || (result.result && result.result.structuredContent));
+    if (!s && result && Array.isArray(result.content)) { const t = result.content.find((c) => c.type === "text"); if (t) { try { s = JSON.parse(t.text); } catch {} } }
+    return s && s.status;
+  }
+
+  // Revisiting a past chat re-renders the widget with the ORIGINAL AWAITING_INPUT
+  // data, so ask the server for the request's live status before drawing.
+  async function alreadyFulfilled(requestId) {
+    if (!app || !requestId) return false;
+    try {
+      const r = await app.callServerTool({ name: "vault_credential_request_status", arguments: { requestId } });
+      return statusOf(r) === "FULFILLED";
+    } catch (e) { dbg("status check: " + (e && e.message)); return false; }
+  }
 
   function draw(message, schema) {
     const dash = (message || "").indexOf(" \\u2014 ");
@@ -54,7 +70,7 @@ const WIDGET_JS = `
     document.getElementById("actions").classList.remove("hidden");
   }
 
-  function ingest(payload) {
+  async function ingest(payload) {
     const sc = payload && (payload.structuredContent || (payload.result && payload.result.structuredContent));
     let data = sc;
     if (!data && payload && Array.isArray(payload.content)) {
@@ -63,9 +79,11 @@ const WIDGET_JS = `
     }
     if (!data) { dbg("no data in result: " + JSON.stringify(payload).slice(0, 160)); return; }
     dbg("data ok: " + JSON.stringify(data).slice(0, 140));
+    state.requestId = data.requestId || null;
     state.fillToken = data.fillToken || null;
     state.fillEndpoint = data.fillEndpoint || null;
     state.vaultUrl = data.vaultUrl || null;
+    if (await alreadyFulfilled(state.requestId)) { dbg("already fulfilled \\u2192 saved"); saved(); return; }
     draw(data.message, data.requestedSchema);
   }
 
@@ -199,7 +217,7 @@ export const CREDENTIAL_UI_HTML = `<!doctype html>
     </div>
     <div class="card done hidden" id="done">
       <div class="brand" style="justify-content:center"><span class="dot"></span>Anima Vault</div>
-      <div class="check">✓</div>
+      <div class="check"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 13l4 4L19 7"/></svg></div>
       <div class="t">Saved to your vault</div>
       <div class="s">The agent can use it now — but never sees the value.</div>
       <button type="button" class="btn primary hidden" id="openVault">Open in Anima Vault →</button>

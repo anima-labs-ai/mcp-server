@@ -304,7 +304,7 @@ function buildCredentialElicitSchema(
 					password: { type: "string", title: "Password", description: "Login password (sensitive — entered directly into the vault, never shown to the agent)." },
 					totp: { type: "string", title: "TOTP secret", description: "Optional TOTP/2FA secret key (sensitive). Leave blank if not applicable." },
 				},
-				required: ["password"],
+				required: ["username", "password"],
 			};
 		case "secure_note":
 			return {
