@@ -9,7 +9,8 @@ import {
 } from "../../../shared/index.js";
 
 // 2026-05-20: vault group reduced to 7 credential-CRUD-plus-power tools.
-// 2026-07-14: added vault_credential_use (server-side broker) → 8 tools.
+// 2026-07-14: added vault_credential_use (server-side broker) and
+// vault_exchange_token_for_injection (API-gated to injector keys) → 9 tools.
 // Dropped from prior surface (28 → 7): vault_provision, vault_deprovision
 // (org-level lifecycle), vault_generate_password (utility), vault_sync,
 // vault_status (admin-y), vault_share_credential, vault_list_shares,
@@ -259,6 +260,10 @@ const vaultUpdateInput = z.object({
 	favorite: z.boolean().optional().describe("Optional updated favorite flag."),
 });
 
+const vaultExchangeInput = z.object({
+	token: z.string().describe("The vtk_ vault token to exchange."),
+});
+
 const vaultUseInput = z.object({
 	agentId: z
 		.string()
@@ -458,6 +463,34 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 			const result = await context.client.delete<unknown>(path, {
 				agentId: args.agentId,
 			});
+			return toolSuccess(result);
+		}, options.context),
+	);
+
+	server.registerTool(
+		"vault_exchange_token_for_injection",
+		{
+			title: "Exchange Vault Token (injection)",
+			description:
+				"Exchange a vtk_ vault token for the PLAINTEXT credential, to inject into a trusted client process (a CLI, the browser extension) — NOT to read it yourself. The API gates this to injector credentials: it only succeeds for a master key or a key carrying the `vault:inject` scope; a plain agent key gets 403. If you are an agent that needs to USE a secret, do NOT use this — use vault_credential_use (the server-side broker), which never reveals the secret.",
+			inputSchema: vaultExchangeInput.shape,
+			outputSchema: objectOutput(),
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: false,
+				openWorldHint: true,
+			},
+		},
+		withErrorHandling(async (args, context) => {
+			// Returns plaintext by design (injection). Safety is the API gate, not
+			// masking here — a plain agent key can never reach a success response.
+			const result = await context.client.post<unknown>(
+				"/v1/vault/token/exchange",
+				{
+					token: args.token,
+				},
+			);
 			return toolSuccess(result);
 		}, options.context),
 	);

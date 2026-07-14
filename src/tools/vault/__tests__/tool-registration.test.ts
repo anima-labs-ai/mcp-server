@@ -31,7 +31,7 @@ describe("mcp-vault tool registration", () => {
 		expect(true).toBe(true);
 	});
 
-	test("the vault tool surface exposes NO plaintext-reveal path (never-see guarantee)", () => {
+	test("the vault tool surface has no UNGATED plaintext path (never-see guarantee)", () => {
 		const names: string[] = [];
 		const server = new McpServer({ name: "test", version: "0.0.1" });
 		// biome-ignore lint/suspicious/noExplicitAny: test shim over the SDK signature
@@ -45,8 +45,8 @@ describe("mcp-vault tool registration", () => {
 		});
 		registerVaultTools({ server, context: { client, hasMasterKey: false } });
 
-		// The exact, closed set. Adding ANY tool that returns plaintext — a reveal
-		// flag, a token mint/exchange, an export — must fail this test on purpose.
+		// The exact, closed set. Adding ANY new tool must be a deliberate change to
+		// this list — especially one that could return plaintext.
 		expect([...names].sort()).toEqual(
 			[
 				"vault_provision",
@@ -58,10 +58,17 @@ describe("mcp-vault tool registration", () => {
 				"vault_credential_search",
 				"vault_credential_update",
 				"vault_credential_use",
+				"vault_exchange_token_for_injection",
 			].sort(),
 		);
-		// Defense in depth: no reveal/exchange/token/export tool by name.
+		// The ONLY tool that returns plaintext is the injection exchange, and it is
+		// gated at the API to injector credentials (master / vault:inject) — a plain
+		// agent key gets 403, so an ordinary agent can never read a secret (see the
+		// anima vault-use-broker integration gate tests). Every OTHER tool must not
+		// be a reveal/unmask/export/token path by name.
+		const GATED_PLAINTEXT = "vault_exchange_token_for_injection";
 		for (const n of names) {
+			if (n === GATED_PLAINTEXT) continue;
 			expect(n).not.toMatch(/reveal|unmask|exchange|token|export/i);
 		}
 	});
