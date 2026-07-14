@@ -9,6 +9,7 @@ import {
 } from "../../../shared/index.js";
 
 // 2026-05-20: vault group reduced to 7 credential-CRUD-plus-power tools.
+// 2026-07-14: added vault_credential_use (server-side broker) → 8 tools.
 // Dropped from prior surface (28 → 7): vault_provision, vault_deprovision
 // (org-level lifecycle), vault_generate_password (utility), vault_sync,
 // vault_status (admin-y), vault_share_credential, vault_list_shares,
@@ -112,7 +113,10 @@ const vaultUriSchema = z.object({
 const vaultLoginSchema = z.object({
 	username: z.string().optional().describe("Optional login username."),
 	password: z.string().optional().describe("Optional login password."),
-	uris: z.array(vaultUriSchema).optional().describe("Optional list of login URIs."),
+	uris: z
+		.array(vaultUriSchema)
+		.optional()
+		.describe("Optional list of login URIs."),
 	totp: z.string().optional().describe("Optional TOTP secret."),
 });
 
@@ -124,10 +128,22 @@ const vaultGeneratePasswordSchema = z.object({
 		.max(128)
 		.optional()
 		.describe("Desired password length (8-128 characters, default 24)."),
-	uppercase: z.boolean().optional().describe("Include uppercase letters (default true)."),
-	lowercase: z.boolean().optional().describe("Include lowercase letters (default true)."),
-	number: z.boolean().optional().describe("Include numeric digits (default true)."),
-	special: z.boolean().optional().describe("Include special characters (default true)."),
+	uppercase: z
+		.boolean()
+		.optional()
+		.describe("Include uppercase letters (default true)."),
+	lowercase: z
+		.boolean()
+		.optional()
+		.describe("Include lowercase letters (default true)."),
+	number: z
+		.boolean()
+		.optional()
+		.describe("Include numeric digits (default true)."),
+	special: z
+		.boolean()
+		.optional()
+		.describe("Include special characters (default true)."),
 });
 
 const vaultCardSchema = z.object({
@@ -208,9 +224,14 @@ const vaultCreateInput = z.object({
 				"exclusive with login.password. Pass {} for defaults.",
 		),
 	card: vaultCardSchema.optional().describe("Card payload for card-type."),
-	identity: vaultIdentitySchema.optional().describe("Identity payload for identity-type."),
+	identity: vaultIdentitySchema
+		.optional()
+		.describe("Identity payload for identity-type."),
 	notes: z.string().optional().describe("Optional secure note text."),
-	fields: z.array(vaultFieldSchema).optional().describe("Optional custom fields."),
+	fields: z
+		.array(vaultFieldSchema)
+		.optional()
+		.describe("Optional custom fields."),
 	favorite: z.boolean().optional().describe("Optional favorite flag."),
 });
 
@@ -223,12 +244,47 @@ const vaultUpdateInput = z.object({
 		),
 	id: z.string().describe("Credential ID to update."),
 	name: z.string().optional().describe("Optional updated name."),
-	login: vaultLoginSchema.optional().describe("Optional updated login payload."),
+	login: vaultLoginSchema
+		.optional()
+		.describe("Optional updated login payload."),
 	card: vaultCardSchema.optional().describe("Optional updated card payload."),
-	identity: vaultIdentitySchema.optional().describe("Optional updated identity payload."),
+	identity: vaultIdentitySchema
+		.optional()
+		.describe("Optional updated identity payload."),
 	notes: z.string().optional().describe("Optional updated note text."),
-	fields: z.array(vaultFieldSchema).optional().describe("Optional updated custom fields."),
+	fields: z
+		.array(vaultFieldSchema)
+		.optional()
+		.describe("Optional updated custom fields."),
 	favorite: z.boolean().optional().describe("Optional updated favorite flag."),
+});
+
+const vaultUseInput = z.object({
+	agentId: z
+		.string()
+		.optional()
+		.describe(
+			"Agent ID that owns the credential. Optional when using an agent-bound credential.",
+		),
+	id: z.string().describe("Credential ID to broker the call with."),
+	method: z
+		.enum(["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"])
+		.describe("HTTP method for the outbound call."),
+	url: z
+		.string()
+		.describe(
+			"Absolute https:// URL to call. Its host MUST be on the credential's allowlist (allowedHosts / login URIs).",
+		),
+	headers: z
+		.record(z.string())
+		.optional()
+		.describe(
+			"Extra request headers. Any Authorization / auth header you set is IGNORED and replaced by the real credential.",
+		),
+	body: z
+		.string()
+		.optional()
+		.describe("Raw request body (encode JSON yourself)."),
 });
 
 const vaultSearchInput = z.object({
@@ -372,7 +428,10 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 		withErrorHandling(async (args, context) => {
 			const { id, ...payload } = args;
 			const path = `/v1/vault/credentials/${encodeURIComponent(id)}`;
-			const result = await context.client.put<Record<string, unknown>>(path, payload);
+			const result = await context.client.put<Record<string, unknown>>(
+				path,
+				payload,
+			);
 			// Same defense-in-depth masking as create/get — never echo secrets.
 			return toolSuccess(maskCredentialFields(result));
 		}, options.context),
@@ -399,6 +458,29 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 			const result = await context.client.delete<unknown>(path, {
 				agentId: args.agentId,
 			});
+			return toolSuccess(result);
+		}, options.context),
+	);
+
+	server.registerTool(
+		"vault_credential_use",
+		{
+			title: "Use Vault Credential",
+			description:
+				"Make an outbound HTTPS call with a stored credential attached SERVER-SIDE, and get the upstream response. Use this to act with a secret (call an API, hit an authed endpoint) WITHOUT ever seeing the plaintext — the platform injects the credential on the wire. The target host must be on the credential's allowlist. Works even for `brokered` credentials that can never be revealed. Prefer this over trying to read a secret: you can use it, you cannot see it.",
+			inputSchema: vaultUseInput.shape,
+			outputSchema: objectOutput(),
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: false,
+				openWorldHint: true,
+			},
+		},
+		withErrorHandling(async (args, context) => {
+			const { id, ...payload } = args;
+			const path = `/v1/vault/credentials/${encodeURIComponent(id)}/use`;
+			const result = await context.client.post<unknown>(path, payload);
 			return toolSuccess(result);
 		}, options.context),
 	);
