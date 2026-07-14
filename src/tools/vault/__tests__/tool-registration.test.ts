@@ -31,6 +31,41 @@ describe("mcp-vault tool registration", () => {
 		expect(true).toBe(true);
 	});
 
+	test("the vault tool surface exposes NO plaintext-reveal path (never-see guarantee)", () => {
+		const names: string[] = [];
+		const server = new McpServer({ name: "test", version: "0.0.1" });
+		// biome-ignore lint/suspicious/noExplicitAny: test shim over the SDK signature
+		server.registerTool = ((name: string) => {
+			names.push(name);
+			return undefined as unknown as ReturnType<typeof server.registerTool>;
+		}) as typeof server.registerTool;
+		const client = new ApiClient({
+			baseUrl: "http://localhost:3100",
+			apiKey: "test-key",
+		});
+		registerVaultTools({ server, context: { client, hasMasterKey: false } });
+
+		// The exact, closed set. Adding ANY tool that returns plaintext — a reveal
+		// flag, a token mint/exchange, an export — must fail this test on purpose.
+		expect([...names].sort()).toEqual(
+			[
+				"vault_provision",
+				"vault_credential_create",
+				"vault_credential_delete",
+				"vault_credential_get",
+				"vault_credential_get_totp",
+				"vault_credential_list",
+				"vault_credential_search",
+				"vault_credential_update",
+				"vault_credential_use",
+			].sort(),
+		);
+		// Defense in depth: no reveal/exchange/token/export tool by name.
+		for (const n of names) {
+			expect(n).not.toMatch(/reveal|unmask|exchange|token|export/i);
+		}
+	});
+
 	test("registers vault_credential_use", () => {
 		const names = new Set<string>();
 		const server = new McpServer({ name: "test", version: "0.0.1" });
