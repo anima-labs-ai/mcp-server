@@ -1,4 +1,4 @@
-import { describe, test, expect } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
 	ApiClient,
@@ -31,7 +31,11 @@ describe("mcp-vault tool registration", () => {
 		expect(true).toBe(true);
 	});
 
-	test("the vault tool surface has no UNGATED plaintext path (never-see guarantee)", () => {
+	test("the vault tool surface is a closed, reviewed set (adding a tool trips this lock)", () => {
+		// This lock is MEMBERSHIP + NAME-level: it fails if an unexpected tool
+		// registers or a reveal/unmask/export/token-named tool appears. The
+		// BEHAVIORAL never-see guarantee (responses are actually masked) is proven
+		// in credential-masking.test.ts and the anima vault-use-broker API gate.
 		const names: string[] = [];
 		const server = new McpServer({ name: "test", version: "0.0.1" });
 		// biome-ignore lint/suspicious/noExplicitAny: test shim over the SDK signature
@@ -91,24 +95,6 @@ describe("mcp-vault tool registration", () => {
 			if (n === GATED_PLAINTEXT) continue;
 			expect(n).not.toMatch(/reveal|unmask|exchange|token|export/i);
 		}
-	});
-
-	test("registers vault_credential_use", () => {
-		const names = new Set<string>();
-		const server = new McpServer({ name: "test", version: "0.0.1" });
-		const realRegister = server.registerTool.bind(server);
-		// biome-ignore lint/suspicious/noExplicitAny: test shim over the SDK signature
-		server.registerTool = ((name: string, ...rest: any[]) => {
-			names.add(name);
-			// biome-ignore lint/suspicious/noExplicitAny: passthrough
-			return (realRegister as any)(name, ...rest);
-		}) as typeof server.registerTool;
-		const client = new ApiClient({
-			baseUrl: "http://localhost:3100",
-			apiKey: "test-key",
-		});
-		registerVaultTools({ server, context: { client, hasMasterKey: false } });
-		expect(names.has("vault_credential_use")).toBe(true);
 	});
 
 	test("vault_credential_use POSTs to /use with the request minus id", async () => {
@@ -211,6 +197,42 @@ describe("mcp-vault tool registration", () => {
 		expect(body.revealPolicy).toBe("brokered");
 
 		// The plaintext key never reaches the model: masked on the way out.
+		const text = JSON.stringify(result);
+		expect(text).not.toContain("sk_live_SUPERSECRET1234");
+		expect(text).toContain("1234"); // masked form keeps the tail
+	});
+
+	test("vault_credential_list re-masks secret sections in returned items", async () => {
+		type ToolHandler = (args: Record<string, unknown>) => Promise<unknown>;
+		const handlers: Record<string, ToolHandler> = {};
+
+		const client = new ApiClient({
+			baseUrl: "http://localhost:3100",
+			apiKey: "test-key",
+		});
+		// biome-ignore lint/suspicious/noExplicitAny: stub the network layer
+		(client as any).get = async () => ({
+			items: [
+				{
+					id: "cred_1",
+					type: "api_key",
+					apiKey: { provider: "stripe", key: "sk_live_SUPERSECRET1234" },
+				},
+			],
+		});
+
+		const server = new McpServer({ name: "test", version: "0.0.1" });
+		// biome-ignore lint/suspicious/noExplicitAny: test shim over the SDK signature
+		server.registerTool = ((name: string, _cfg: unknown, h: ToolHandler) => {
+			handlers[name] = h;
+			return undefined as unknown as ReturnType<typeof server.registerTool>;
+		}) as typeof server.registerTool;
+
+		registerVaultTools({ server, context: { client, hasMasterKey: false } });
+
+		const result = await handlers.vault_credential_list({});
+		// Defense-in-depth: even if the API leaked plaintext in a bulk listing,
+		// the tool re-masks every item before it reaches the model.
 		const text = JSON.stringify(result);
 		expect(text).not.toContain("sk_live_SUPERSECRET1234");
 		expect(text).toContain("1234"); // masked form keeps the tail

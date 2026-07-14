@@ -100,6 +100,32 @@ export function maskCredentialFields(
 	return masked;
 }
 
+/**
+ * Mask every credential in a list/search response. The API already masks these
+ * server-side; this re-masks client-side as defense-in-depth — exactly like the
+ * get/create/update tools — so a future API-shape change can't leak the
+ * secret-bearing sections (apiKey.key, oauthToken.*, certificate.privateKey) in
+ * bulk. Shapes it doesn't recognize pass through untouched.
+ */
+export function maskCredentialListResult(result: unknown): unknown {
+	if (
+		result &&
+		typeof result === "object" &&
+		Array.isArray((result as { items?: unknown }).items)
+	) {
+		const r = result as { items: unknown[] };
+		return {
+			...r,
+			items: r.items.map((item) =>
+				item && typeof item === "object"
+					? maskCredentialFields(item as Record<string, unknown>)
+					: item,
+			),
+		};
+	}
+	return result;
+}
+
 const vaultCredentialTypeSchema = z.enum([
 	"login",
 	"secure_note",
@@ -411,6 +437,11 @@ const vaultUseInput = z.object({
 		.describe("HTTP method for the outbound call."),
 	url: z
 		.string()
+		.url()
+		.refine(
+			(u) => u.startsWith("https://"),
+			"URL must be an absolute https:// URL",
+		)
 		.describe(
 			"Absolute https:// URL to call. Its host MUST be on the credential's allowlist (allowedHosts / login URIs).",
 		),
@@ -493,7 +524,7 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 			const result = await context.client.get<unknown>(
 				`/v1/vault/credentials?${params.toString()}`,
 			);
-			return toolSuccess(result);
+			return toolSuccess(maskCredentialListResult(result));
 		}, options.context),
 	);
 
@@ -676,7 +707,7 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 			const result = await context.client.get<unknown>(
 				`/v1/vault/search?${params.toString()}`,
 			);
-			return toolSuccess(result);
+			return toolSuccess(maskCredentialListResult(result));
 		}, options.context),
 	);
 
