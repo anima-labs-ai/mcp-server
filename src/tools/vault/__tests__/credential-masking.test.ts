@@ -1,4 +1,4 @@
-import { describe, test, expect } from "bun:test";
+import { describe, expect, test } from "bun:test";
 import { maskCredentialFields } from "../vault/index.js";
 
 describe("maskCredentialFields", () => {
@@ -119,13 +119,45 @@ describe("maskCredentialFields", () => {
 		expect(input.oauthToken.refreshToken).toBe("1//refresh-secret");
 	});
 
-	test("passes through credentials with no maskable sections", () => {
+	test("passes through credentials with no maskable content", () => {
 		const masked = maskCredentialFields({
 			id: "cred_2",
-			type: "secure_note",
-			notes: "text",
+			type: "login",
+			name: "Just a name",
 		});
 
-		expect(masked).toEqual({ id: "cred_2", type: "secure_note", notes: "text" });
+		expect(masked).toEqual({
+			id: "cred_2",
+			type: "login",
+			name: "Just a name",
+		});
+	});
+
+	// Never-see: a secure_note body IS the secret (the fill flow stores the
+	// human-typed value here) and hidden custom fields are secret by type. An
+	// agent must not read them back verbatim.
+	test("masks a secure_note body", () => {
+		const masked = maskCredentialFields({
+			id: "cred_3",
+			type: "secure_note",
+			notes: "recovery-code 8f3a-1c2d",
+		});
+
+		expect(masked.notes).toBe("****");
+	});
+
+	test("masks hidden custom fields but leaves text fields", () => {
+		const masked = maskCredentialFields({
+			id: "cred_4",
+			type: "login",
+			fields: [
+				{ name: "pin", value: "1234", type: "hidden" },
+				{ name: "env", value: "prod", type: "text" },
+			],
+		});
+
+		const fields = masked.fields as Array<Record<string, unknown>>;
+		expect(fields[0].value).toBe("****");
+		expect(fields[1].value).toBe("prod");
 	});
 });

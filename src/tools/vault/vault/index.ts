@@ -97,6 +97,24 @@ export function maskCredentialFields(
 			masked[field] = section;
 		}
 	}
+	// `notes` and `fields` are not sections, but a `secure_note` body IS the
+	// secret (the human-in-the-loop fill flow stores the typed secret there) and
+	// hidden custom fields are secret by type — mask both so an agent can't read
+	// back the exact plaintext a human typed. Mirrors the API masker.
+	if (
+		masked.type === "secure_note" &&
+		typeof masked.notes === "string" &&
+		masked.notes
+	) {
+		masked.notes = MASK;
+	}
+	if (Array.isArray(masked.fields)) {
+		masked.fields = (masked.fields as CredentialSection[]).map((field) =>
+			field && field.type === "hidden" && field.value
+				? { ...field, value: MASK }
+				: field,
+		);
+	}
 	return masked;
 }
 
