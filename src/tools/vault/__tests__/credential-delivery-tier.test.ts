@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import { selectCredentialDeliveryTier } from "../vault/index.js";
+import { selectCredentialDeliveryTier } from "../vault/credential-request.js";
 
 /**
  * `selectCredentialDeliveryTier` picks how a human is asked for a secret, from

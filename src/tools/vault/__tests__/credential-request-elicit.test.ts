@@ -1,6 +1,6 @@
 import { describe, test, expect } from "bun:test";
 import type { ToolRegistrationOptions } from "../../../shared/index.js";
-import { runCredentialRequestCreate } from "../vault/index.js";
+import { runCredentialRequestCreate } from "../vault/credential-request.js";
 
 /**
  * Branch coverage for the form-first elicitation path in
