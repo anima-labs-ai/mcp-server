@@ -1,4 +1,9 @@
 import { z } from "zod";
+import {
+	runCredentialRequestCreate,
+	vaultCredentialRequestCreateInput,
+} from "./credential-request.js";
+import { CREDENTIAL_UI_HTML, CREDENTIAL_UI_RESOURCE } from "./credential-ui.js";
 import type { ToolRegistrationOptions } from "../../../shared/index.js";
 import {
 	deleteOutput,
@@ -250,8 +255,61 @@ const vaultProvisionInput = z.object({
 		.describe("Agent ID to provision a vault for. Master-key only."),
 });
 
+const vaultCredentialRequestIdInput = z.object({
+	requestId: z.string().describe("Credential-request ID."),
+});
+
+const vaultCredentialRequestFillInput = z.object({
+	fillToken: z.string().describe("Single-use fill token from the ui-tier render-data."),
+	values: z
+		.record(z.string(), z.string())
+		.describe("The secret field values the human entered in the widget."),
+});
+
 export function registerVaultTools(options: ToolRegistrationOptions): void {
 	const { server } = options;
+
+	// Branded MCP-App form for the `ui` tier of vault_credential_request_create
+	// (linked from that tool via `_meta.ui.resourceUri`). CSP: the widget loads
+	// the ext-apps SDK from esm.sh (resourceDomains) and POSTs the secret to our
+	// token-gated fill endpoint (connectDomains) — nothing else.
+	const apiOrigin = (() => {
+		try {
+			return new URL(
+				process.env.ANIMA_PUBLIC_API_URL ??
+					process.env.ANIMA_API_URL ??
+					"https://api.useanima.sh",
+			).origin;
+		} catch {
+			return "https://api.useanima.sh";
+		}
+	})();
+	server.registerResource(
+		"credential-request-ui",
+		CREDENTIAL_UI_RESOURCE,
+		{
+			title: "Anima credential form",
+			description: "Branded inline form for vault_credential_request_create.",
+			mimeType: "text/html;profile=mcp-app",
+		},
+		async () => ({
+			contents: [
+				{
+					uri: CREDENTIAL_UI_RESOURCE,
+					mimeType: "text/html;profile=mcp-app",
+					text: CREDENTIAL_UI_HTML,
+					_meta: {
+						ui: {
+							csp: {
+								connectDomains: [apiOrigin],
+								resourceDomains: ["https://esm.sh"],
+							},
+						},
+					},
+				},
+			],
+		}),
+	);
 
 	server.registerTool(
 		"vault_provision",
@@ -451,6 +509,109 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 			const path = `/v1/vault/totp/${encodeURIComponent(args.id)}?${params.toString()}`;
 			const result = await context.client.get<unknown>(path);
 			return toolSuccess(result);
+		}, options.context),
+	);
+
+	server.registerTool(
+		"vault_credential_request_create",
+		{
+			title: "Request Credential From Human",
+			description:
+				"Request a credential from a HUMAN without the agent or LLM ever seeing the secret. When the connecting MCP client supports inline elicitation, the human is shown a form to type the secret directly — the tool returns `status: FULFILLED` with the `credentialId` in one call, no link needed. Otherwise it returns a single-use fill link (`fillUrl`, emailed to the org owner); poll vault_credential_request_status until `status` is FULFILLED, then use the returned `credentialId` as a normal vault credential. Use this when a flow needs a secret the agent doesn't hold and can't safely be given (passwords, API keys, card numbers).",
+			inputSchema: vaultCredentialRequestCreateInput.shape,
+			outputSchema: objectOutput(),
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: false,
+				openWorldHint: true,
+			},
+			// MCP Apps (SEP-1865): links this tool to our branded credential form.
+			// A ui-capable host (Claude Desktop) renders the resource inline and
+			// drives it as the elicitation surface; other clients ignore this.
+			_meta: { ui: { resourceUri: CREDENTIAL_UI_RESOURCE } },
+		},
+		// NOT wrapped in withErrorHandling: that wrapper drops the handler's
+		// second arg (`extra`), but form-first elicitation needs
+		// `extra.sendRequest` to issue `elicitation/create`. We replicate the
+		// wrapper's typed-error envelope inline instead (see runCredentialRequestCreate).
+		async (args, extra) =>
+			runCredentialRequestCreate(args, options, extra),
+	);
+
+	server.registerTool(
+		"vault_credential_request_status",
+		{
+			title: "Get Credential Request Status",
+			description:
+				"Get the status of a pending credential request by ID. Poll this after vault_credential_request_create until `status` is FULFILLED, then use `credentialId` as a normal vault credential. `maskedPreview` shows a redacted hint of the filled value once available — the plaintext is never returned.",
+			inputSchema: vaultCredentialRequestIdInput.shape,
+			outputSchema: objectOutput(),
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
+		},
+		withErrorHandling(async (args, context) => {
+			const path = `/v1/vault/credential-requests/${encodeURIComponent(args.requestId)}`;
+			const result = await context.client.get<unknown>(path);
+			return toolSuccess(result);
+		}, options.context),
+	);
+
+	server.registerTool(
+		"vault_credential_request_cancel",
+		{
+			title: "Cancel Credential Request",
+			description:
+				"Cancel a pending credential request by ID. Invalidates the single-use fill link so the human can no longer submit a value. Use when the request is no longer needed or was created in error.",
+			inputSchema: vaultCredentialRequestIdInput.shape,
+			outputSchema: objectOutput(),
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: true,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
+		},
+		withErrorHandling(async (args, context) => {
+			const path = `/v1/vault/credential-requests/${encodeURIComponent(args.requestId)}/cancel`;
+			const result = await context.client.post<unknown>(path);
+			return toolSuccess(result);
+		}, options.context),
+	);
+
+	// App-only: the branded ui-tier widget submits the human's secret through this
+	// tool (host-bridged callTool) instead of a cross-origin fetch, which some
+	// hosts' widget CSP blocks. `visibility: ["app"]` keeps it — and the secret in
+	// its args — off the model. The value only ever travels to /vault/fill/{token}.
+	server.registerTool(
+		"vault_credential_request_fill",
+		{
+			title: "Submit Credential (widget)",
+			description:
+				"Internal: submit a credential-request secret from the Anima UI widget. Not for direct agent use.",
+			inputSchema: vaultCredentialRequestFillInput.shape,
+			outputSchema: objectOutput(),
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: false,
+				openWorldHint: true,
+			},
+			_meta: { ui: { visibility: ["app"] } },
+		},
+		withErrorHandling(async (args, context) => {
+			await context.client.post<{ ok?: boolean }>(
+				`/vault/fill/${encodeURIComponent(args.fillToken)}`,
+				args.values,
+			);
+			return toolSuccess({
+				status: "FULFILLED",
+				message: "Secret captured; the agent can now use it.",
+			});
 		}, options.context),
 	);
 }
