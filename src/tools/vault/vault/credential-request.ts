@@ -363,8 +363,11 @@ async function deliverViaUiApp(
 		// fallback for hosts that allow it.
 		fillToken: d.fillToken,
 		fillEndpoint: `${apiBase}/vault/fill/${encodeURIComponent(d.fillToken)}`,
-		// Where the human can view the stored secret after saving.
-		vaultUrl: `${consoleUrl}/vault`,
+		// Where the human can view the stored secret after saving — deep-link to
+		// the target agent's vault when the caller named one, else the index (#2).
+		vaultUrl: d.args.agentId
+			? `${consoleUrl}/vault/${encodeURIComponent(d.args.agentId)}`
+			: `${consoleUrl}/vault`,
 		requestedSchema: buildCredentialElicitSchema(d.args.type),
 		message: `Enter ${d.args.name} — ${d.args.reason}`,
 	});

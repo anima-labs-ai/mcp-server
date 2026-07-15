@@ -33,6 +33,7 @@ function makeOptions(opts: {
 	 * elicitation sub-modes; `null` to report no elicitation capability at all.
 	 */
 	elicitationCap?: Record<string, unknown> | null;
+	uiDeclared?: boolean;
 	createResult?: Record<string, unknown>;
 	getResult?: Record<string, unknown>;
 	onFill?: (body: unknown) => void;
@@ -70,6 +71,9 @@ function makeOptions(opts: {
 	const server = {
 		server: {
 			getClientCapabilities() {
+				if (opts.uiDeclared) {
+					return { extensions: { "io.modelcontextprotocol/ui": {} } };
+				}
 				if (opts.elicitationCap !== undefined) {
 					return opts.elicitationCap === null
 						? {}
@@ -176,6 +180,29 @@ describe("vault_credential_request_create — form-first elicitation", () => {
 		expect(sentMode).toBe("url");
 		expect(calls.some((c) => c.path.includes("/vault/fill/"))).toBe(false);
 		expect(serialize(result)).toContain("FULFILLED");
+	});
+
+	test("ui widget deep-links to the named agent's vault", async () => {
+		const previousConsoleUrl = process.env.CONSOLE_URL;
+		process.env.CONSOLE_URL = "https://console.example";
+		try {
+			const { options } = makeOptions({ uiDeclared: true });
+			const result = await runCredentialRequestCreate(
+				{ ...baseArgs, agentId: "agent/with space" },
+				options,
+				makeExtra({ action: "cancel" }),
+			);
+
+			expect(serialize(result)).toContain(
+				"https://console.example/vault/agent%2Fwith%20space",
+			);
+		} finally {
+			if (previousConsoleUrl === undefined) {
+				delete process.env.CONSOLE_URL;
+			} else {
+				process.env.CONSOLE_URL = previousConsoleUrl;
+			}
+		}
 	});
 
 	test("accept → POSTs secret to fill endpoint, returns FULFILLED with credentialId, and the secret is NOT in the result", async () => {
