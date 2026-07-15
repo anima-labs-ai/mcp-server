@@ -13,7 +13,10 @@ import {
 	withErrorHandling,
 } from "../../../shared/index.js";
 
-// 2026-05-20: vault group reduced to 7 credential-CRUD-plus-power tools.
+// 2026-05-20: vault group reduced to credential-CRUD-plus-power tools.
+// 2026-07-14: added vault_credential_use (server-side broker) and
+// vault_exchange_token_for_injection (API-gated to injector keys); the
+// registered set is pinned by tool-registration.test.ts (never-see lock).
 // Dropped from prior surface (28 → 7): vault_provision, vault_deprovision
 // (org-level lifecycle), vault_generate_password (utility), vault_sync,
 // vault_status (admin-y), vault_share_credential, vault_list_shares,
@@ -99,7 +102,51 @@ export function maskCredentialFields(
 			masked[field] = section;
 		}
 	}
+	// `notes` and `fields` are not sections, but a `secure_note` body IS the
+	// secret (the human-in-the-loop fill flow stores the typed secret there) and
+	// hidden custom fields are secret by type — mask both so an agent can't read
+	// back the exact plaintext a human typed. Mirrors the API masker.
+	if (
+		masked.type === "secure_note" &&
+		typeof masked.notes === "string" &&
+		masked.notes
+	) {
+		masked.notes = MASK;
+	}
+	if (Array.isArray(masked.fields)) {
+		masked.fields = (masked.fields as CredentialSection[]).map((field) =>
+			field && field.type === "hidden" && field.value
+				? { ...field, value: MASK }
+				: field,
+		);
+	}
 	return masked;
+}
+
+/**
+ * Mask every credential in a list/search response. The API already masks these
+ * server-side; this re-masks client-side as defense-in-depth — exactly like the
+ * get/create/update tools — so a future API-shape change can't leak the
+ * secret-bearing sections (apiKey.key, oauthToken.*, certificate.privateKey) in
+ * bulk. Shapes it doesn't recognize pass through untouched.
+ */
+export function maskCredentialListResult(result: unknown): unknown {
+	if (
+		result &&
+		typeof result === "object" &&
+		Array.isArray((result as { items?: unknown }).items)
+	) {
+		const r = result as { items: unknown[] };
+		return {
+			...r,
+			items: r.items.map((item) =>
+				item && typeof item === "object"
+					? maskCredentialFields(item as Record<string, unknown>)
+					: item,
+			),
+		};
+	}
+	return result;
 }
 
 const vaultCredentialTypeSchema = z.enum([
@@ -107,7 +154,19 @@ const vaultCredentialTypeSchema = z.enum([
 	"secure_note",
 	"card",
 	"identity",
+	"oauth_token",
+	"api_key",
+	"certificate",
 ]);
+
+const vaultRevealPolicySchema = z
+	.enum(["standard", "brokered"])
+	.describe(
+		"Reveal policy. 'brokered' means the plaintext is never returned by any " +
+			"read/reveal/export path — not even to the org master key; the secret " +
+			"is only usable via vault_credential_use (recovery = rotation). " +
+			"'standard' keeps master-key reveal available outside MCP.",
+	);
 
 const vaultUriSchema = z.object({
 	uri: z.string().optional().describe("URI value."),
@@ -117,7 +176,10 @@ const vaultUriSchema = z.object({
 const vaultLoginSchema = z.object({
 	username: z.string().optional().describe("Optional login username."),
 	password: z.string().optional().describe("Optional login password."),
-	uris: z.array(vaultUriSchema).optional().describe("Optional list of login URIs."),
+	uris: z
+		.array(vaultUriSchema)
+		.optional()
+		.describe("Optional list of login URIs."),
 	totp: z.string().optional().describe("Optional TOTP secret."),
 });
 
@@ -129,10 +191,22 @@ const vaultGeneratePasswordSchema = z.object({
 		.max(128)
 		.optional()
 		.describe("Desired password length (8-128 characters, default 24)."),
-	uppercase: z.boolean().optional().describe("Include uppercase letters (default true)."),
-	lowercase: z.boolean().optional().describe("Include lowercase letters (default true)."),
-	number: z.boolean().optional().describe("Include numeric digits (default true)."),
-	special: z.boolean().optional().describe("Include special characters (default true)."),
+	uppercase: z
+		.boolean()
+		.optional()
+		.describe("Include uppercase letters (default true)."),
+	lowercase: z
+		.boolean()
+		.optional()
+		.describe("Include lowercase letters (default true)."),
+	number: z
+		.boolean()
+		.optional()
+		.describe("Include numeric digits (default true)."),
+	special: z
+		.boolean()
+		.optional()
+		.describe("Include special characters (default true)."),
 });
 
 const vaultCardSchema = z.object({
@@ -170,6 +244,100 @@ const vaultFieldSchema = z.object({
 	value: z.string().optional().describe("Optional custom field value."),
 	type: z.string().optional().describe("Optional custom field type."),
 	linkedId: z.string().optional().describe("Optional linked field identifier."),
+});
+
+const vaultRateLimitSchema = z.object({
+	requests: z
+		.number()
+		.int()
+		.positive()
+		.describe("Maximum requests allowed in the window."),
+	window: z.string().describe("Rate-limit window (e.g. '1m', '1h', '1d')."),
+});
+
+const vaultApiKeySchema = z.object({
+	provider: z
+		.string()
+		.describe("API provider name (e.g. openai, anthropic, stripe)."),
+	key: z
+		.string()
+		.describe("The API key value. Stored encrypted; always read back masked."),
+	prefix: z
+		.string()
+		.optional()
+		.describe("Optional display prefix (e.g. 'sk-...abc')."),
+	rateLimit: vaultRateLimitSchema
+		.optional()
+		.describe("Optional per-credential broker rate limit."),
+	expiresAt: z
+		.string()
+		.optional()
+		.describe("Optional ISO-8601 key expiration timestamp."),
+	scopes: z
+		.array(z.string())
+		.optional()
+		.describe("Optional scopes or permissions this key carries."),
+	allowedHosts: z
+		.array(z.string())
+		.optional()
+		.describe(
+			"Hosts this key may be brokered to via vault_credential_use. " +
+				"Fail-closed: with no hosts the broker refuses every call. " +
+				"After creation only a master key may change this list.",
+		),
+	authHeader: z
+		.string()
+		.optional()
+		.describe(
+			"Header the broker injects the key into (default 'Authorization').",
+		),
+	authScheme: z
+		.string()
+		.optional()
+		.describe(
+			"Value prefix before the key (default 'Bearer '; set '' for a raw key, e.g. x-api-key).",
+		),
+});
+
+const vaultOAuthTokenSchema = z.object({
+	provider: z
+		.string()
+		.describe("OAuth provider name (e.g. google, github, slack)."),
+	accessToken: z.string().describe("OAuth access token. Stored encrypted."),
+	refreshToken: z
+		.string()
+		.describe("OAuth refresh token. Stored encrypted; never read back."),
+	tokenEndpoint: z
+		.string()
+		.describe("Token endpoint URL used for automatic refresh."),
+	clientId: z.string().describe("OAuth client ID."),
+	clientSecret: z.string().optional().describe("Optional OAuth client secret."),
+	scopes: z.array(z.string()).describe("OAuth scopes granted to this token."),
+	expiresAt: z.string().describe("ISO-8601 token expiration timestamp."),
+	autoRefresh: z
+		.boolean()
+		.optional()
+		.describe("Automatically refresh before expiry (default true)."),
+	allowedHosts: z
+		.array(z.string())
+		.optional()
+		.describe(
+			"Hosts this token may be brokered to via vault_credential_use. " +
+				"Fail-closed: with no hosts the broker refuses every call.",
+		),
+});
+
+const vaultCertificateSchema = z.object({
+	format: z.enum(["pem", "p12", "jks"]).describe("Certificate format."),
+	certificate: z.string().describe("Certificate content. Stored encrypted."),
+	privateKey: z
+		.string()
+		.describe("Private key. Stored encrypted; always read back masked."),
+	chain: z
+		.array(z.string())
+		.optional()
+		.describe("Optional certificate chain."),
+	expiresAt: z.string().describe("ISO-8601 certificate expiration timestamp."),
 });
 
 const vaultListInput = z.object({
@@ -213,10 +381,25 @@ const vaultCreateInput = z.object({
 				"exclusive with login.password. Pass {} for defaults.",
 		),
 	card: vaultCardSchema.optional().describe("Card payload for card-type."),
-	identity: vaultIdentitySchema.optional().describe("Identity payload for identity-type."),
+	identity: vaultIdentitySchema
+		.optional()
+		.describe("Identity payload for identity-type."),
+	oauthToken: vaultOAuthTokenSchema
+		.optional()
+		.describe("OAuth token payload for oauth_token-type."),
+	apiKey: vaultApiKeySchema
+		.optional()
+		.describe("API key payload for api_key-type."),
+	certificate: vaultCertificateSchema
+		.optional()
+		.describe("Certificate payload for certificate-type."),
 	notes: z.string().optional().describe("Optional secure note text."),
-	fields: z.array(vaultFieldSchema).optional().describe("Optional custom fields."),
+	fields: z
+		.array(vaultFieldSchema)
+		.optional()
+		.describe("Optional custom fields."),
 	favorite: z.boolean().optional().describe("Optional favorite flag."),
+	revealPolicy: vaultRevealPolicySchema.optional(),
 });
 
 const vaultUpdateInput = z.object({
@@ -228,12 +411,73 @@ const vaultUpdateInput = z.object({
 		),
 	id: z.string().describe("Credential ID to update."),
 	name: z.string().optional().describe("Optional updated name."),
-	login: vaultLoginSchema.optional().describe("Optional updated login payload."),
+	login: vaultLoginSchema
+		.optional()
+		.describe("Optional updated login payload."),
 	card: vaultCardSchema.optional().describe("Optional updated card payload."),
-	identity: vaultIdentitySchema.optional().describe("Optional updated identity payload."),
+	identity: vaultIdentitySchema
+		.optional()
+		.describe("Optional updated identity payload."),
+	oauthToken: vaultOAuthTokenSchema
+		.optional()
+		.describe("Optional updated OAuth token payload."),
+	apiKey: vaultApiKeySchema
+		.optional()
+		.describe(
+			"Optional updated API key payload. Changing allowedHosts requires a master key.",
+		),
+	certificate: vaultCertificateSchema
+		.optional()
+		.describe("Optional updated certificate payload."),
 	notes: z.string().optional().describe("Optional updated note text."),
-	fields: z.array(vaultFieldSchema).optional().describe("Optional updated custom fields."),
+	fields: z
+		.array(vaultFieldSchema)
+		.optional()
+		.describe("Optional updated custom fields."),
 	favorite: z.boolean().optional().describe("Optional updated favorite flag."),
+	revealPolicy: vaultRevealPolicySchema
+		.optional()
+		.describe(
+			"Optional reveal-policy change. Upgrading standard → brokered needs " +
+				"UPDATE access; downgrading brokered → standard is master-key-only.",
+		),
+});
+
+const vaultExchangeInput = z.object({
+	token: z.string().describe("The vtk_ vault token to exchange."),
+});
+
+const vaultUseInput = z.object({
+	agentId: z
+		.string()
+		.optional()
+		.describe(
+			"Agent ID that owns the credential. Optional when using an agent-bound credential.",
+		),
+	id: z.string().describe("Credential ID to broker the call with."),
+	method: z
+		.enum(["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"])
+		.describe("HTTP method for the outbound call."),
+	url: z
+		.string()
+		.url()
+		.refine(
+			(u) => u.startsWith("https://"),
+			"URL must be an absolute https:// URL",
+		)
+		.describe(
+			"Absolute https:// URL to call. Its host MUST be on the credential's allowlist (allowedHosts / login URIs).",
+		),
+	headers: z
+		.record(z.string())
+		.optional()
+		.describe(
+			"Extra request headers. Any Authorization / auth header you set is IGNORED and replaced by the real credential.",
+		),
+	body: z
+		.string()
+		.optional()
+		.describe("Raw request body (encode JSON yourself)."),
 });
 
 const vaultSearchInput = z.object({
@@ -356,7 +600,7 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 			const result = await context.client.get<unknown>(
 				`/v1/vault/credentials?${params.toString()}`,
 			);
-			return toolSuccess(result);
+			return toolSuccess(maskCredentialListResult(result));
 		}, options.context),
 	);
 
@@ -389,9 +633,10 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 		{
 			title: "Create Vault Credential",
 			description:
-				"Create a new credential in an agent vault. Pass `type` plus the matching payload block (login / card / identity / notes). " +
+				"Create a new credential in an agent vault. Pass `type` plus the matching payload block (login / card / identity / oauthToken / apiKey / certificate / notes). " +
 				"For login credentials, prefer `generatePassword` over supplying `login.password` — the vault generates and stores the " +
-				"password server-side and returns only the credential reference, so the secret never enters the conversation.",
+				"password server-side and returns only the credential reference, so the secret never enters the conversation. " +
+				"For api_key/oauth_token credentials, set `allowedHosts` so the credential can be exercised through vault_credential_use.",
 			inputSchema: vaultCreateInput.shape,
 			outputSchema: objectOutput(),
 			annotations: {
@@ -430,7 +675,10 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 		withErrorHandling(async (args, context) => {
 			const { id, ...payload } = args;
 			const path = `/v1/vault/credentials/${encodeURIComponent(id)}`;
-			const result = await context.client.put<Record<string, unknown>>(path, payload);
+			const result = await context.client.put<Record<string, unknown>>(
+				path,
+				payload,
+			);
 			// Same defense-in-depth masking as create/get — never echo secrets.
 			return toolSuccess(maskCredentialFields(result));
 		}, options.context),
@@ -462,6 +710,57 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 	);
 
 	server.registerTool(
+		"vault_exchange_token_for_injection",
+		{
+			title: "Exchange Vault Token (injection)",
+			description:
+				"Exchange a vtk_ vault token for the PLAINTEXT credential, to inject into a trusted client process (a CLI, the browser extension) — NOT to read it yourself. The API gates this to injector credentials: it only succeeds for a master key or a key carrying the `vault:inject` scope; a plain agent key gets 403. If you are an agent that needs to USE a secret, do NOT use this — use vault_credential_use (the server-side broker), which never reveals the secret.",
+			inputSchema: vaultExchangeInput.shape,
+			outputSchema: objectOutput(),
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: false,
+				openWorldHint: true,
+			},
+		},
+		withErrorHandling(async (args, context) => {
+			// Returns plaintext by design (injection). Safety is the API gate, not
+			// masking here — a plain agent key can never reach a success response.
+			const result = await context.client.post<unknown>(
+				"/v1/vault/token/exchange",
+				{
+					token: args.token,
+				},
+			);
+			return toolSuccess(result);
+		}, options.context),
+	);
+
+	server.registerTool(
+		"vault_credential_use",
+		{
+			title: "Use Vault Credential",
+			description:
+				"Make an outbound HTTPS call with a stored credential attached SERVER-SIDE, and get the upstream response. Use this to act with a secret (call an API, hit an authed endpoint) WITHOUT ever seeing the plaintext — the platform injects the credential on the wire. The target host must be on the credential's allowlist. Works even for `brokered` credentials that can never be revealed. Prefer this over trying to read a secret: you can use it, you cannot see it.",
+			inputSchema: vaultUseInput.shape,
+			outputSchema: objectOutput(),
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				idempotentHint: false,
+				openWorldHint: true,
+			},
+		},
+		withErrorHandling(async (args, context) => {
+			const { id, ...payload } = args;
+			const path = `/v1/vault/credentials/${encodeURIComponent(id)}/use`;
+			const result = await context.client.post<unknown>(path, payload);
+			return toolSuccess(result);
+		}, options.context),
+	);
+
+	server.registerTool(
 		"vault_credential_search",
 		{
 			title: "Search Vault",
@@ -484,7 +783,7 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 			const result = await context.client.get<unknown>(
 				`/v1/vault/search?${params.toString()}`,
 			);
-			return toolSuccess(result);
+			return toolSuccess(maskCredentialListResult(result));
 		}, options.context),
 	);
 
