@@ -29,20 +29,34 @@ const WIDGET_JS = `
   const state = { requestId: null, fillToken: null, fillEndpoint: null, vaultUrl: null };
   let app = null;
 
+  // Read the request status from whatever shape callServerTool hands back: a full
+  // CallToolResult (structuredContent / content[] text) OR the structured object
+  // itself (some hosts unwrap it). Failing to read any of these must not look like
+  // "not fulfilled" — that would redraw the entry form over a completed request.
   function statusOf(result) {
-    let s = result && (result.structuredContent || (result.result && result.result.structuredContent));
-    if (!s && result && Array.isArray(result.content)) { const t = result.content.find((c) => c.type === "text"); if (t) { try { s = JSON.parse(t.text); } catch {} } }
+    if (!result) return undefined;
+    let s = result.structuredContent
+      || (result.result && result.result.structuredContent)
+      || (typeof result.status === "string" ? result : null);
+    if (!s) {
+      const content = result.content || (result.result && result.result.content);
+      if (Array.isArray(content)) {
+        const t = content.find((c) => c && c.type === "text");
+        if (t) { try { s = JSON.parse(t.text); } catch {} }
+      }
+    }
     return s && s.status;
   }
 
-  // Revisiting a past chat re-renders the widget with the ORIGINAL AWAITING_INPUT
-  // data, so ask the server for the request's live status before drawing.
-  async function alreadyFulfilled(requestId) {
-    if (!app || !requestId) return false;
+  // Ask the server for the request's live status. Returns the status string, or
+  // null if it can't be determined (transient error → caller draws the form so a
+  // genuinely open request stays fillable).
+  async function liveStatus(requestId) {
+    if (!app || !requestId) return null;
     try {
       const r = await app.callServerTool({ name: "vault_credential_request_status", arguments: { requestId } });
-      return statusOf(r) === "FULFILLED";
-    } catch (e) { dbg("status check: " + (e && e.message)); return false; }
+      return statusOf(r) || null;
+    } catch (e) { dbg("status check: " + (e && e.message)); return null; }
   }
 
   function draw(message, schema) {
@@ -83,7 +97,16 @@ const WIDGET_JS = `
     state.fillToken = data.fillToken || null;
     state.fillEndpoint = data.fillEndpoint || null;
     state.vaultUrl = data.vaultUrl || null;
-    if (await alreadyFulfilled(state.requestId)) { dbg("already fulfilled \\u2192 saved"); saved(); return; }
+    // Revisiting a past chat re-renders the widget with the ORIGINAL
+    // AWAITING_INPUT data on a fresh DOM, so reconcile against the request's LIVE
+    // status before drawing: fulfilled → locked "saved"; a dead request
+    // (expired/cancelled/declined) → a clear closed state, never a live-looking
+    // entry form; only a still-open (or unknown) request draws the form.
+    const status = await liveStatus(state.requestId);
+    if (status === "FULFILLED") { dbg("already fulfilled \\u2192 saved"); saved(); return; }
+    if (status === "EXPIRED" || status === "CANCELLED" || status === "DECLINED") {
+      dbg("request closed: " + status); closed(status); return;
+    }
     draw(data.message, data.requestedSchema);
   }
 
@@ -93,6 +116,20 @@ const WIDGET_JS = `
     document.getElementById("done").classList.remove("hidden");
     const btn = document.getElementById("openVault");
     if (state.vaultUrl) { btn.classList.remove("hidden"); }
+  }
+
+  // Closed terminal state: the request expired / was cancelled / declined, so the
+  // fill link is dead. Show a clear "no longer active" message instead of a live-
+  // looking entry form (nothing was stored → no vault link).
+  function closed(status) {
+    document.getElementById("card").classList.add("hidden");
+    const done = document.getElementById("done");
+    const label = status === "EXPIRED" ? "expired" : status === "DECLINED" ? "was declined" : "was cancelled";
+    const check = done.querySelector(".check"); if (check) check.classList.add("hidden");
+    const t = done.querySelector(".t"); if (t) t.textContent = "Request no longer active";
+    const s = done.querySelector(".s"); if (s) s.textContent = "This credential request " + label + ". Ask your agent to send a new one.";
+    document.getElementById("openVault").classList.add("hidden");
+    done.classList.remove("hidden");
   }
 
   document.getElementById("submit").addEventListener("click", async () => {
