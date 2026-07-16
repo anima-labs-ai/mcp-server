@@ -4,7 +4,6 @@ import {
 	deleteOutput,
 	listOutput,
 	objectOutput,
-	requireMasterKeyGuard,
 	sendOutput,
 	toolSuccess,
 	withErrorHandling,
@@ -164,16 +163,72 @@ const emailSendSchema = z.object({
 		.array(z.string())
 		.optional()
 		.describe("Optional list of message IDs to include in the References header."),
+	headers: z
+		.record(z.string())
+		.optional()
+		.describe(
+			'Optional custom email headers as key-value pairs (e.g. {"X-Campaign": "onboarding"}). Merged with Anima\'s own threading/compliance headers, which win on conflict.',
+		),
 });
 
 const emailGetSchema = z.object({
 	id: z.string().describe("Email ID. Returns full metadata and body."),
 });
 
+// Mirrors the contract's EmailListInput (GET /email): cursor pagination +
+// agentId filter. The previous `folder`/`offset` params were fictional —
+// the API never accepted them, so they silently no-oped (spec item C7).
 const emailListSchema = z.object({
-	folder: z.string().optional().describe("Folder filter (e.g. inbox, sent)."),
-	limit: z.number().int().positive().optional().describe("Max emails to return."),
-	offset: z.number().int().nonnegative().optional().describe("Pagination offset."),
+	agentId: z
+		.string()
+		.optional()
+		.describe(
+			"Filter emails by agent ID. Agent-scoped keys are already limited to their own agent; master keys see the whole workspace unless filtered.",
+		),
+	cursor: z
+		.string()
+		.optional()
+		.describe(
+			"Opaque pagination cursor from a previous response's `pagination.nextCursor`. Omit for the first page.",
+		),
+	limit: z
+		.number()
+		.int()
+		.positive()
+		.optional()
+		.describe("Max emails to return per page (1-100, default 20)."),
+});
+
+const emailSearchSchema = z.object({
+	query: z.string().min(1).describe("Search query text."),
+	mode: z
+		.enum(["fulltext", "semantic"])
+		.optional()
+		.describe(
+			"Search mode. `fulltext` (default) does substring matching over subject/body/addresses of EMAIL messages and supports cursor pagination. `semantic` ranks by vector-embedding similarity — better for meaning-level questions (\"emails about the contract renewal\") — but searches messages across ALL channels (each result carries a `channel` field) and does not paginate.",
+		),
+	agentId: z
+		.string()
+		.optional()
+		.describe("Filter results to a specific agent."),
+	limit: z
+		.number()
+		.int()
+		.positive()
+		.optional()
+		.describe("Max results (fulltext: 1-100, default 20; semantic: 1-50, default 10)."),
+	cursor: z
+		.string()
+		.optional()
+		.describe(
+			"Pagination cursor from a previous fulltext response's `pagination.nextCursor`. Fulltext mode only.",
+		),
+	threshold: z
+		.number()
+		.min(0)
+		.max(1)
+		.optional()
+		.describe("Minimum similarity score 0-1 (semantic mode only, default 0.7)."),
 });
 
 const emailReplySchema = z.object({
@@ -310,6 +365,9 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 			}
 			if (args.inReplyTo) body.inReplyTo = args.inReplyTo;
 			if (args.references) body.references = args.references;
+			if (args.headers && Object.keys(args.headers).length > 0) {
+				body.headers = args.headers;
+			}
 			const result = await context.client.post<unknown>("/v1/email/send", body);
 			return toolSuccess(result);
 		}, options.context),
@@ -342,7 +400,7 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 		{
 			title: "List Emails",
 			description:
-				"List emails in a folder with pagination. Returns lightweight per-email records — use email_get for the full body.",
+				"List emails with cursor pagination. Returns lightweight per-email records plus a `pagination` object — pass `pagination.nextCursor` back as `cursor` for the next page. Use email_get for the full body, email_search to find specific messages.",
 			inputSchema: emailListSchema.shape,
 			outputSchema: listOutput(),
 			annotations: {
@@ -354,11 +412,51 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 		},
 		withErrorHandling(async (args, context) => {
 			const params = new URLSearchParams();
-			if (args.folder) params.set("folder", args.folder);
+			if (args.agentId) params.set("agentId", args.agentId);
+			if (args.cursor) params.set("cursor", args.cursor);
 			if (args.limit !== undefined) params.set("limit", String(args.limit));
-			if (args.offset !== undefined) params.set("offset", String(args.offset));
 			const path = params.toString() ? `/v1/email?${params}` : "/v1/email";
 			const result = await context.client.get<unknown>(path);
+			return toolSuccess(result);
+		}, options.context),
+	);
+
+	server.registerTool(
+		"email_search",
+		{
+			title: "Search Emails",
+			description:
+				"Search messages by content. Fulltext mode (default) substring-matches subject/body/addresses of EMAIL messages and returns `{items, pagination}` with cursor paging. Semantic mode ranks by vector-embedding similarity and returns `{results}` scored 0-1 — each result spans ANY channel (check the `channel` field) and includes the message id for email_get / email_thread_get follow-ups.",
+			inputSchema: emailSearchSchema.shape,
+			outputSchema: objectOutput(),
+			annotations: {
+				readOnlyHint: true,
+				destructiveHint: false,
+				idempotentHint: true,
+				openWorldHint: true,
+			},
+		},
+		withErrorHandling(async (args, context) => {
+			if (args.mode === "semantic") {
+				const body: Record<string, unknown> = { query: args.query };
+				if (args.agentId) body.agentId = args.agentId;
+				if (args.limit !== undefined) body.limit = args.limit;
+				if (args.threshold !== undefined) body.threshold = args.threshold;
+				const result = await context.client.post<unknown>(
+					"/v1/messages/search/semantic",
+					body,
+				);
+				return toolSuccess(result);
+			}
+
+			const filters: Record<string, unknown> = { channel: "EMAIL" };
+			if (args.agentId) filters.agentId = args.agentId;
+			const pagination: Record<string, unknown> = {};
+			if (args.cursor) pagination.cursor = args.cursor;
+			if (args.limit !== undefined) pagination.limit = args.limit;
+			const body: Record<string, unknown> = { query: args.query, filters };
+			if (Object.keys(pagination).length > 0) body.pagination = pagination;
+			const result = await context.client.post<unknown>("/v1/messages/search", body);
 			return toolSuccess(result);
 		}, options.context),
 	);
@@ -379,8 +477,11 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 			},
 		},
 		withErrorHandling(async (args, context) => {
-			requireMasterKeyGuard(context);
-
+			// NO master-key guard here: email_reply is not in MASTER_KEY_TOOLS
+			// (shared/config.ts) and the backing routes (GET /email/{id} +
+			// POST /email/send) are agent-key operations. A hardcoded guard
+			// here broke replies for every agent-scoped key — self-hosted and
+			// stdio deployments included (spec item C7).
 			const originalPath = `/v1/email/${encodeURIComponent(args.originalId)}`;
 			const originalData = await context.client.get<unknown>(originalPath);
 			const original = asRecord(originalData);

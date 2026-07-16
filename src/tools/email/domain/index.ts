@@ -19,10 +19,10 @@ const domainIdSchema = z.object({
 	id: z.string().describe("Unique domain ID."),
 });
 
-const domainListSchema = z.object({
-	cursor: z.string().optional().describe("Pagination cursor from a previous list response."),
-	limit: z.number().int().positive().optional().describe("Max domains to return."),
-});
+// GET /domains takes no parameters — the previous `cursor`/`limit` params
+// were fictional (the API ignored them and always returned every domain;
+// spec item M3 class, same family as email_list folder/offset).
+const domainListSchema = z.object({});
 
 export function registerDomainTools(options: ToolRegistrationOptions): void {
 	const { server } = options;
@@ -110,12 +110,8 @@ export function registerDomainTools(options: ToolRegistrationOptions): void {
 				openWorldHint: true,
 			},
 		},
-		withErrorHandling(async (args, context) => {
-			const params = new URLSearchParams();
-			if (args.cursor) params.set("cursor", args.cursor);
-			if (args.limit !== undefined) params.set("limit", String(args.limit));
-			const path = params.toString() ? `/v1/domains?${params}` : "/v1/domains";
-			const result = await context.client.get<unknown>(path);
+		withErrorHandling(async (_args, context) => {
+			const result = await context.client.get<unknown>("/v1/domains");
 			return toolSuccess(result);
 		}, options.context),
 	);

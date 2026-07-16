@@ -19,7 +19,8 @@
     "dev": "bun run --watch src/index.ts",
     "typecheck": "bunx tsc --noEmit",
     "test": "bun test",
-    "gen:tool-catalog": "bun run scripts/generate-tool-catalog.ts"
+    "gen:tool-catalog": "bun run scripts/generate-tool-catalog.ts",
+    "gen:contracts-snapshot": "bun run scripts/generate-contracts-snapshot.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.0",
