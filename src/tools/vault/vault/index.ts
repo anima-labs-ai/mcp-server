@@ -596,11 +596,31 @@ export function registerVaultTools(options: ToolRegistrationOptions): void {
 		withErrorHandling(async (args, context) => {
 			const params = new URLSearchParams();
 			if (args.agentId) params.set("agentId", args.agentId);
-			if (args.type) params.set("type", args.type);
 			const result = await context.client.get<unknown>(
 				`/v1/vault/credentials?${params.toString()}`,
 			);
-			return toolSuccess(maskCredentialListResult(result));
+			// `type` is filtered client-side: GET /vault/credentials accepts
+			// only agentId, so passing type as a query param was silently
+			// stripped server-side and the advertised filter never filtered
+			// (spec item M3 class). The list is small and already fully
+			// fetched — filtering here makes the tool honest without an API
+			// change. Server-side type filtering exists on vault_credential_search.
+			const filtered =
+				args.type &&
+				result &&
+				typeof result === "object" &&
+				Array.isArray((result as { items?: unknown }).items)
+					? {
+							...(result as Record<string, unknown>),
+							items: ((result as { items: unknown[] }).items ?? []).filter(
+								(item) =>
+									!!item &&
+									typeof item === "object" &&
+									(item as { type?: unknown }).type === args.type,
+							),
+						}
+					: result;
+			return toolSuccess(maskCredentialListResult(filtered));
 		}, options.context),
 	);
 

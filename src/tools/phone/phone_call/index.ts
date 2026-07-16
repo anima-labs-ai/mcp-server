@@ -22,12 +22,12 @@ import {
 } from "../../../shared/index.js";
 import { registerPhoneCallLiveTool } from "./live-call.js";
 
+// Mirrors the contract's GET /voice/calls input. The previous `numberId`
+// (sent as phoneIdentityId) and `search` params were fictional — the API's
+// zod-strip dropped them, so those "filters" silently returned unfiltered
+// results (spec item M3 class; same bug family as email_list folder/offset).
 const phoneCallListSchema = z.object({
 	agentId: z.string().optional().describe("Filter by agent ID."),
-	numberId: z
-		.string()
-		.optional()
-		.describe("Filter by phone identity ID (the number that placed/received the call)."),
 	direction: z
 		.enum(["INBOUND", "OUTBOUND"])
 		.optional()
@@ -36,10 +36,6 @@ const phoneCallListSchema = z.object({
 		.string()
 		.optional()
 		.describe("Filter by call state (INITIATING, RINGING, ACTIVE, ENDED, etc.)."),
-	search: z
-		.string()
-		.optional()
-		.describe("Free-text search across transcripts. Note: server-side support pending; pass-through for now."),
 	limit: z.number().int().positive().optional().describe("Max results (default: 20)."),
 	offset: z.number().int().nonnegative().optional().describe("Offset for pagination."),
 });
@@ -88,10 +84,8 @@ export function registerPhoneCallTools(options: ToolRegistrationOptions): void {
 		withErrorHandling(async (args, context) => {
 			const params = new URLSearchParams();
 			if (args.agentId) params.set("agentId", args.agentId);
-			if (args.numberId) params.set("phoneIdentityId", args.numberId);
 			if (args.direction) params.set("direction", args.direction);
 			if (args.status) params.set("state", args.status);
-			if (args.search) params.set("search", args.search);
 			if (args.limit !== undefined) params.set("limit", String(args.limit));
 			if (args.offset !== undefined) params.set("offset", String(args.offset));
 			const path = params.toString() ? `/v1/voice/calls?${params}` : "/v1/voice/calls";

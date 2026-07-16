@@ -37,6 +37,36 @@ const SERVER_INFO = {
 };
 
 /**
+ * Every tool registrar that makes up the unified `/mcp` endpoint, in
+ * registration order. Exported (not inlined in buildAllToolsServer) so the
+ * tool↔contract CI gate (src/__tests__/tool-contract-gate.test.ts) walks
+ * the exact same list as production — a registrar added here is
+ * automatically covered by the gate, one added only here or only there is
+ * a test failure.
+ */
+export const ALL_TOOL_REGISTRARS: ReadonlyArray<
+	(options: ToolRegistrationOptions) => void
+> = [
+	// Agent
+	registerAgentTools,
+	// Email
+	registerEmailTools,
+	registerDomainTools,
+	registerInboxTools,
+	// Phone
+	registerPhoneTools,
+	registerSmsTools,
+	registerPhoneCallTools,
+	// Platform
+	registerWorkspaceTools,
+	registerWebhookTools,
+	// Vault
+	registerVaultTools,
+	// Extension
+	registerExtensionTools,
+];
+
+/**
  * Registers every Anima tool group onto a single McpServer. Used by the
  * `/mcp` endpoint that clients use for a one-URL install experience.
  *
@@ -51,28 +81,9 @@ export function buildAllToolsServer(client: ApiClient): McpServer {
 		context: { client, hasMasterKey: client.hasMasterKey() },
 	};
 
-	// Agent
-	registerAgentTools(context);
-
-	// Email
-	registerEmailTools(context);
-	registerDomainTools(context);
-	registerInboxTools(context);
-
-	// Phone
-	registerPhoneTools(context);
-	registerSmsTools(context);
-	registerPhoneCallTools(context);
-
-	// Platform
-	registerWorkspaceTools(context);
-	registerWebhookTools(context);
-
-	// Vault
-	registerVaultTools(context);
-
-	// Extension
-	registerExtensionTools(context);
+	for (const register of ALL_TOOL_REGISTRARS) {
+		register(context);
+	}
 
 	return server;
 }

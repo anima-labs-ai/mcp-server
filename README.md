@@ -1,6 +1,6 @@
 # @anima-labs/mcp-server
 
-The **hosted** MCP server behind `https://mcp.useanima.sh` — the recommended way to connect AI assistants to Anima. It exposes the full tool surface (65 tools today) over streamable HTTP with `Authorization: Bearer <ak_… or mk_…>`.
+The **hosted** MCP server behind `https://mcp.useanima.sh` — the recommended way to connect AI assistants to Anima. It exposes the full tool surface (66 tools today) over streamable HTTP with `Authorization: Bearer <ak_… or mk_…>`.
 
 This package is deliberately **not published to npm**: it is the deployed gateway. For a local/stdio server use [`@anima-labs/mcp`](https://github.com/anima-labs-ai/mcp) (published, 53 core tools) — same platform, same auth. Client setup for both lives in the [MCP docs](https://docs.useanima.sh/mcp-servers), or run `anima setup-mcp`.
 
