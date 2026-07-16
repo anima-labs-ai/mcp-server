@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { SERVER_INFO as CORE_SERVER_INFO, type ApiClient, type ToolRegistrationOptions } from "../../shared/index.js";
 import { registerEmailTools } from "./email/index.js";
 import { registerDomainTools } from "./domain/index.js";
+import { registerInboxTools } from "./inbox/index.js";
 
 const SERVER_INFO = {
 	...CORE_SERVER_INFO,
@@ -18,5 +19,6 @@ export function buildEmailServer(client: ApiClient): McpServer {
 	};
 	registerEmailTools(context);
 	registerDomainTools(context);
+	registerInboxTools(context);
 	return server;
 }

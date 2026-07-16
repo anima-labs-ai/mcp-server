@@ -10,6 +10,13 @@ export const MASTER_KEY_TOOLS = new Set([
 	"domain_create",
 	"domain_delete",
 	"domain_verify",
+	// Inbox mutations mirror the API's requireMaster gate
+	// (apps/api/src/routes/handlers/inbox.ts). inbox_list / inbox_get are
+	// any-key. If D2 (agent-key inbox creation) lands, drop inbox_create
+	// here AND remove its requireMasterKeyGuard call together.
+	"inbox_create",
+	"inbox_update",
+	"inbox_delete",
 ]);
 
 /** Raw base64-encoded Anima sparkle icon (96x96 PNG, ~4 KB) */

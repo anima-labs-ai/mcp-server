@@ -7,9 +7,9 @@ change to keep this in sync. Do NOT edit by hand.*
 
 | Metric | Value |
 |---|---|
-| Total registered tools | 54 |
+| Total registered tools | 65 |
 | Tools with aliases | 0 |
-| Total callable names (incl. aliases) | 54 |
+| Total callable names (incl. aliases) | 65 |
 | Master-key required | 0 |
 | Read-only | 0 |
 
@@ -269,6 +269,58 @@ Fetch all email messages in one or more threads. Pass
 
 **Source:** `src/tools/email/email/index.ts`
 
+## email / inbox
+
+5 tools.
+
+| Name | Description | Flags |
+|---|---|---|
+| `inbox_create` | Create a new email inbox (mailbox) that can receive mail immediately at its addr… | — |
+| `inbox_delete` | Permanently delete an inbox and its mailbox. Mail sent to the address after dele… | — |
+| `inbox_get` | Fetch full detail for a single inbox by ID, including its email address, display… | — |
+| `inbox_list` | List inboxes in the workspace with cursor pagination and optional free-text sear… | — |
+| `inbox_update` | Update the display name or agent association of an inbox. Pass null for a field … | — |
+
+### `inbox_create`
+
+Create a new email inbox (mailbox) that can receive mail immediately at its address. Choose a username and domain or let the platform generate them. Requires master key access.
+
+**Input schema:** `inboxCreateSchema` — see source for fields.
+
+**Source:** `src/tools/email/inbox/index.ts`
+
+### `inbox_delete`
+
+Permanently delete an inbox and its mailbox. Mail sent to the address after deletion bounces. This cannot be undone. Requires master key access.
+
+**Input schema:** `inboxIdSchema` — see source for fields.
+
+**Source:** `src/tools/email/inbox/index.ts`
+
+### `inbox_get`
+
+Fetch full detail for a single inbox by ID, including its email address, display name, and associated agent. Use inbox_list to browse all inboxes.
+
+**Input schema:** `inboxIdSchema` — see source for fields.
+
+**Source:** `src/tools/email/inbox/index.ts`
+
+### `inbox_list`
+
+List inboxes in the workspace with cursor pagination and optional free-text search. Returns the address, display name, and agent association for each inbox.
+
+**Input schema:** `inboxListSchema` — see source for fields.
+
+**Source:** `src/tools/email/inbox/index.ts`
+
+### `inbox_update`
+
+Update the display name or agent association of an inbox. Pass null for a field to clear it (unlink the agent / remove the display name); omitted fields are left unchanged. The email address itself cannot be changed. Requires master key access.
+
+**Input schema:** `inboxUpdateSchema` — see source for fields.
+
+**Source:** `src/tools/email/inbox/index.ts`
+
 ## extension / extension
 
 1 tool.
@@ -509,7 +561,7 @@ Usage rollup for a billing period. Returns counters keyed by usage type (e.g.
 
 ## vault / vault
 
-8 tools.
+14 tools.
 
 | Name | Description | Flags |
 |---|---|---|
@@ -518,8 +570,14 @@ Usage rollup for a billing period. Returns counters keyed by usage type (e.g.
 | `vault_credential_get` | Get a single vault credential by ID. Sensitive fields (passwords, tokens, SSNs, … | — |
 | `vault_credential_get_totp` | Get the current TOTP code for a credential that has a TOTP secret configured. Re… | — |
 | `vault_credential_list` | List credentials in an agent vault with optional type filter. Use to browse stor… | — |
+| `vault_credential_request_cancel` | Cancel a pending credential request by ID. Invalidates the single-use fill link … | — |
+| `vault_credential_request_create` | Request a credential from a HUMAN without the agent or LLM ever seeing the secre… | — |
+| `vault_credential_request_fill` | Internal: submit a credential-request secret from the Anima UI widget. Not for d… | — |
+| `vault_credential_request_status` | Get the status of a pending credential request by ID. Poll this after vault_cred… | — |
 | `vault_credential_search` | Search vault credentials by keyword across names and content. Use when you know … | — |
 | `vault_credential_update` | Update an existing vault credential by ID, including optional structured section… | — |
+| `vault_credential_use` | Make an outbound HTTPS call with a stored credential attached SERVER-SIDE, and g… | — |
+| `vault_exchange_token_for_injection` | Exchange a vtk_ vault token for the PLAINTEXT credential, to inject into a trust… | — |
 | `vault_provision` | Provision a credential vault for an agent. Required before vault_credential_crea… | — |
 
 ### `vault_credential_create`
@@ -562,6 +620,38 @@ List credentials in an agent vault with optional type filter. Use to browse stor
 
 **Source:** `src/tools/vault/vault/index.ts`
 
+### `vault_credential_request_cancel`
+
+Cancel a pending credential request by ID. Invalidates the single-use fill link so the human can no longer submit a value. Use when the request is no longer needed or was created in error.
+
+**Input schema:** `vaultCredentialRequestIdInput` — see source for fields.
+
+**Source:** `src/tools/vault/vault/index.ts`
+
+### `vault_credential_request_create`
+
+Request a credential from a HUMAN without the agent or LLM ever seeing the secret. When the connecting MCP client supports inline elicitation, the human is shown a form to type the secret directly — the tool returns
+
+**Input schema:** `vaultCredentialRequestCreateInput` — see source for fields.
+
+**Source:** `src/tools/vault/vault/index.ts`
+
+### `vault_credential_request_fill`
+
+Internal: submit a credential-request secret from the Anima UI widget. Not for direct agent use.
+
+**Input schema:** `vaultCredentialRequestFillInput` — see source for fields.
+
+**Source:** `src/tools/vault/vault/index.ts`
+
+### `vault_credential_request_status`
+
+Get the status of a pending credential request by ID. Poll this after vault_credential_request_create until
+
+**Input schema:** `vaultCredentialRequestIdInput` — see source for fields.
+
+**Source:** `src/tools/vault/vault/index.ts`
+
 ### `vault_credential_search`
 
 Search vault credentials by keyword across names and content. Use when you know part of the name, URL, or username but not the exact credential ID. Different access pattern from vault_credential_list — list is paginated browsing, search is text-query lookup.
@@ -575,6 +665,22 @@ Search vault credentials by keyword across names and content. Use when you know 
 Update an existing vault credential by ID, including optional structured sections and metadata flags. Use to rotate passwords or revise stored details.
 
 **Input schema:** `vaultUpdateInput` — see source for fields.
+
+**Source:** `src/tools/vault/vault/index.ts`
+
+### `vault_credential_use`
+
+Make an outbound HTTPS call with a stored credential attached SERVER-SIDE, and get the upstream response. Use this to act with a secret (call an API, hit an authed endpoint) WITHOUT ever seeing the plaintext — the platform injects the credential on the wire. The target host must be on the credential
+
+**Input schema:** `vaultUseInput` — see source for fields.
+
+**Source:** `src/tools/vault/vault/index.ts`
+
+### `vault_exchange_token_for_injection`
+
+Exchange a vtk_ vault token for the PLAINTEXT credential, to inject into a trusted client process (a CLI, the browser extension) — NOT to read it yourself. The API gates this to injector credentials: it only succeeds for a master key or a key carrying the
+
+**Input schema:** `vaultExchangeInput` — see source for fields.
 
 **Source:** `src/tools/vault/vault/index.ts`
 
