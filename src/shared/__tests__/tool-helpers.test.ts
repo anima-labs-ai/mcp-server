@@ -19,11 +19,19 @@ describe("requiresMasterKey", () => {
 		expect(requiresMasterKey("agent_delete")).toBe(true);
 		expect(requiresMasterKey("domain_create")).toBe(true);
 		expect(requiresMasterKey("domain_delete")).toBe(true);
+		// Inbox mutations are requireMaster on the API side
+		// (apps/api/src/routes/handlers/inbox.ts).
+		expect(requiresMasterKey("inbox_create")).toBe(true);
+		expect(requiresMasterKey("inbox_update")).toBe(true);
+		expect(requiresMasterKey("inbox_delete")).toBe(true);
 	});
 
 	test("returns false for normal tools", () => {
 		expect(requiresMasterKey("agent_get")).toBe(false);
 		expect(requiresMasterKey("email_send")).toBe(false);
+		// Inbox reads are any-key (requireAuth) on the API side.
+		expect(requiresMasterKey("inbox_get")).toBe(false);
+		expect(requiresMasterKey("inbox_list")).toBe(false);
 	});
 });
 

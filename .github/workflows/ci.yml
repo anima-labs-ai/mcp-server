@@ -21,6 +21,18 @@ jobs:
           bun-version: latest
           cache: true
       - run: bun install --frozen-lockfile
+      - name: Lint — rebrand mangle guard
+        # The 2026-05 rebrand find-replace (anima.email → useanima.sh) mangled
+        # the code identifier `anima.emails.*` into a nonsense token in other
+        # repos (spec item C1). Fail CI if it ever appears here. NOTE: every
+        # mention of the token in this step (pattern and message) must keep
+        # the backslash-escaped dot, or this file matches itself and the
+        # lint fails permanently.
+        run: |
+          if grep -rn "useanima\.shs" . --exclude-dir=node_modules --exclude-dir=.git; then
+            echo "Found the rebrand-mangle token (grep output above): a corrupted 'anima.emails.*' identifier. Restore the original code instead."
+            exit 1
+          fi
       - name: Typecheck
         run: bun run typecheck
       - name: Test
