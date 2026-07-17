@@ -175,6 +175,52 @@ const emailGetSchema = z.object({
 	id: z.string().describe("Email ID. Returns full metadata and body."),
 });
 
+/**
+ * The label filters, shared by email_list and email_search (spec B3/A11).
+ *
+ * Declared once so the two tools cannot drift on what "my unread mail" means —
+ * the same reason the API resolves them in one module. The API applies AND
+ * across labels and excludes spam unless asked.
+ */
+const labelFilterShape = {
+	labels: z
+		.array(z.string())
+		.optional()
+		.describe(
+			"Only return messages carrying ALL of these labels. System labels: `unread`, `read`, `archived`, `spam`. Case-insensitive. Use email_label to change them.",
+		),
+	includeSpam: z
+		.boolean()
+		.optional()
+		.describe(
+			"Include messages classified as spam on arrival. Excluded by default. Naming `spam` in `labels` also counts as asking for it.",
+		),
+};
+
+/**
+ * Add/remove rather than a whole-array replace, mirroring the API (spec B3).
+ *
+ * A `set` shape would make two agents sharing an inbox silently erase each
+ * other's tags; add/remove are commutative, and the API applies them in one
+ * statement. Exposing `set` here would reintroduce the race the endpoint's
+ * shape exists to prevent.
+ */
+const emailLabelSchema = z.object({
+	id: z.string().describe("ID of the message to relabel."),
+	addLabels: z
+		.array(z.string())
+		.optional()
+		.describe(
+			"Labels to add. Adding `read` removes `unread` and vice versa — one state under two names, and a message always carries exactly one of them.",
+		),
+	removeLabels: z
+		.array(z.string())
+		.optional()
+		.describe(
+			"Labels to remove. Removing `unread` marks the message read (and vice versa); a message is never left with neither.",
+		),
+});
+
 // Mirrors the contract's EmailListInput (GET /email): cursor pagination +
 // agentId filter. The previous `folder`/`offset` params were fictional —
 // the API never accepted them, so they silently no-oped (spec item C7).
@@ -197,6 +243,7 @@ const emailListSchema = z.object({
 		.positive()
 		.optional()
 		.describe("Max emails to return per page (1-100, default 20)."),
+	...labelFilterShape,
 });
 
 const emailSearchSchema = z.object({
@@ -223,6 +270,9 @@ const emailSearchSchema = z.object({
 		.describe(
 			"Pagination cursor from a previous fulltext response's `pagination.nextCursor`. Fulltext mode only.",
 		),
+	// Fulltext mode only — semantic search cannot filter by label and the tool
+	// rejects the combination rather than silently dropping it.
+	...labelFilterShape,
 	threshold: z
 		.number()
 		.min(0)
@@ -415,6 +465,11 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 			if (args.agentId) params.set("agentId", args.agentId);
 			if (args.cursor) params.set("cursor", args.cursor);
 			if (args.limit !== undefined) params.set("limit", String(args.limit));
+			// One `labels=` key per label — the repeated-key form the API reads as an
+			// array. `set` would keep only the last, silently narrowing a multi-label
+			// filter to one and returning MORE mail than the caller asked for.
+			for (const label of args.labels ?? []) params.append("labels", label);
+			if (args.includeSpam !== undefined) params.set("includeSpam", String(args.includeSpam));
 			const path = params.toString() ? `/v1/email?${params}` : "/v1/email";
 			const result = await context.client.get<unknown>(path);
 			return toolSuccess(result);
@@ -438,6 +493,17 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 		},
 		withErrorHandling(async (args, context) => {
 			if (args.mode === "semantic") {
+				// The semantic route accepts only query/agentId/limit/threshold. Passing
+				// labels here would be zod-stripped server-side and the caller would be
+				// told its label filter applied while every label was ignored — the
+				// exact silent-no-op this server's contract gates exist to prevent. The
+				// M3 gate cannot catch it (it unions the props of BOTH search routes, and
+				// the fulltext one does accept labels), so refuse explicitly.
+				if ((args.labels && args.labels.length > 0) || args.includeSpam !== undefined) {
+					throw new Error(
+						"email_search does not support `labels`/`includeSpam` in semantic mode — the semantic endpoint cannot filter by label, and silently ignoring them would misreport your search. Use mode 'fulltext' to combine a query with label filters, or email_list for labels alone.",
+					);
+				}
 				const body: Record<string, unknown> = { query: args.query };
 				if (args.agentId) body.agentId = args.agentId;
 				if (args.limit !== undefined) body.limit = args.limit;
@@ -451,12 +517,46 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 
 			const filters: Record<string, unknown> = { channel: "EMAIL" };
 			if (args.agentId) filters.agentId = args.agentId;
+			if (args.labels && args.labels.length > 0) filters.labels = args.labels;
+			if (args.includeSpam !== undefined) filters.includeSpam = args.includeSpam;
 			const pagination: Record<string, unknown> = {};
 			if (args.cursor) pagination.cursor = args.cursor;
 			if (args.limit !== undefined) pagination.limit = args.limit;
 			const body: Record<string, unknown> = { query: args.query, filters };
 			if (Object.keys(pagination).length > 0) body.pagination = pagination;
 			const result = await context.client.post<unknown>("/v1/messages/search", body);
+			return toolSuccess(result);
+		}, options.context),
+	);
+
+	server.registerTool(
+		"email_label",
+		{
+			title: "Label Email",
+			description:
+				"Add and/or remove labels on one message — the agent's workflow state. Use this to mark mail read/unread (`read`/`unread`), archive it (`archived`), or apply your own tags, then filter with email_list's `labels`. Supply at least one of addLabels/removeLabels. One message per call: there is no batch form.",
+			inputSchema: emailLabelSchema.shape,
+			outputSchema: objectOutput(),
+			annotations: {
+				readOnlyHint: false,
+				destructiveHint: false,
+				// Add/remove are set operations: replaying the same call converges on
+				// the same labels rather than stacking duplicates.
+				idempotentHint: true,
+				openWorldHint: true,
+			},
+		},
+		withErrorHandling(async (args, context) => {
+			if (!args.addLabels?.length && !args.removeLabels?.length) {
+				throw new Error(
+					"email_label requires at least one of `addLabels` or `removeLabels` — a call with neither would report success while changing nothing.",
+				);
+			}
+			const body: Record<string, unknown> = {};
+			if (args.addLabels?.length) body.addLabels = args.addLabels;
+			if (args.removeLabels?.length) body.removeLabels = args.removeLabels;
+			const path = `/v1/messages/${encodeURIComponent(args.id)}/labels`;
+			const result = await context.client.patch<unknown>(path, body);
 			return toolSuccess(result);
 		}, options.context),
 	);

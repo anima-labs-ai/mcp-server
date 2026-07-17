@@ -21,7 +21,7 @@ import { registerEmailTools } from "../email/index.js";
 // ---------------------------------------------------------------------------
 
 interface CapturedRequest {
-	method: "GET" | "POST";
+	method: "GET" | "POST" | "PATCH";
 	path: string;
 	body?: unknown;
 }
@@ -39,6 +39,11 @@ function buildHarness(options?: { hasMasterKey?: boolean; getResponses?: unknown
 	(client as any).post = async (path: string, body: unknown) => {
 		calls.push({ method: "POST", path, body });
 		return { id: "msg_1", status: "SENT" };
+	};
+	// biome-ignore lint/suspicious/noExplicitAny: test double.
+	(client as any).patch = async (path: string, body: unknown) => {
+		calls.push({ method: "PATCH", path, body });
+		return { id: "msg_1", labels: ["read"] };
 	};
 
 	const handlers = new Map<string, (args: Record<string, unknown>) => Promise<unknown>>();
@@ -63,6 +68,15 @@ function buildHarness(options?: { hasMasterKey?: boolean; getResponses?: unknown
 
 function isError(result: unknown): boolean {
 	return !!(result as { isError?: boolean })?.isError;
+}
+
+/** The text an LLM caller actually sees when a tool refuses. */
+function errorText(result: unknown): string {
+	return (
+		(result as { content?: Array<{ text?: string }> })?.content
+			?.map((c) => c.text ?? "")
+			.join("\n") ?? ""
+	);
 }
 
 describe("email_list (C7): real cursor pagination + agentId, no fictional params", () => {
@@ -95,7 +109,10 @@ describe("email_list (C7): real cursor pagination + agentId, no fictional params
 		// one of everything back while believing it filtered/paginated.
 		expect(props).not.toContain("folder");
 		expect(props).not.toContain("offset");
-		expect(props.sort()).toEqual(["agentId", "cursor", "limit"]);
+		// Pinned: every param here must be one GET /email really accepts (B3 added
+		// labels/includeSpam). The tool-contract gate proves that against the
+		// contract snapshot; this pin keeps the list from growing unnoticed.
+		expect(props.sort()).toEqual(["agentId", "cursor", "includeSpam", "labels", "limit"]);
 	});
 });
 
@@ -235,5 +252,163 @@ describe("email_send (C7): contract headers exposed", () => {
 		});
 
 		expect("headers" in (calls[0].body as Record<string, unknown>)).toBe(false);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Spec item B3 — labels + read state on the MCP surface.
+//
+// Labels are the agent's workflow state machine: without them every list
+// returns the same undifferentiated stream forever. The API shipped them in
+// anima#307; these tests pin the client half — that the filters reach the wire
+// in the shape the API actually reads, and that the one place the surface
+// CANNOT honour them fails loudly instead of lying.
+// ---------------------------------------------------------------------------
+describe("email_label (B3): add/remove labels on one message", () => {
+	test("PATCHes the message's labels route with both operations", async () => {
+		const { handlers, calls } = buildHarness();
+		await handlers.get("email_label")?.({
+			id: "clxmsg000000000000000000",
+			addLabels: ["read", "urgent"],
+			removeLabels: ["unread"],
+		});
+
+		expect(calls).toHaveLength(1);
+		expect(calls[0]).toMatchObject({
+			method: "PATCH",
+			path: "/v1/messages/clxmsg000000000000000000/labels",
+			body: { addLabels: ["read", "urgent"], removeLabels: ["unread"] },
+		});
+	});
+
+	test("omits the operation the caller did not ask for", async () => {
+		const { handlers, calls } = buildHarness();
+		await handlers.get("email_label")?.({
+			id: "clxmsg000000000000000000",
+			addLabels: ["archived"],
+		});
+
+		const body = calls[0].body as Record<string, unknown>;
+		// Sending removeLabels:[] would be a no-op the API still has to process;
+		// more importantly the absent key is what "leave the rest alone" means.
+		expect("removeLabels" in body).toBe(false);
+		expect(body.addLabels).toEqual(["archived"]);
+	});
+
+	test("a call with neither add nor remove is refused, not silently successful", async () => {
+		const { handlers, calls } = buildHarness();
+		// The failure this prevents: an LLM "marks the message read", gets a
+		// success back, and the labels never changed.
+		const result = await handlers.get("email_label")?.({ id: "clxmsg000000000000000000" });
+
+		expect(isError(result)).toBe(true);
+		expect(errorText(result)).toMatch(/at least one of `addLabels` or `removeLabels`/);
+		// Refused before the wire, not by the API rejecting it.
+		expect(calls).toHaveLength(0);
+	});
+
+	test("the message id is URL-encoded into the path", async () => {
+		const { handlers, calls } = buildHarness();
+		await handlers.get("email_label")?.({ id: "a/../b", addLabels: ["x"] });
+
+		// A raw id would let a crafted value walk the path to another route.
+		expect(calls[0].path).toBe("/v1/messages/a%2F..%2Fb/labels");
+	});
+});
+
+describe("email_list (B3): label filters reach the wire", () => {
+	test("each label becomes its own `labels=` key", async () => {
+		const { handlers, calls } = buildHarness();
+		await handlers.get("email_list")?.({ labels: ["urgent", "unread"] });
+
+		// The repeated-key form is what the API reads as an array. `set` would keep
+		// only the last label, quietly widening "urgent AND unread" to "unread" and
+		// returning MORE mail than asked for — a filter that under-filters in
+		// silence is worse than one that errors.
+		const url = new URL(`http://x${calls[0].path}`);
+		expect(url.searchParams.getAll("labels")).toEqual(["urgent", "unread"]);
+	});
+
+	test("a single label survives as a lone value (anima#309)", async () => {
+		const { handlers, calls } = buildHarness();
+		await handlers.get("email_list")?.({ labels: ["unread"] });
+
+		// `?labels=unread` 400'd until the contract accepted a lone value; this is
+		// the single most common label call, so it is pinned explicitly.
+		expect(calls[0].path).toBe("/v1/email?labels=unread");
+	});
+
+	test("includeSpam is sent only when the caller decides", async () => {
+		const { handlers, calls } = buildHarness();
+		await handlers.get("email_list")?.({});
+		expect(calls[0].path).toBe("/v1/email");
+
+		await handlers.get("email_list")?.({ includeSpam: true });
+		// Must serialise as the string the API parses as boolean true, not "on"/"1".
+		expect(calls[1].path).toBe("/v1/email?includeSpam=true");
+
+		await handlers.get("email_list")?.({ includeSpam: false });
+		// Explicit false must still be transmitted — it is the caller overriding,
+		// and `if (args.includeSpam)` would drop it.
+		expect(calls[2].path).toBe("/v1/email?includeSpam=false");
+	});
+});
+
+describe("email_search (B3): labels in fulltext, refused in semantic", () => {
+	test("fulltext mode nests labels into the search filters", async () => {
+		const { handlers, calls } = buildHarness();
+		await handlers.get("email_search")?.({
+			query: "invoice",
+			labels: ["unread"],
+			includeSpam: true,
+		});
+
+		expect(calls[0]).toMatchObject({
+			method: "POST",
+			path: "/v1/messages/search",
+			body: { filters: { channel: "EMAIL", labels: ["unread"], includeSpam: true } },
+		});
+	});
+
+	test("semantic mode REFUSES labels instead of dropping them", async () => {
+		const { handlers, calls } = buildHarness();
+		// POST /messages/search/semantic accepts only query/agentId/limit/threshold,
+		// so labels would be zod-stripped and the caller told its filter applied
+		// while every label was ignored. The contract gate cannot catch this — it
+		// unions the props of both search routes and fulltext does accept labels —
+		// so the refusal is the only thing standing between the LLM and a lie.
+		const result = await handlers.get("email_search")?.({
+			query: "invoice",
+			mode: "semantic",
+			labels: ["unread"],
+		});
+
+		expect(isError(result)).toBe(true);
+		expect(errorText(result)).toMatch(/does not support `labels`\/`includeSpam` in semantic mode/);
+		expect(calls).toHaveLength(0);
+	});
+
+	test("semantic mode refuses includeSpam too, including an explicit false", async () => {
+		const { handlers, calls } = buildHarness();
+		// `includeSpam: false` looks harmless but is still a filter the semantic
+		// route cannot honour: it returns spam regardless. Accepting it would be
+		// the same lie in a quieter voice, so `!== undefined` is the right test and
+		// a falsy check would be the bug.
+		const result = await handlers.get("email_search")?.({
+			query: "invoice",
+			mode: "semantic",
+			includeSpam: false,
+		});
+
+		expect(isError(result)).toBe(true);
+		expect(calls).toHaveLength(0);
+	});
+
+	test("semantic mode without labels still works", async () => {
+		const { handlers, calls } = buildHarness();
+		await handlers.get("email_search")?.({ query: "invoice", mode: "semantic" });
+
+		// The refusal must be scoped to the label params, not break semantic search.
+		expect(calls[0]).toMatchObject({ path: "/v1/messages/search/semantic" });
 	});
 });
