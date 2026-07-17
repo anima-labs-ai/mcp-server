@@ -9,6 +9,16 @@
  *   - sms_thread_list: SMS conversation summaries (one entry per thread)
  *   - sms_thread_get:  full message history for a specific thread
  *   - sms_send:        send SMS or MMS (with optional media)
+ *
+ * SMS THREADS (spec F3): the two thread tools used to be FICTION. No SMS write
+ * path ever set Message.threadId (the API's own backfill migration said "SMS
+ * rows keep thread_id = NULL"), yet sms_thread_get filtered `/v1/messages` by
+ * threadId and sms_thread_list grouped the results by threadId client-side,
+ * skipping every row whose threadId was null — which was all of them. Both
+ * returned EMPTY for every customer, always. The API now threads SMS by
+ * (agent, counterparty) and serves real endpoints, so these are thin
+ * pass-throughs to `/v1/phone/sms/threads`; the client-side aggregation (and
+ * its 100-message truncation) is gone.
  */
 
 import { z } from "zod";
@@ -72,72 +82,6 @@ const smsSendSchema = z.object({
 		),
 });
 
-type UnknownRecord = Record<string, unknown>;
-
-function asRecord(value: unknown): UnknownRecord | undefined {
-	return typeof value === "object" && value !== null
-		? (value as UnknownRecord)
-		: undefined;
-}
-
-/**
- * Aggregate a flat list of SMS messages into per-thread summaries.
- *
- * Each thread summary carries the threadId, the agent's other party
- * (participantAddress), the most recent message snippet + timestamp + direction,
- * and a messageCount. Sorted by lastMessageAt descending.
- *
- * Pre-launch note: aggregation is client-side; replace with a server-side
- * /v1/sms/threads endpoint when SMS traffic grows past `messageFetchLimit`.
- */
-function aggregateThreads(messages: UnknownRecord[]): UnknownRecord[] {
-	const byThread = new Map<string, UnknownRecord & { messageCount: number }>();
-
-	for (const msg of messages) {
-		const threadId = typeof msg.threadId === "string" ? msg.threadId : null;
-		if (!threadId) continue;
-
-		const direction = typeof msg.direction === "string" ? msg.direction : null;
-		const participantAddress =
-			direction === "INBOUND" && typeof msg.fromAddress === "string"
-				? msg.fromAddress
-				: typeof msg.toAddress === "string"
-					? msg.toAddress
-					: null;
-		const createdAt = typeof msg.createdAt === "string" ? msg.createdAt : null;
-		const body = typeof msg.body === "string" ? msg.body : "";
-
-		const existing = byThread.get(threadId);
-		const isNewer =
-			!existing ||
-			(createdAt !== null &&
-				typeof existing.lastMessageAt === "string" &&
-				createdAt > existing.lastMessageAt);
-
-		if (isNewer) {
-			byThread.set(threadId, {
-				threadId,
-				agentId: msg.agentId ?? null,
-				participantAddress,
-				lastMessageAt: createdAt,
-				lastMessageSnippet: body.slice(0, 140),
-				lastMessageDirection: direction,
-				messageCount: (existing?.messageCount ?? 0) + 1,
-			});
-		} else if (existing) {
-			existing.messageCount += 1;
-		}
-	}
-
-	const threads = [...byThread.values()];
-	threads.sort((a, b) => {
-		const aTime = typeof a.lastMessageAt === "string" ? a.lastMessageAt : "";
-		const bTime = typeof b.lastMessageAt === "string" ? b.lastMessageAt : "";
-		return bTime.localeCompare(aTime);
-	});
-	return threads;
-}
-
 export function registerSmsTools(options: ToolRegistrationOptions): void {
 	const { server } = options;
 
@@ -181,7 +125,11 @@ export function registerSmsTools(options: ToolRegistrationOptions): void {
 		},
 		withErrorHandling(async (args, context) => {
 			const params = new URLSearchParams();
-			params.set("channel", "SMS");
+			// SMS *and* MMS: a text conversation contains both, and a picture
+			// message is stored as MMS (spec F4). Filtering `channel=SMS` alone
+			// would silently hide every photo the agent sent or received.
+			params.append("channels", "SMS");
+			params.append("channels", "MMS");
 			if (args.agentId) params.set("agentId", args.agentId);
 			if (args.cursor) params.set("cursor", args.cursor);
 			if (args.limit !== undefined) params.set("limit", String(args.limit));
@@ -195,7 +143,7 @@ export function registerSmsTools(options: ToolRegistrationOptions): void {
 		{
 			title: "List SMS Threads",
 			description:
-				"List SMS conversations. Optionally filter by agent_id to see conversations for a specific agent. Each conversation is a thread between your number and an external contact. Returns thread summaries with last message snippet + participant address.",
+				"List SMS/MMS conversations, most recently active first. A conversation is one agent number talking to one external contact. Returns summaries (participant, last message snippet, message count) — use sms_thread_get for the full history. Optionally filter by agentId.",
 			inputSchema: smsThreadListSchema.shape,
 			outputSchema: listOutput(),
 			annotations: {
@@ -206,34 +154,15 @@ export function registerSmsTools(options: ToolRegistrationOptions): void {
 			},
 		},
 		withErrorHandling(async (args, context) => {
-			// 2026-05-20: was 500 — hit the API's max(100) limit and 400'd.
-			// 100 still gives enough breadth to aggregate threads for the
-			// common inbox (most agents have < 100 active conversations).
-			// Heavy users should paginate via sms_list directly.
-			const messageFetchLimit = 100;
 			const params = new URLSearchParams();
-			params.set("channel", "SMS");
-			params.set("limit", String(messageFetchLimit));
 			if (args.agentId) params.set("agentId", args.agentId);
-
-			const raw = await context.client.get<unknown>(`/v1/messages?${params}`);
-			const rawRecord = asRecord(raw);
-			const items = Array.isArray(rawRecord?.items)
-				? (rawRecord.items as UnknownRecord[])
-				: Array.isArray(raw)
-					? (raw as UnknownRecord[])
-					: [];
-
-			const threads = aggregateThreads(items);
-			const offset = args.offset ?? 0;
-			const limit = args.limit ?? 20;
-			const page = threads.slice(offset, offset + limit);
-
-			return toolSuccess({
-				items: page,
-				total: threads.length,
-				hasMore: offset + limit < threads.length,
-			});
+			if (args.limit !== undefined) params.set("limit", String(args.limit));
+			if (args.offset !== undefined) params.set("offset", String(args.offset));
+			const query = params.toString();
+			const result = await context.client.get<unknown>(
+				`/v1/phone/sms/threads${query ? `?${query}` : ""}`,
+			);
+			return toolSuccess(result);
 		}, options.context),
 	);
 
@@ -242,7 +171,7 @@ export function registerSmsTools(options: ToolRegistrationOptions): void {
 		{
 			title: "Get SMS Thread",
 			description:
-				"Get a specific SMS conversation with message history. Use sms_thread_list to find IDs. Returns messages in the thread ordered by time.",
+				"Get one SMS/MMS conversation with its message history, oldest first. Use sms_thread_list to find thread IDs (or take `threadId` off any SMS). For a conversation longer than `limit`, returns its most recent messages; page deeper history with sms_list.",
 			inputSchema: smsThreadGetSchema.shape,
 			outputSchema: objectOutput(),
 			annotations: {
@@ -254,10 +183,11 @@ export function registerSmsTools(options: ToolRegistrationOptions): void {
 		},
 		withErrorHandling(async (args, context) => {
 			const params = new URLSearchParams();
-			params.set("threadId", args.id);
-			params.set("channel", "SMS");
 			if (args.limit !== undefined) params.set("limit", String(args.limit));
-			const result = await context.client.get<unknown>(`/v1/messages?${params}`);
+			const query = params.toString();
+			const result = await context.client.get<unknown>(
+				`/v1/phone/sms/threads/${encodeURIComponent(args.id)}${query ? `?${query}` : ""}`,
+			);
 			return toolSuccess(result);
 		}, options.context),
 	);
