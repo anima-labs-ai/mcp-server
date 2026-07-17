@@ -202,20 +202,14 @@ export const TOOL_ROUTES: Record<string, ToolRouteDecl> = {
 	sms_list: {
 		routes: ["GET /messages"],
 	},
+	// Spec F3: these now hit REAL thread endpoints. They previously declared
+	// "GET /messages" and aggregated client-side over a threadId the API never
+	// set for SMS — so both returned empty for every customer.
 	sms_thread_list: {
-		routes: ["GET /messages"],
-		clientSideParams: [
-			// Pagination over the client-side thread aggregation (messages are
-			// fetched at a fixed limit, grouped by threadId, then sliced).
-			"offset",
-		],
+		routes: ["GET /phone/sms/threads"],
 	},
 	sms_thread_get: {
-		routes: ["GET /messages"],
-		clientSideParams: [
-			// Maps to the threadId query param.
-			"id",
-		],
+		routes: ["GET /phone/sms/threads/{id}"],
 	},
 	phone_call_create: {
 		// Live call over the WS voice protocol (apps/api ws-voice.ts), not REST.
