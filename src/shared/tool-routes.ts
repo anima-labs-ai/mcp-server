@@ -88,6 +88,9 @@ export const TOOL_ROUTES: Record<string, ToolRouteDecl> = {
 	email_list: {
 		routes: ["GET /email"],
 	},
+	email_label: {
+		routes: ["PATCH /messages/{id}/labels"],
+	},
 	email_search: {
 		routes: ["POST /messages/search", "POST /messages/search/semantic"],
 		clientSideParams: [
