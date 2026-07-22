@@ -13,7 +13,7 @@ concurrency:
 jobs:
   test:
     name: Typecheck + Test
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-2vcpu-ubuntu-2404
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
