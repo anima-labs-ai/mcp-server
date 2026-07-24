@@ -28,11 +28,11 @@ import { z } from "zod";
 
 import {
 	type ToolContext,
-	VoiceSocket,
-	VoiceSocketError,
-	type VoiceServerMessage,
 	toolError,
 	toolSuccess,
+	type VoiceServerMessage,
+	VoiceSocket,
+	VoiceSocketError,
 } from "../../../shared/index.js";
 
 // ── Tool config ──
@@ -60,10 +60,7 @@ const HARD_CAP_SILENCE_SEC = 120;
 export const inputSchema = {
 	to: z
 		.string()
-		.regex(
-			/^\+[1-9]\d{7,14}$/,
-			"Must be E.164 format (e.g. +14155551234)",
-		)
+		.regex(/^\+[1-9]\d{7,14}$/, "Must be E.164 format (e.g. +14155551234)")
 		.describe("Destination phone number in E.164 format."),
 	firstMessage: z
 		.string()
@@ -209,14 +206,21 @@ export function registerPhoneCallLiveTool(
 					.describe(
 						"ID of the placed call. `null` if the call ended before the carrier assigned an ID (e.g. WS auth failure or pre-ring termination) — use `endedReason` to understand why.",
 					),
-				endedReason: z.string().describe("Why the call ended (hangup, timeout, error, etc.)."),
-				durationSec: z.number().optional().describe("Total call duration in seconds."),
+				endedReason: z
+					.string()
+					.describe("Why the call ended (hangup, timeout, error, etc.)."),
+				durationSec: z
+					.number()
+					.optional()
+					.describe("Total call duration in seconds."),
 				transcript: z
 					.array(
 						z.object({
 							role: z
 								.enum(["caller", "agent"])
-								.describe("Who spoke this turn — `caller` is the human, `agent` is the AI."),
+								.describe(
+									"Who spoke this turn — `caller` is the human, `agent` is the AI.",
+								),
 							text: z.string(),
 							at: z.string().optional().describe("ISO 8601 timestamp."),
 							turnId: z.string().optional(),
@@ -297,7 +301,8 @@ async function runVoiceCall(
 	extra: ToolHandlerExtra,
 ): Promise<ReturnType<typeof toolSuccess> | ReturnType<typeof toolError>> {
 	const startedAtMs = Date.now();
-	const maxDurationMs = (args.maxDurationSec ?? DEFAULT_MAX_DURATION_SEC) * 1000;
+	const maxDurationMs =
+		(args.maxDurationSec ?? DEFAULT_MAX_DURATION_SEC) * 1000;
 	const silenceTimeoutMs =
 		(args.silenceTimeoutSec ?? DEFAULT_SILENCE_TIMEOUT_SEC) * 1000;
 	const progressToken = extra?._meta?.progressToken as
@@ -492,9 +497,7 @@ async function runVoiceCall(
 
 	socket.close();
 
-	return toolSuccess(
-		buildResult(callId, endedReason ?? "completed", endError),
-	);
+	return toolSuccess(buildResult(callId, endedReason ?? "completed", endError));
 }
 
 // ── Per-message handler ──
@@ -530,7 +533,7 @@ interface HandlerOutcome {
 	};
 }
 
-async function handleServerMessage(
+export async function handleServerMessage(
 	msg: VoiceServerMessage,
 	deps: HandlerDeps,
 ): Promise<HandlerOutcome> {
@@ -652,10 +655,23 @@ async function handleServerMessage(
 			}
 			return {};
 
+		case "call.transcription.eager":
+			// Speculative pre-final signal (Flux eager end-of-turn). Server-side-
+			// agent mode acts on it API-side; this client waits for the committed
+			// `call.transcription` (isFinal:true), so the eager hint is ignored.
+			return {};
+
 		case "pong":
 		case "call.incoming":
 		case "call.reconnected":
 			// Not relevant to outbound-call orchestration; ignore.
+			return {};
+
+		default:
+			// Forward-compat: a server message type this client doesn't recognize
+			// (e.g. a newer API emitting a new event) is ignored, never crashed on.
+			// A missing default here is exactly what let call.transcription.eager
+			// fall through as `undefined` and throw on `handled.callIdAssigned`.
 			return {};
 	}
 }
@@ -673,7 +689,7 @@ const ELICIT_SCHEMA = {
 		endCallAfterSpoken: {
 			type: "boolean",
 			description:
-				"If true, hang up after speaking. Use this for natural goodbyes (e.g. \"Thanks, talk soon!\" + true).",
+				'If true, hang up after speaking. Use this for natural goodbyes (e.g. "Thanks, talk soon!" + true).',
 		},
 	},
 	required: ["say"],
@@ -739,7 +755,9 @@ async function elicitAndSpeak(
 		}
 		console.log(
 			`[phone_call_create] elicitation/create ← resolved (callId=${deps.callId}, action=${elicitResult.action}, elapsedMs=${Date.now() - elicitStartedAt}, contentKeys=${
-				elicitResult.content ? Object.keys(elicitResult.content).join(",") : "none"
+				elicitResult.content
+					? Object.keys(elicitResult.content).join(",")
+					: "none"
 			})`,
 		);
 	} catch (err) {
@@ -759,7 +777,7 @@ async function elicitAndSpeak(
 		const mentionsElicitation = /elicitation/i.test(message);
 		const isCapabilityError =
 			mentionsElicitation &&
-			(/(not\s+support|unsupported|-32600|-32601)/i.test(message));
+			/(not\s+support|unsupported|-32600|-32601)/i.test(message);
 		const isTimeout = /elicitation\/create timed out/i.test(message);
 		console.error(
 			`[phone_call_create] elicitation/create ✗ failed (callId=${deps.callId}, elapsedMs=${elapsedMs}, isCapability=${isCapabilityError}, isTimeout=${isTimeout}, error=${message.slice(0, 200)})`,

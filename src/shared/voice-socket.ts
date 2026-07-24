@@ -40,6 +40,20 @@ export type VoiceServerMessage =
 			confidence?: number;
 			turnId?: string;
 	  }
+	| {
+			// Eager (speculative) end-of-turn signal from Flux STT, fired BEFORE
+			// the committed transcription so external harnesses can pre-warm their
+			// LLM. A hint, never authoritative — the real turn always arrives as a
+			// `call.transcription` with isFinal:true. Server-side-agent mode
+			// consumes it API-side; a WS client can ignore it. (Its absence from
+			// this union is what crashed handleServerMessage — see live-call.ts.)
+			type: "call.transcription.eager";
+			callId: string;
+			turnId?: string;
+			text: string;
+			confidence?: number;
+			timestamp?: number;
+	  }
 	| { type: "call.speak.ended"; callId: string; text: string }
 	| {
 			type: "call.interrupted";
@@ -158,9 +172,8 @@ export class VoiceSocketError extends Error {
 export class VoiceSocket {
 	private readonly ws: WebSocket;
 	private readonly queue: VoiceServerMessage[] = [];
-	private readonly waiters: Array<
-		(value: VoiceServerMessage | null) => void
-	> = [];
+	private readonly waiters: Array<(value: VoiceServerMessage | null) => void> =
+		[];
 	private closed = false;
 	private closeCode: number | null = null;
 	private closeReason: string | null = null;
@@ -265,7 +278,8 @@ export class VoiceSocket {
 	 * Open a connection to /ws/voice and resolve when it's ready to send.
 	 */
 	static async open(opts: VoiceSocketOptions): Promise<VoiceSocket> {
-		const wsUrl = opts.wsUrlOverride ?? buildVoiceWsUrl(opts.apiBaseUrl, opts.apiKey);
+		const wsUrl =
+			opts.wsUrlOverride ?? buildVoiceWsUrl(opts.apiBaseUrl, opts.apiKey);
 		const ws = new WebSocket(wsUrl);
 		const socket = new VoiceSocket(ws, opts.signal);
 		await socket.waitOpen();
