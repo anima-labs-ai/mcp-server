@@ -6,6 +6,12 @@ substitutions:
   _REGION: us-central1
   _REPO: anima
   _SERVICE: mcp-server
+  # Image tag to build + deploy. Defaults to `latest` so a plain manual
+  # `gcloud builds submit` always yields a VALID tag (the built-in $COMMIT_SHA
+  # is empty on manual submits, which produced an invalid `mcp-server:` tag and
+  # failed the deploy step). For an immutable, commit-stamped deploy, pass:
+  #   --substitutions=_TAG=$(git rev-parse HEAD)
+  _TAG: latest
 
 options:
   logging: CLOUD_LOGGING_ONLY
@@ -17,7 +23,7 @@ steps:
     args:
       - --dockerfile=Dockerfile
       - --context=.
-      - --destination=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/mcp-server:$COMMIT_SHA
+      - --destination=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/mcp-server:${_TAG}
       - --destination=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/mcp-server:latest
       - --cache=true
       - --cache-repo=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/mcp-server-cache
@@ -31,7 +37,7 @@ steps:
       - run
       - deploy
       - ${_SERVICE}
-      - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/mcp-server:$COMMIT_SHA
+      - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/mcp-server:${_TAG}
       - --region=${_REGION}
       - --platform=managed
       - --min-instances=1
@@ -42,12 +48,13 @@ steps:
       - --concurrency=80
       - --allow-unauthenticated
       # Plumb deploy identity into the runtime so Who_Am_I can answer
-      # "did my fix actually land?" in one tool call. BUILD_ID is always
-      # set per build (even on manual `gcloud builds submit`); COMMIT_SHA
-      # is set on github-trigger builds and on manual submits when run
-      # from a git working tree. Empty string is fine — the runtime falls
-      # back to BUILD_ID. K_REVISION is set by Cloud Run automatically.
-      - --set-env-vars=NODE_ENV=production,BUILD_SHA=$COMMIT_SHA,BUILD_ID=$BUILD_ID
+      # "did my fix actually land?" in one tool call. BUILD_ID is always set
+      # per build. BUILD_SHA mirrors _TAG: the commit SHA when you pass
+      # --substitutions=_TAG=$(git rev-parse HEAD), else "latest". (The
+      # built-in $COMMIT_SHA is NOT auto-set on a manual `gcloud builds
+      # submit` — only github-trigger builds populate it — which is why the
+      # image tag + stamp key off _TAG.) K_REVISION is set by Cloud Run.
+      - --set-env-vars=NODE_ENV=production,BUILD_SHA=${_TAG},BUILD_ID=$BUILD_ID
       - --set-secrets=ANIMA_API_URL=API_URL:latest
 
 # NOTE: NO `images:` block. Kaniko (build step) pushes images directly via
