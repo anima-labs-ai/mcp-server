@@ -45,10 +45,6 @@ const phoneCallIdSchema = z.object({
 });
 
 const voicesListSchema = z.object({
-	tier: z
-		.enum(["basic", "premium"])
-		.optional()
-		.describe("Filter by pricing tier."),
 	gender: z
 		.enum(["male", "female", "neutral"])
 		.optional()
@@ -56,7 +52,9 @@ const voicesListSchema = z.object({
 	language: z
 		.string()
 		.optional()
-		.describe("Filter by language code (e.g. 'en-US', 'fr-FR')."),
+		.describe(
+			"Filter by BASE language code — the bare two-letter code, e.g. 'en' or 'fr'. Matching is a prefix test against the catalog's own base codes, so a region tag like 'en-US' matches nothing. Call without a filter to see which languages the catalog currently carries.",
+		),
 });
 
 export function registerPhoneCallTools(options: ToolRegistrationOptions): void {
@@ -99,7 +97,7 @@ export function registerPhoneCallTools(options: ToolRegistrationOptions): void {
 		{
 			title: "Get Phone Call",
 			description:
-				"Get full detail for a single phone call: status, duration, participants, tier, AI-generated summary (one-liner, topics, action items, decisions, open questions, next steps), and quality score. The summary is generated once on first read after post-call processing and cached.",
+				"Get full detail for a single phone call: status, duration, participants, AI-generated summary (one-liner, topics, action items, decisions, open questions, next steps), and quality score. The summary is generated once on first read after post-call processing and cached.",
 			inputSchema: phoneCallIdSchema.shape,
 			outputSchema: objectOutput(),
 			annotations: {
@@ -168,7 +166,7 @@ export function registerPhoneCallTools(options: ToolRegistrationOptions): void {
 		{
 			title: "List AI Voices",
 			description:
-				"List available AI voices for placing phone calls. Filter by tier (basic for low-latency, premium for natural voices), gender, or language. Returns voice IDs needed for phone_call_create.",
+				"List available AI voices for placing phone calls. The catalog is multilingual — filter by language or gender. Each voice includes descriptive metadata and a vendor-neutral audio preview URL (sampleUrl), plus the voice ID needed for phone_call_create.",
 			inputSchema: voicesListSchema.shape,
 			outputSchema: listOutput(),
 			annotations: {
@@ -180,7 +178,6 @@ export function registerPhoneCallTools(options: ToolRegistrationOptions): void {
 		},
 		withErrorHandling(async (args, context) => {
 			const params = new URLSearchParams();
-			if (args.tier) params.set("tier", args.tier);
 			if (args.gender) params.set("gender", args.gender);
 			if (args.language) params.set("language", args.language);
 			const path = params.toString() ? `/v1/voice/catalog?${params}` : "/v1/voice/catalog";
