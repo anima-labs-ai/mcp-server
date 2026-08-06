@@ -53,7 +53,7 @@ const voicesListSchema = z.object({
 		.string()
 		.optional()
 		.describe(
-			"Filter by BASE language code — 'en', 'es', 'fr', 'de', 'it', 'ja', 'nl'. Matched as a prefix, so a region tag like 'en-US' matches nothing.",
+			"Filter by BASE language code — the bare two-letter code, e.g. 'en' or 'fr'. Matching is a prefix test against the catalog's own base codes, so a region tag like 'en-US' matches nothing. Call without a filter to see which languages the catalog currently carries.",
 		),
 });
 
