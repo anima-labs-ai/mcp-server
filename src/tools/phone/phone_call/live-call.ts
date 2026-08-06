@@ -15,9 +15,9 @@
  * The tool result is the full transcript + reason the call ended. Cancel-
  * lation via `extra.signal` triggers a clean `call.hangup` before exiting.
  *
- * The same handler works for both `tier: "basic"` and `tier: "premium"`.
- * The differences (Telnyx native STT/TTS vs Deepgram+ElevenLabs) live
- * entirely server-side; the protocol surface is identical.
+ * There is ONE voice tier. The server picks the pipeline and ignores any
+ * `tier` on the wire — see plugins/ws-voice.ts. The protocol surface never
+ * named a provider and must not start.
  *
  * For the full WS protocol see apps/api/src/plugins/ws-voice.ts.
  */
@@ -69,17 +69,11 @@ export const inputSchema = {
 		.describe(
 			"Opening line the agent speaks when the call is answered. Be natural — this is what the human hears first.",
 		),
-	tier: z
-		.enum(["basic", "premium"])
-		.optional()
-		.describe(
-			"Voice quality tier. `basic` = Telnyx native STT/TTS (cheaper, slightly more robotic). `premium` = Deepgram STT + ElevenLabs TTS (lower latency, natural voice). Default: basic.",
-		),
 	voiceId: z
 		.string()
 		.optional()
 		.describe(
-			"Optional voice override. Use voice_list to list valid IDs for the chosen tier.",
+			"Optional voice override. Use voice_list for valid IDs; the catalog is multilingual and each entry carries an audio preview.",
 		),
 	fromNumber: z
 		.string()
@@ -134,7 +128,7 @@ export const inputSchema = {
 		})
 		.optional()
 		.describe(
-			"Opt in to the server-side conversation loop. When present (even as `{}`), the Anima API runs the LLM-backed conversation loop on each caller turn and speaks the reply through Telnyx — the MCP tool just records both sides of the transcript and returns it when the call ends. **Required when the connecting MCP client doesn't implement elicitation** (e.g. Claude Code returns `-32600 Elicitation not supported`). Omit ONLY if you have your own bot ready to subscribe to MCP elicitation requests and reply via the `say` field per turn.",
+			"Opt in to the server-side conversation loop. When present (even as `{}`), the Anima API runs the LLM-backed conversation loop on each caller turn and speaks the reply — the MCP tool just records both sides of the transcript and returns it when the call ends. **Required when the connecting MCP client doesn't implement elicitation** (e.g. Claude Code returns `-32600 Elicitation not supported`). Omit ONLY if you have your own bot ready to subscribe to MCP elicitation requests and reply via the `say` field per turn.",
 		),
 };
 
@@ -197,7 +191,7 @@ export function registerPhoneCallLiveTool(
 		{
 			title: "Phone Call (Live)",
 			description:
-				"Place a live phone call and have a real conversation. The tool stays open for the entire call duration. As the caller speaks, you receive live transcript chunks via progress notifications; when the caller finishes a turn (server emits isFinal: true), an elicitation prompt asks you what the agent should say next. You respond with `say` (the exact text to speak) and optional `endCallAfterSpoken: true` to hang up after the line. Returns the full transcript when the call ends. Works on both `basic` and `premium` voice tiers. Requires the connecting MCP client to support elicitation — without it, the tool errors out immediately.",
+				"Place a live phone call and have a real conversation. The tool stays open for the entire call duration. As the caller speaks, you receive live transcript chunks via progress notifications; when the caller finishes a turn (server emits isFinal: true), an elicitation prompt asks you what the agent should say next. You respond with `say` (the exact text to speak) and optional `endCallAfterSpoken: true` to hang up after the line. Returns the full transcript when the call ends. Requires the connecting MCP client to support elicitation — without it, the tool errors out immediately.",
 			inputSchema,
 			outputSchema: {
 				callId: z
@@ -280,7 +274,6 @@ export function registerPhoneCallLiveTool(
 type VoiceCallArgs = {
 	to: string;
 	firstMessage: string;
-	tier?: "basic" | "premium";
 	voiceId?: string;
 	fromNumber?: string;
 	maxDurationSec?: number;
@@ -395,7 +388,6 @@ async function runVoiceCall(
 			type: "call.create",
 			requestId,
 			to: args.to,
-			tier: args.tier,
 			voice: args.voiceId ? { voiceId: args.voiceId } : undefined,
 			greeting: args.firstMessage,
 			fromNumber: args.fromNumber,

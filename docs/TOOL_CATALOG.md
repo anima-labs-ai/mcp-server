@@ -7,9 +7,9 @@ change to keep this in sync. Do NOT edit by hand.*
 
 | Metric | Value |
 |---|---|
-| Total registered tools | 66 |
+| Total registered tools | 67 |
 | Tools with aliases | 0 |
-| Total callable names (incl. aliases) | 66 |
+| Total callable names (incl. aliases) | 67 |
 | Master-key required | 0 |
 | Read-only | 0 |
 
@@ -156,7 +156,7 @@ Get the full DNS zone file for a domain. Use this for complete DNS export or to 
 
 ## email / email
 
-13 tools.
+14 tools.
 
 | Name | Description | Flags |
 |---|---|---|
@@ -168,6 +168,7 @@ Get the full DNS zone file for a domain. Use this for complete DNS export or to 
 | `email_draft_send` | Send a draft. Atomically converts the draft to a delivered Message + deletes the… | — |
 | `email_forward` | Forward an existing email to another recipient by loading the original content f… | — |
 | `email_get` | Fetch full detail for a single email by ID, including metadata and body. Use ema… | — |
+| `email_label` | Add and/or remove labels on one message — the agent | — |
 | `email_list` | List emails with cursor pagination. Returns lightweight per-email records plus a | — |
 | `email_reply` | Reply to an existing email thread by first loading the original message and sett… | — |
 | `email_search` | Search messages by content. Fulltext mode (default) substring-matches subject/bo… | — |
@@ -235,6 +236,14 @@ Forward an existing email to another recipient by loading the original content f
 Fetch full detail for a single email by ID, including metadata and body. Use email_list to browse emails in a folder.
 
 **Input schema:** `emailGetSchema` — see source for fields.
+
+**Source:** `src/tools/email/email/index.ts`
+
+### `email_label`
+
+Add and/or remove labels on one message — the agent
+
+**Input schema:** `emailLabelSchema` — see source for fields.
 
 **Source:** `src/tools/email/email/index.ts`
 
@@ -386,11 +395,11 @@ Release a previously provisioned phone number back to the carrier pool. Use this
 | Name | Description | Flags |
 |---|---|---|
 | `phone_call_create` | Place a live phone call and have a real conversation. The tool stays open for th… | — |
-| `phone_call_get` | Get full detail for a single phone call: status, duration, participants, tier, A… | — |
+| `phone_call_get` | Get full detail for a single phone call: status, duration, participants, AI-gene… | — |
 | `phone_call_list` | List phone calls with optional filters. Returns lightweight call records — for f… | — |
 | `phone_call_recording_get` | Get a time-limited download URL for a call recording (WAV format). The URL expir… | — |
 | `phone_call_transcript_get` | Get the full transcript of a phone call with speaker labels, timestamps, and con… | — |
-| `voice_list` | List available AI voices for placing phone calls. Filter by tier (basic for low-… | — |
+| `voice_list` | List available AI voices for placing phone calls. The catalog is multilingual — … | — |
 
 ### `phone_call_create`
 
@@ -401,7 +410,7 @@ Place a live phone call and have a real conversation. The tool stays open for th
 
 ### `phone_call_get`
 
-Get full detail for a single phone call: status, duration, participants, tier, AI-generated summary (one-liner, topics, action items, decisions, open questions, next steps), and quality score. The summary is generated once on first read after post-call processing and cached.
+Get full detail for a single phone call: status, duration, participants, AI-generated summary (one-liner, topics, action items, decisions, open questions, next steps), and quality score. The summary is generated once on first read after post-call processing and cached.
 
 **Input schema:** `phoneCallIdSchema` — see source for fields.
 
@@ -433,7 +442,7 @@ Get the full transcript of a phone call with speaker labels, timestamps, and con
 
 ### `voice_list`
 
-List available AI voices for placing phone calls. Filter by tier (basic for low-latency, premium for natural voices), gender, or language. Returns voice IDs needed for phone_call_create.
+List available AI voices for placing phone calls. The catalog is multilingual — filter by language or gender. Each voice includes descriptive metadata and a vendor-neutral audio preview URL (sampleUrl), plus the voice ID needed for phone_call_create.
 
 **Input schema:** `voicesListSchema` — see source for fields.
 
@@ -448,8 +457,8 @@ List available AI voices for placing phone calls. Filter by tier (basic for low-
 | `sms_get` | Fetch full detail for a single SMS by ID (includes its | — |
 | `sms_list` | List SMS messages with optional filters. Each result includes its | — |
 | `sms_send` | Send an SMS to a phone number, or an MMS by passing | — |
-| `sms_thread_get` | Get a specific SMS conversation with message history. Use sms_thread_list to fin… | — |
-| `sms_thread_list` | List SMS conversations. Optionally filter by agent_id to see conversations for a… | — |
+| `sms_thread_get` | Get one SMS/MMS conversation with its message history, oldest first. Use sms_thr… | — |
+| `sms_thread_list` | List SMS/MMS conversations, most recently active first. A conversation is one ag… | — |
 
 ### `sms_get`
 
@@ -477,7 +486,7 @@ Send an SMS to a phone number, or an MMS by passing
 
 ### `sms_thread_get`
 
-Get a specific SMS conversation with message history. Use sms_thread_list to find IDs. Returns messages in the thread ordered by time.
+Get one SMS/MMS conversation with its message history, oldest first. Use sms_thread_list to find thread IDs (or take
 
 **Input schema:** `smsThreadGetSchema` — see source for fields.
 
@@ -485,7 +494,7 @@ Get a specific SMS conversation with message history. Use sms_thread_list to fin
 
 ### `sms_thread_list`
 
-List SMS conversations. Optionally filter by agent_id to see conversations for a specific agent. Each conversation is a thread between your number and an external contact. Returns thread summaries with last message snippet + participant address.
+List SMS/MMS conversations, most recently active first. A conversation is one agent number talking to one external contact. Returns summaries (participant, last message snippet, message count) — use sms_thread_get for the full history. Optionally filter by agentId.
 
 **Input schema:** `smsThreadListSchema` — see source for fields.
 
