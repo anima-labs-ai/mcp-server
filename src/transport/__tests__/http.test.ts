@@ -110,4 +110,39 @@ describe("createMcpHttpServer path routing", () => {
     });
     expect(abuse.status).toBe(404);
   });
+
+  // Registry crawlers (Glama, PulseMCP) read this manifest instead of waiting
+  // on a submission, so a regression here silently removes Anima from every
+  // crawler-fed directory at once -- with no error anywhere to notice.
+  it("serves a registry manifest at /.well-known/mcp.json", async () => {
+    const r = await fetch(`${baseUrl}/.well-known/mcp.json`);
+    expect(r.status).toBe(200);
+    expect(r.headers.get("content-type")).toContain("application/json");
+
+    const body = (await r.json()) as {
+      name: string;
+      remotes: { type: string; url: string }[];
+    };
+    expect(body.name).toBe("io.github.anima-labs-ai/anima");
+    expect(body.remotes[0]?.type).toBe("streamable-http");
+  });
+
+  it("advertises the host it was actually reached on", async () => {
+    // The same binary serves preview and production revisions. A hardcoded
+    // production URL here would send crawlers indexing a preview deployment
+    // to the wrong server, so the remote must follow the request's own host.
+    const addr = handle.httpServer.address();
+    if (!addr || typeof addr === "string") throw new Error("no addr");
+    const r = await fetch(`${baseUrl}/.well-known/mcp.json`);
+    const body = (await r.json()) as { remotes: { url: string }[] };
+    expect(body.remotes[0]?.url).toBe(`http://127.0.0.1:${addr.port}/mcp`);
+  });
+
+  it("keeps the description within the registry's 100-character limit", async () => {
+    // The official registry rejects a longer description with a 422, which is
+    // only discovered at publish time -- pin it here where it is cheap to see.
+    const r = await fetch(`${baseUrl}/.well-known/mcp.json`);
+    const body = (await r.json()) as { description: string };
+    expect(body.description.length).toBeLessThanOrEqual(100);
+  });
 });
