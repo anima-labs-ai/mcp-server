@@ -64,6 +64,14 @@ export interface McpAuthError {
 export interface OAuthDiscovery {
   mcpBaseUrl: string;
   authServerUrl: string;
+  /**
+   * Scopes a client should request for this resource (RFC 9728
+   * `scopes_supported`). Without it a client discovers the authorization
+   * server, has nothing to put in `scope`, and omits the parameter -- which
+   * Anima Connect rejects with `invalid_request`. That is the whole reason
+   * an OAuth connection from a third-party MCP client fails.
+   */
+  scopesSupported?: string[];
 }
 
 export type DomainFactories = Record<string, (authContext: McpAuthContext) => McpServer>;
@@ -220,6 +228,9 @@ export function createMcpHttpServer(
         resource: options.oauth.mcpBaseUrl,
         authorization_servers: [options.oauth.authServerUrl],
         bearer_methods_supported: ["header"],
+        ...(options.oauth.scopesSupported?.length
+          ? { scopes_supported: options.oauth.scopesSupported }
+          : {}),
       }));
       return;
     }

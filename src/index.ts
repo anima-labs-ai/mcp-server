@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 /// <reference types="bun" />
 import { createMcpHttpServer, type DomainFactories, type HttpTransportServer } from "./transport/http.js";
-import { loadConfig } from "./shared/index.js";
+import { DEFAULT_OAUTH_SCOPES, loadConfig } from "./shared/index.js";
 import { makeAuthenticator } from "./auth.js";
 import { buildAgentServer } from "./tools/agent/factory.js";
 import { buildEmailServer } from "./tools/email/factory.js";
@@ -43,9 +43,18 @@ export async function buildUnifiedServer(opts: { port?: number } = {}): Promise<
     process.env.CONSOLE_URL ??
     "https://connect.useanima.sh";
 
+  const scopesSupported = (process.env.MCP_OAUTH_SCOPES ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
   return createMcpHttpServer(factories, {
     port: opts.port ?? config.httpPort,
-    oauth: { mcpBaseUrl, authServerUrl },
+    oauth: {
+      mcpBaseUrl,
+      authServerUrl,
+      scopesSupported: scopesSupported.length ? scopesSupported : DEFAULT_OAUTH_SCOPES,
+    },
     authenticate,
   });
 }

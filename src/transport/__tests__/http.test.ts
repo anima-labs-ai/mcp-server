@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "bun:test";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { createMcpHttpServer, type HttpTransportServer } from "../http.ts";
-import type { ApiClient } from "../../shared/index.js";
+import { DEFAULT_OAUTH_SCOPES, type ApiClient } from "../../shared/index.js";
 
 const buildEmptyServer = (name: string) =>
   new McpServer({ name, version: "0.0.0" }, { capabilities: { tools: {} } });
@@ -144,5 +144,91 @@ describe("createMcpHttpServer path routing", () => {
     const r = await fetch(`${baseUrl}/.well-known/mcp.json`);
     const body = (await r.json()) as { description: string };
     expect(body.description.length).toBeLessThanOrEqual(100);
+  });
+});
+
+describe("OAuth protected-resource metadata", () => {
+  let handle: HttpTransportServer;
+  let baseUrl: string;
+
+  beforeAll(async () => {
+    handle = createMcpHttpServer(
+      { "/mcp": (_ctx) => buildEmptyServer("mcp") },
+      {
+        port: 0,
+        oauth: {
+          mcpBaseUrl: "https://mcp.example.test",
+          authServerUrl: "https://connect.example.test",
+          scopesSupported: DEFAULT_OAUTH_SCOPES,
+        },
+        authenticate: async () => ({
+          apiKeyId: "test",
+          orgId: "test-org",
+          client: {} as ApiClient,
+        }),
+      },
+    );
+    await new Promise<void>((res) => handle.httpServer.listen(0, () => res()));
+    const addr = handle.httpServer.address();
+    if (!addr || typeof addr === "string") throw new Error("no addr");
+    baseUrl = `http://127.0.0.1:${addr.port}`;
+  });
+
+  afterAll(async () => {
+    await handle.close();
+  });
+
+  it("advertises scopes_supported", async () => {
+    // Anima Connect rejects an authorization request carrying no `scope`.
+    // A client that cannot discover these sends none, and the OAuth flow dies
+    // at `invalid_request` -- which is exactly how a third-party MCP client
+    // fails to connect. This field is what makes the flow possible at all.
+    const r = await fetch(`${baseUrl}/.well-known/oauth-protected-resource`);
+    expect(r.status).toBe(200);
+    const body = (await r.json()) as { scopes_supported?: string[] };
+    expect(body.scopes_supported).toBeDefined();
+    expect(body.scopes_supported?.length).toBeGreaterThan(0);
+  });
+
+  it("does not advertise admin:full", async () => {
+    // Clients commonly request every advertised scope. Advertising the admin
+    // escalation would hand a directory or IDE full org admin for what is only
+    // ever tool use.
+    const r = await fetch(`${baseUrl}/.well-known/oauth-protected-resource`);
+    const body = (await r.json()) as { scopes_supported: string[] };
+    expect(body.scopes_supported).not.toContain("admin:full");
+  });
+
+  it("advertises no template scopes", async () => {
+    // `vault:read_credential:{label}` is a template. A client cannot send it
+    // without substituting a label, so advertising it produces an
+    // unsatisfiable authorization request rather than a useful one.
+    const r = await fetch(`${baseUrl}/.well-known/oauth-protected-resource`);
+    const body = (await r.json()) as { scopes_supported: string[] };
+    expect(body.scopes_supported.filter((s) => s.includes("{"))).toEqual([]);
+  });
+});
+
+describe("OAuth metadata without configured scopes", () => {
+  it("omits scopes_supported entirely rather than sending an empty array", async () => {
+    // An empty array reads as "this resource supports no scopes", which is a
+    // different and worse claim than staying silent.
+    const handle = createMcpHttpServer(
+      { "/mcp": (_ctx) => buildEmptyServer("mcp") },
+      {
+        port: 0,
+        oauth: {
+          mcpBaseUrl: "https://mcp.example.test",
+          authServerUrl: "https://connect.example.test",
+        },
+      },
+    );
+    await new Promise<void>((res) => handle.httpServer.listen(0, () => res()));
+    const addr = handle.httpServer.address();
+    if (!addr || typeof addr === "string") throw new Error("no addr");
+    const r = await fetch(`http://127.0.0.1:${addr.port}/.well-known/oauth-protected-resource`);
+    const body = (await r.json()) as Record<string, unknown>;
+    expect("scopes_supported" in body).toBe(false);
+    await handle.close();
   });
 });
