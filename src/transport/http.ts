@@ -258,7 +258,7 @@ export function createMcpHttpServer(
         $schema: "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
         name: "io.github.anima-labs-ai/anima",
         title: "Anima",
-        description: "Identity for AI agents: real email, a US number that receives SMS codes, voice, and a vault.",
+        description: "Give your AI agent an identity it owns: email inbox, US phone number, SMS, voice, and a vault.",
         version: "0.1.0",
         websiteUrl: "https://useanima.sh",
         repository: { url: "https://github.com/anima-labs-ai/mcp-server", source: "github" },
