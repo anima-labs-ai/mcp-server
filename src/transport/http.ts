@@ -224,6 +224,38 @@ export function createMcpHttpServer(
       return;
     }
 
+    // Registry discovery. Directories such as Glama and PulseMCP crawl for
+    // this manifest rather than waiting on a submission form, so serving it
+    // is what makes the server discoverable without a human filling anything
+    // in. The shape mirrors the official registry's server.schema.json, which
+    // keeps one description of this server true everywhere it is listed.
+    //
+    // The remote URL is derived from the request rather than hardcoded: this
+    // same binary serves preview and production revisions, and a manifest that
+    // advertised the production host from a preview would point crawlers at
+    // the wrong deployment.
+    if (url.pathname === "/.well-known/mcp.json") {
+      const forwardedProto = req.headers["x-forwarded-proto"];
+      // Trust the proxy's header first (Cloud Run always sets it), then fall
+      // back to whether this connection is actually TLS. Assuming https would
+      // advertise an unreachable URL for any plain-HTTP deployment.
+      const proto = (Array.isArray(forwardedProto) ? forwardedProto[0] : forwardedProto)?.split(",")[0]?.trim()
+        || ((req.socket as { encrypted?: boolean }).encrypted ? "https" : "http");
+      const base = `${proto}://${req.headers.host ?? "mcp.useanima.sh"}`;
+      res.writeHead(200, { ...CORS_HEADERS, "Content-Type": "application/json", "Cache-Control": "public, max-age=3600" });
+      res.end(JSON.stringify({
+        $schema: "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+        name: "io.github.anima-labs-ai/anima",
+        title: "Anima",
+        description: "Identity for AI agents: real email, a US number that receives SMS codes, voice, and a vault.",
+        version: "0.1.0",
+        websiteUrl: "https://useanima.sh",
+        repository: { url: "https://github.com/anima-labs-ai/mcp-server", source: "github" },
+        remotes: [{ type: "streamable-http", url: `${base}/mcp` }],
+      }));
+      return;
+    }
+
     if (url.pathname === "/health") {
       const uptimeMs = Date.now() - startedAt;
       res.writeHead(200, { ...CORS_HEADERS, "Content-Type": "application/json" });
