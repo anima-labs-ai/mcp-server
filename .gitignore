@@ -1,3 +1,6 @@
 node_modules/
 dist/
 .DS_Store
+
+# Local agent worktrees — embedded git repos, never part of a commit
+.claude/worktrees/
