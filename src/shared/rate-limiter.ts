@@ -10,6 +10,24 @@ export interface McpRateLimiterOptions {
 	toolCallsPerHour?: number;
 	sessionsPerKey?: number;
 	requestsPerMinute?: number;
+	/**
+	 * The key every credential-less session shares, and its own session
+	 * budget.
+	 *
+	 * Anonymous sessions exist only to introspect: handshake, list tools,
+	 * done in a few seconds, never touching the upstream API. They are far
+	 * cheaper than an authenticated session and there are far more of them —
+	 * every directory that crawls us hourly opens one.
+	 *
+	 * Metering them against `sessionsPerKey` was wrong. Ten slots shared
+	 * across every crawler on the internet, held for the 30-minute idle
+	 * timeout because crawlers do not send DELETE, meant the bucket was
+	 * permanently full: Glama's hourly check got HTTP 429 and marked the
+	 * connector unhealthy — the exact failure that opening up introspection
+	 * was meant to fix.
+	 */
+	anonymousKeyId?: string;
+	anonymousSessionsPerKey?: number;
 }
 
 const DEFAULTS: Required<McpRateLimiterOptions> = {
@@ -17,6 +35,8 @@ const DEFAULTS: Required<McpRateLimiterOptions> = {
 	toolCallsPerHour: 3000,
 	sessionsPerKey: 10,
 	requestsPerMinute: 60,
+	anonymousKeyId: "anonymous",
+	anonymousSessionsPerKey: 250,
 };
 
 interface WindowEntry {
@@ -91,18 +111,22 @@ export function createMcpRateLimiter(options?: McpRateLimiterOptions): McpRateLi
 	}
 
 	function checkSessionCreation(apiKeyId: string, currentCount: number): RateLimitResult {
-		if (currentCount >= config.sessionsPerKey) {
+		const limit =
+			apiKeyId === config.anonymousKeyId
+				? config.anonymousSessionsPerKey
+				: config.sessionsPerKey;
+		if (currentCount >= limit) {
 			return {
 				allowed: false,
 				remaining: 0,
-				limit: config.sessionsPerKey,
+				limit,
 				retryAfterMs: 60_000,
 			};
 		}
 		return {
 			allowed: true,
-			remaining: config.sessionsPerKey - currentCount,
-			limit: config.sessionsPerKey,
+			remaining: limit - currentCount,
+			limit,
 		};
 	}
 

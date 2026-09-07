@@ -123,6 +123,26 @@ describe("mcp-server e2e", () => {
     expect(text).toContain("account_overview");
   });
 
+  it("does not exhaust the session budget across many anonymous crawlers", async () => {
+    // Regression. Anonymous sessions were metered against the authenticated
+    // per-key budget (10) and held for the authenticated idle timeout (30
+    // minutes). Crawlers do not send DELETE, so the shared "anonymous" bucket
+    // stayed full and every directory check got HTTP 429 — Glama emailed to
+    // say the connector had gone unhealthy, which is precisely what opening
+    // introspection was supposed to prevent.
+    //
+    // 12 is chosen to exceed the authenticated cap of 10: under the old
+    // behaviour this fails at the 11th handshake.
+    for (let i = 0; i < 12; i++) {
+      const r = await fetch(`${baseUrl}/mcp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream" },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: `crawler-${i}`, version: "0" } } }),
+      });
+      expect(r.status).toBe(200);
+    }
+  });
+
   it("401s bad key prefix", async () => {
     const r = await fetch(`${baseUrl}/agent`, {
       method: "POST",
