@@ -14,11 +14,26 @@ export interface SessionRegistryOptions {
 	idleTimeoutMs?: number;
 	sweepIntervalMs?: number;
 	maxSessionsPerKey?: number;
+	/**
+	 * Credential-less sessions are reaped on their own, much shorter clock.
+	 *
+	 * An introspection session is a handshake, a tools/list, and nothing
+	 * else — seconds of work. Holding one for the authenticated 30-minute
+	 * idle timeout is pure occupancy, and since crawlers never send DELETE
+	 * it is the reason the anonymous budget stayed full and Glama's hourly
+	 * check got a 429.
+	 */
+	anonymousKeyId?: string;
+	anonymousIdleTimeoutMs?: number;
+	maxAnonymousSessions?: number;
 }
 
 const DEFAULT_IDLE_TIMEOUT_MS = 30 * 60 * 1000;
 const DEFAULT_SWEEP_INTERVAL_MS = 60 * 1000;
 const DEFAULT_MAX_SESSIONS_PER_KEY = 10;
+const DEFAULT_ANONYMOUS_KEY_ID = "anonymous";
+const DEFAULT_ANONYMOUS_IDLE_TIMEOUT_MS = 2 * 60 * 1000;
+const DEFAULT_MAX_ANONYMOUS_SESSIONS = 250;
 
 export interface SessionRegistry {
 	register(sessionId: string, apiKeyId: string, orgId: string): SessionMetadata;
@@ -45,6 +60,19 @@ export function createSessionRegistry(options?: SessionRegistryOptions): Session
 	const idleTimeoutMs = options?.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS;
 	const maxSessionsPerKey = options?.maxSessionsPerKey ?? DEFAULT_MAX_SESSIONS_PER_KEY;
 	const sweepIntervalMs = options?.sweepIntervalMs ?? DEFAULT_SWEEP_INTERVAL_MS;
+	const anonymousKeyId = options?.anonymousKeyId ?? DEFAULT_ANONYMOUS_KEY_ID;
+	const anonymousIdleTimeoutMs =
+		options?.anonymousIdleTimeoutMs ?? DEFAULT_ANONYMOUS_IDLE_TIMEOUT_MS;
+	const maxAnonymousSessions =
+		options?.maxAnonymousSessions ?? DEFAULT_MAX_ANONYMOUS_SESSIONS;
+
+	/** Anonymous sessions are cheap and short-lived; everything else is not. */
+	function limitFor(apiKeyId: string): number {
+		return apiKeyId === anonymousKeyId ? maxAnonymousSessions : maxSessionsPerKey;
+	}
+	function idleTimeoutFor(apiKeyId: string): number {
+		return apiKeyId === anonymousKeyId ? anonymousIdleTimeoutMs : idleTimeoutMs;
+	}
 
 	const sessions = new Map<string, SessionMetadata>();
 	const reconnectIndex = new Map<string, string>();
@@ -109,14 +137,14 @@ export function createSessionRegistry(options?: SessionRegistryOptions): Session
 	}
 
 	function canCreateSession(apiKeyId: string): boolean {
-		return countByKey(apiKeyId) < maxSessionsPerKey;
+		return countByKey(apiKeyId) < limitFor(apiKeyId);
 	}
 
 	function getIdleSessions(): string[] {
 		const now = Date.now();
 		const idle: string[] = [];
 		for (const meta of sessions.values()) {
-			if (now - meta.lastActivityAt > idleTimeoutMs) {
+			if (now - meta.lastActivityAt > idleTimeoutFor(meta.apiKeyId)) {
 				idle.push(meta.sessionId);
 			}
 		}
