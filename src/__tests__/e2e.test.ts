@@ -39,22 +39,88 @@ describe("mcp-server e2e", () => {
     expect(body.claim).toMatch(/^glama_claim_/);
   });
 
-  it("401s unauthenticated initialize on /agent", async () => {
-    const r = await fetch(`${baseUrl}/agent`, {
+  it("lets an unauthenticated client introspect /agent but not call a tool", async () => {
+    // Deliberate change from "401 on initialize". Tool discovery is public
+    // API-surface documentation and refusing it made the server opaque to
+    // directory crawlers — glama.ai recorded no tool schema and marked the
+    // listing unhealthy. Execution still requires credentials, which is the
+    // half that actually matters, so this asserts both directions.
+    const init = await fetch(`${baseUrl}/agent`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream" },
       body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "t", version: "0" } } }),
     });
-    expect(r.status).toBe(401);
+    expect(init.status).toBe(200);
+
+    const sid = init.headers.get("mcp-session-id");
+    expect(sid).toBeTruthy();
+
+    const call = await fetch(`${baseUrl}/agent`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream", "mcp-session-id": sid as string },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "account_overview", arguments: {} } }),
+    });
+    expect(call.status).toBe(401);
+    // The refusal must still say where to authenticate.
+    expect(call.headers.get("www-authenticate")).toContain("resource_metadata");
   });
 
-  it("401s unauthenticated initialize on /mcp (unified)", async () => {
-    const r = await fetch(`${baseUrl}/mcp`, {
+  it("lets an unauthenticated client introspect /mcp but not call a tool", async () => {
+    // Deliberate change from "401 on initialize". Tool discovery is public
+    // API-surface documentation and refusing it made the server opaque to
+    // directory crawlers — glama.ai recorded no tool schema and marked the
+    // listing unhealthy. Execution still requires credentials, which is the
+    // half that actually matters, so this asserts both directions.
+    const init = await fetch(`${baseUrl}/mcp`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream" },
       body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "t", version: "0" } } }),
     });
-    expect(r.status).toBe(401);
+    expect(init.status).toBe(200);
+
+    const sid = init.headers.get("mcp-session-id");
+    expect(sid).toBeTruthy();
+
+    const call = await fetch(`${baseUrl}/mcp`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream", "mcp-session-id": sid as string },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "account_overview", arguments: {} } }),
+    });
+    expect(call.status).toBe(401);
+    // The refusal must still say where to authenticate.
+    expect(call.headers.get("www-authenticate")).toContain("resource_metadata");
+  });
+
+  it("returns the tool list to an unauthenticated client", async () => {
+    // This is the behaviour directory crawlers actually need, and the reason
+    // for the change: without it glama.ai never records a tool schema and the
+    // connector stays "Unhealthy", which gates the awesome-mcp-servers entry.
+    // Asserting initialize alone would not have caught a server that accepts
+    // the handshake and then refuses discovery.
+    const init = await fetch(`${baseUrl}/mcp`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "probe", version: "0" } } }),
+    });
+    expect(init.status).toBe(200);
+    const sid = init.headers.get("mcp-session-id") as string;
+
+    await fetch(`${baseUrl}/mcp`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream", "mcp-session-id": sid },
+      body: JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }),
+    });
+
+    const list = await fetch(`${baseUrl}/mcp`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream", "mcp-session-id": sid },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list" }),
+    });
+    expect(list.status).toBe(200);
+    const text = await list.text();
+    // Streamable HTTP may answer as SSE, so assert on the payload rather than
+    // parsing a JSON envelope that is not guaranteed to be one.
+    expect(text).toContain("account_overview");
   });
 
   it("401s bad key prefix", async () => {
@@ -73,13 +139,30 @@ describe("mcp-server e2e", () => {
   // 2026-05-20: /platform hosts the renamed `workspace` group + the new
   // `webhook` group. Same auth model as the other domain mounts — 401
   // without a bearer token, full surface available with one.
-  it("401s unauthenticated initialize on /platform (workspace + webhook tools)", async () => {
-    const r = await fetch(`${baseUrl}/platform`, {
+  it("lets an unauthenticated client introspect /platform but not call a tool", async () => {
+    // Deliberate change from "401 on initialize". Tool discovery is public
+    // API-surface documentation and refusing it made the server opaque to
+    // directory crawlers — glama.ai recorded no tool schema and marked the
+    // listing unhealthy. Execution still requires credentials, which is the
+    // half that actually matters, so this asserts both directions.
+    const init = await fetch(`${baseUrl}/platform`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream" },
       body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "t", version: "0" } } }),
     });
-    expect(r.status).toBe(401);
+    expect(init.status).toBe(200);
+
+    const sid = init.headers.get("mcp-session-id");
+    expect(sid).toBeTruthy();
+
+    const call = await fetch(`${baseUrl}/platform`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream", "mcp-session-id": sid as string },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "account_overview", arguments: {} } }),
+    });
+    expect(call.status).toBe(401);
+    // The refusal must still say where to authenticate.
+    expect(call.headers.get("www-authenticate")).toContain("resource_metadata");
   });
 
   it("rejects non-MCP requests on /platform", async () => {
