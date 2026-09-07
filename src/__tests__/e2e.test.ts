@@ -26,6 +26,19 @@ describe("mcp-server e2e", () => {
     expect(body.domains.slice().sort()).toEqual(["/agent", "/email", "/extension", "/mcp", "/phone", "/platform", "/vault"]);
   });
 
+  it("serves the Glama ownership claim, unauthenticated", async () => {
+    // Glama re-checks this file to keep our connector ownership verified, and
+    // ownership is what lets us read the health-check output for the listing.
+    // It must stay public and unauthenticated: a 401 here silently un-verifies
+    // us, and the symptom appears on someone else's site, not in our logs.
+    const r = await fetch(`${baseUrl}/.well-known/glama.json`);
+    expect(r.status).toBe(200);
+    expect(r.headers.get("content-type")).toContain("application/json");
+    const body = await r.json() as { $schema: string; claim: string };
+    expect(body.$schema).toBe("https://glama.ai/mcp/schemas/connector.json");
+    expect(body.claim).toMatch(/^glama_claim_/);
+  });
+
   it("401s unauthenticated initialize on /agent", async () => {
     const r = await fetch(`${baseUrl}/agent`, {
       method: "POST",
