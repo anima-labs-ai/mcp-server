@@ -267,6 +267,22 @@ export function createMcpHttpServer(
       return;
     }
 
+    // Glama ownership claim. Publishing this token at a URL on the connector's
+    // own origin is how glama.ai verifies we control mcp.useanima.sh; the file
+    // has to STAY served, because ownership is re-checked, not checked once.
+    // Ownership is what lets us read the health-check output for our listing —
+    // which is currently red, and is the gate on the awesome-mcp-servers entry.
+    // The token identifies our Glama account and carries nothing secret; it is
+    // meant to be world-readable.
+    if (url.pathname === "/.well-known/glama.json") {
+      res.writeHead(200, { ...CORS_HEADERS, "Content-Type": "application/json", "Cache-Control": "public, max-age=3600" });
+      res.end(JSON.stringify({
+        $schema: "https://glama.ai/mcp/schemas/connector.json",
+        claim: "glama_claim_AwvtJQdQTuHWsNFNF_BQF6ZFCElJlrX2",
+      }));
+      return;
+    }
+
     if (url.pathname === "/health") {
       const uptimeMs = Date.now() - startedAt;
       res.writeHead(200, { ...CORS_HEADERS, "Content-Type": "application/json" });
