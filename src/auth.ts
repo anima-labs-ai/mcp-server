@@ -27,8 +27,20 @@ export function makeAuthenticator(apiUrl: string): (req: IncomingMessage) => Pro
   return async function authenticate(req): Promise<McpAuthContext> {
     const token = parseBearerToken(req);
     if (!token) {
-      const err: McpAuthError = { status: 401, message: "Missing Authorization header" };
-      throw err;
+      // No credentials: hand back an anonymous context rather than refusing.
+      // The transport confines such a session to introspection (see
+      // ANONYMOUS_METHODS) — it can learn what tools exist, and call none of
+      // them. The client carries no key, so even a bug that let a tool run
+      // would reach the API unauthenticated and be refused there too.
+      //
+      // This exists because a 401 on `initialize` makes the server opaque to
+      // every directory and client that wants to show its tool list.
+      return {
+        apiKeyId: "anonymous",
+        orgId: "anonymous",
+        client: new ApiClient({ baseUrl: apiUrl, apiKey: "" }),
+        anonymous: true,
+      };
     }
     if (token.length > MAX_TOKEN_LENGTH) {
       const err: McpAuthError = { status: 401, message: "Token exceeds maximum length" };

@@ -48,13 +48,48 @@ interface McpSession {
   path: string;
   apiKeyId?: string;
   orgId?: string;
+  /** Session created without credentials; introspection only. */
+  anonymous?: boolean;
 }
 
 export interface McpAuthContext {
   apiKeyId: string;
   orgId: string;
   client: ApiClient;
+  /**
+   * True when the caller supplied no credentials at all. Such a session may
+   * introspect — initialize, list tools — and nothing else. See
+   * ANONYMOUS_METHODS.
+   */
+  anonymous?: boolean;
 }
+
+/**
+ * JSON-RPC methods a credential-less session may call.
+ *
+ * Tool *discovery* is public API-surface documentation — the same list is in
+ * our published skills, our docs and the MCP registry manifest — so requiring
+ * a token to read it bought nothing and cost us real distribution: directory
+ * crawlers could not introspect the server, so glama.ai recorded no tool
+ * schema and marked the listing unhealthy, which in turn gates the
+ * awesome-mcp-servers entry.
+ *
+ * Tool *execution* is a different matter and stays authenticated. This is an
+ * allowlist rather than a denylist so a method added upstream is refused by
+ * default rather than silently reachable.
+ *
+ * `notifications/initialized` is included because the client sends it to
+ * complete the handshake; refusing it would break the very flow this enables.
+ */
+const ANONYMOUS_METHODS = new Set([
+  "initialize",
+  "notifications/initialized",
+  "ping",
+  "tools/list",
+  "prompts/list",
+  "resources/list",
+  "resources/templates/list",
+]);
 
 export interface McpAuthError {
   status: number;
@@ -355,6 +390,23 @@ export function createMcpHttpServer(
           const apiKeyId = session.apiKeyId ?? "unknown";
           const orgId = session.orgId ?? "unknown";
 
+          // An anonymous session may look, not touch. Refuse anything outside
+          // the introspection allowlist with the same 401 + WWW-Authenticate a
+          // credential-less request would have received before, so a client
+          // that wanted to call a tool still learns exactly where to
+          // authenticate.
+          if (session.anonymous) {
+            const method = (body as { method?: unknown } | null)?.method;
+            if (typeof method !== "string" || !ANONYMOUS_METHODS.has(method)) {
+              metrics.authFailure();
+              if (options?.oauth) {
+                res.setHeader("WWW-Authenticate", `Bearer resource_metadata="${options.oauth.mcpBaseUrl}/.well-known/oauth-protected-resource"`);
+              }
+              jsonError(res, 401, "Authentication required for this method. Anonymous sessions may only introspect.");
+              return;
+            }
+          }
+
           const requestCheck = rateLimiter.checkRequest(apiKeyId);
           if (!requestCheck.allowed) {
             metrics.rateLimitHit();
@@ -437,7 +489,7 @@ export function createMcpHttpServer(
       const transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: () => randomUUID(),
         onsessioninitialized: (sid: string) => {
-          sessions.set(sid, { server: mcpServer, transport, path: thisPath, apiKeyId, orgId });
+          sessions.set(sid, { server: mcpServer, transport, path: thisPath, apiKeyId, orgId, anonymous: authContext.anonymous === true });
           registry.register(sid, apiKeyId, orgId);
           metrics.sessionCreated();
         },
