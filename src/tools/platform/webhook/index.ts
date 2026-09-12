@@ -3,6 +3,7 @@ import type { ToolRegistrationOptions } from "../../../shared/index.js";
 import {
 	deleteOutput,
 	listOutput,
+	normalizeToolAnnotations,
 	objectOutput,
 	toolSuccess,
 	withErrorHandling,
@@ -124,7 +125,10 @@ export function registerWebhookTools(options: ToolRegistrationOptions): void {
 				"Get a webhook subscription by ID. Returns the full configuration (URL, subscribed events, active state, description).",
 			inputSchema: webhookIdInput.shape,
 			outputSchema: objectOutput(),
-			annotations: { readOnlyHint: true, destructiveHint: false },
+			annotations: normalizeToolAnnotations({
+				readOnlyHint: true,
+				destructiveHint: false,
+			}),
 		},
 		withErrorHandling(async (args, context) => {
 			const path = `/v1/webhooks/${encodeURIComponent(args.id)}`;
@@ -141,7 +145,10 @@ export function registerWebhookTools(options: ToolRegistrationOptions): void {
 				"List webhook subscriptions for the calling org with cursor pagination. Use to enumerate existing webhooks before set/delete operations.",
 			inputSchema: webhookListInput.shape,
 			outputSchema: listOutput(),
-			annotations: { readOnlyHint: true, destructiveHint: false },
+			annotations: normalizeToolAnnotations({
+				readOnlyHint: true,
+				destructiveHint: false,
+			}),
 		},
 		withErrorHandling(async (args, context) => {
 			const params = new URLSearchParams();
@@ -162,7 +169,10 @@ export function registerWebhookTools(options: ToolRegistrationOptions): void {
 				"Create or update a webhook subscription (upsert). If `id` is provided the call updates that webhook (PUT). If omitted it creates a new one (POST) — `url` and `events` are then required. Use this for declarative 'ensure webhook X exists' workflows.",
 			inputSchema: webhookSetInput.shape,
 			outputSchema: objectOutput(),
-			annotations: { readOnlyHint: false, destructiveHint: false },
+			annotations: normalizeToolAnnotations({
+				readOnlyHint: false,
+				destructiveHint: false,
+			}),
 		},
 		withErrorHandling(async (args, context) => {
 			if (args.id) {
@@ -185,7 +195,10 @@ export function registerWebhookTools(options: ToolRegistrationOptions): void {
 				"Delete a webhook subscription by ID. Permanently removes the configuration and stops future deliveries. To temporarily pause without deleting, use webhook_set with { id, active: false }.",
 			inputSchema: webhookIdInput.shape,
 			outputSchema: deleteOutput(),
-			annotations: { readOnlyHint: false, destructiveHint: true },
+			annotations: normalizeToolAnnotations({
+				readOnlyHint: false,
+				destructiveHint: true,
+			}),
 		},
 		withErrorHandling(async (args, context) => {
 			const path = `/v1/webhooks/${encodeURIComponent(args.id)}`;
@@ -202,7 +215,11 @@ export function registerWebhookTools(options: ToolRegistrationOptions): void {
 				"Send a test event payload to a webhook to verify the endpoint is reachable and signature verification works. Returns a deliveryId you can correlate with your endpoint's logs.",
 			inputSchema: webhookTestInput.shape,
 			outputSchema: objectOutput(),
-			annotations: { readOnlyHint: false, destructiveHint: false },
+			annotations: normalizeToolAnnotations({
+				readOnlyHint: false,
+				openWorldHint: true,
+				destructiveHint: false,
+			}),
 		},
 		withErrorHandling(async (args, context) => {
 			const path = `/v1/webhooks/${encodeURIComponent(args.id)}/test`;

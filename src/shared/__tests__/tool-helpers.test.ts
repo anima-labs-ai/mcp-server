@@ -1,6 +1,7 @@
 import { describe, test, expect } from "bun:test";
 import {
 	requiresMasterKey,
+	normalizeToolAnnotations,
 	toolSuccess,
 	toolError,
 	withErrorHandling,
@@ -113,5 +114,40 @@ describe("requireMasterKeyGuard", () => {
 	test("does not throw when master key present", () => {
 		const ctx = { ...mockContext, hasMasterKey: true };
 		expect(() => requireMasterKeyGuard(ctx)).not.toThrow();
+	});
+});
+
+describe("normalizeToolAnnotations", () => {
+	test("fills required booleans when omitted", () => {
+		expect(normalizeToolAnnotations()).toEqual({
+			readOnlyHint: false,
+			openWorldHint: false,
+			destructiveHint: false,
+		});
+	});
+
+	test("preserves explicit values and extra annotation keys", () => {
+		expect(
+			normalizeToolAnnotations({
+				readOnlyHint: true,
+				openWorldHint: true,
+				destructiveHint: false,
+				idempotentHint: true,
+			}),
+		).toEqual({
+			readOnlyHint: true,
+			openWorldHint: true,
+			destructiveHint: false,
+			idempotentHint: true,
+		});
+	});
+
+	test("throws when a required hint is non-boolean", () => {
+		expect(() =>
+			normalizeToolAnnotations({
+				// biome-ignore lint/suspicious/noExplicitAny: runtime guard test.
+				readOnlyHint: "yes" as any,
+			}),
+		).toThrow('Tool annotation "readOnlyHint" must be a boolean');
 	});
 });
