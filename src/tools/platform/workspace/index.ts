@@ -1,6 +1,11 @@
 import { z } from "zod";
 import type { ToolRegistrationOptions } from "../../../shared/index.js";
-import { objectOutput, toolSuccess, withErrorHandling } from "../../../shared/index.js";
+import {
+	normalizeToolAnnotations,
+	objectOutput,
+	toolSuccess,
+	withErrorHandling,
+} from "../../../shared/index.js";
 
 // 2026-05-20: workspace group (renamed from "utility") holds the two
 // self-introspection tools. Anything message-shaped, inter-agent,
@@ -84,7 +89,10 @@ function registerAccountOverviewTool(options: ToolRegistrationOptions): void {
 				"Single-call workspace snapshot: organization context, credential identity, send-capability flags (canSendEmail / canSendSms), inventory counts (agents, domains, phones), active blockers (each carrying the canonical MCP tool that resolves it), and the running MCP server's deploy identity (commitSha, revision, buildId, startedAt). Strict superset of the legacy whoami + workspace_health pair. Use before any non-trivial workflow to answer 'who am I, can I do X right now, and which deploy is serving me?' in one round-trip — no real send needed to find out.",
 			inputSchema: noInput.shape,
 			outputSchema: objectOutput(),
-			annotations: { readOnlyHint: true, destructiveHint: false },
+			annotations: normalizeToolAnnotations({
+				readOnlyHint: true,
+				destructiveHint: false,
+			}),
 		},
 		withErrorHandling(async (_args, context) => {
 			// Two parallel reads: /orgs/me gives the full org profile
@@ -138,7 +146,10 @@ function registerUsageOverviewTool(options: ToolRegistrationOptions): void {
 				"Usage rollup for a billing period. Returns counters keyed by usage type (e.g. 'email_sent', 'sms_sent', 'voice_call_minutes') plus the latest update timestamp. Defaults to the current calendar month in UTC when `period` is omitted. Read-only, callable by any authenticated credential — scoped to the caller's org. Use to answer 'where am I against my tier limits?' without paying for per-event detail (UsageEvent is operator-tier).",
 			inputSchema: usageOverviewInput.shape,
 			outputSchema: objectOutput(),
-			annotations: { readOnlyHint: true, destructiveHint: false },
+			annotations: normalizeToolAnnotations({
+				readOnlyHint: true,
+				destructiveHint: false,
+			}),
 		},
 		withErrorHandling<z.infer<typeof usageOverviewInput>>(
 			async (args, context) => {

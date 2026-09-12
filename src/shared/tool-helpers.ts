@@ -20,6 +20,53 @@ export interface ToolRegistrationOptions {
 	context: ToolContext;
 }
 
+export interface RequiredToolHints {
+	readOnlyHint: boolean;
+	openWorldHint: boolean;
+	destructiveHint: boolean;
+}
+
+type ToolAnnotationsLike = Partial<RequiredToolHints> & Record<string, unknown>;
+
+const DEFAULT_REQUIRED_TOOL_HINTS: RequiredToolHints = {
+	readOnlyHint: false,
+	openWorldHint: false,
+	destructiveHint: false,
+};
+
+function requireBooleanHint(
+	value: unknown,
+	hintName: keyof RequiredToolHints,
+): boolean {
+	if (value === undefined) return DEFAULT_REQUIRED_TOOL_HINTS[hintName];
+	if (typeof value === "boolean") return value;
+	throw new TypeError(
+		`Tool annotation "${hintName}" must be a boolean when provided.`,
+	);
+}
+
+/**
+ * Enforce explicit boolean MCP behavioral hints.
+ *
+ * OpenAI plugin Scan Tools rejects tools where openWorldHint is omitted.
+ * This helper guarantees readOnlyHint/openWorldHint/destructiveHint always
+ * exist and are booleans, while preserving any extra annotation fields.
+ */
+export function normalizeToolAnnotations(
+	annotations?: ToolAnnotationsLike,
+): ToolAnnotationsLike & RequiredToolHints {
+	const source = annotations ?? {};
+	return {
+		...source,
+		readOnlyHint: requireBooleanHint(source.readOnlyHint, "readOnlyHint"),
+		openWorldHint: requireBooleanHint(source.openWorldHint, "openWorldHint"),
+		destructiveHint: requireBooleanHint(
+			source.destructiveHint,
+			"destructiveHint",
+		),
+	};
+}
+
 /**
  * Type for a domain-level tool registrar function.
  * Each domain (org, agent, email, etc.) exports a function matching this signature.
@@ -277,6 +324,8 @@ export function registerToolWithAliases(
 	// biome-ignore lint/suspicious/noExplicitAny: Same.
 	handler: any,
 ): void {
+	const normalizedAnnotations = normalizeToolAnnotations(config.annotations);
+
 	server.registerTool(
 		canonical,
 		{
@@ -284,7 +333,7 @@ export function registerToolWithAliases(
 			description: config.description,
 			inputSchema: config.inputSchema,
 			...(config.outputSchema ? { outputSchema: config.outputSchema } : {}),
-			...(config.annotations ? { annotations: config.annotations } : {}),
+			annotations: normalizedAnnotations,
 		},
 		handler,
 	);
@@ -313,7 +362,7 @@ export function registerToolWithAliases(
 				description,
 				inputSchema: config.inputSchema,
 				...(config.outputSchema ? { outputSchema: config.outputSchema } : {}),
-				...(config.annotations ? { annotations: config.annotations } : {}),
+				annotations: normalizedAnnotations,
 			},
 			wrappedHandler,
 		);

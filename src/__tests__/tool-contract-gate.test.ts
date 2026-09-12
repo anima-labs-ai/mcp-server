@@ -41,14 +41,25 @@ const ALLOWED_EXEMPT_ROUTES = new Set([
 interface RegisteredTool {
 	name: string;
 	inputProps: string[];
+	annotations?: Record<string, unknown>;
 }
 
 /** Register every production registrar against a capturing fake server. */
 function collectRegisteredTools(): RegisteredTool[] {
 	const tools: RegisteredTool[] = [];
 	const fakeServer = {
-		registerTool(name: string, config: { inputSchema?: Record<string, unknown> }) {
-			tools.push({ name, inputProps: Object.keys(config.inputSchema ?? {}).sort() });
+		registerTool(
+			name: string,
+			config: {
+				inputSchema?: Record<string, unknown>;
+				annotations?: Record<string, unknown>;
+			},
+		) {
+			tools.push({
+				name,
+				inputProps: Object.keys(config.inputSchema ?? {}).sort(),
+				annotations: config.annotations,
+			});
 		},
 		// Vault registers an MCP-App HTML resource alongside its tools.
 		registerResource() {},
@@ -209,5 +220,33 @@ describe("M3 — tool params are a subset of the backing contract schema", () =>
 			}
 		}
 		expect(problems, problems.join("\n")).toEqual([]);
+	});
+});
+
+describe("tool annotation completeness", () => {
+	test("every tool has boolean readOnlyHint/openWorldHint/destructiveHint", () => {
+		const failures: string[] = [];
+		for (const tool of registeredTools) {
+			const annotations = tool.annotations;
+			if (!annotations || typeof annotations !== "object") {
+				failures.push(`${tool.name}: missing annotations object`);
+				continue;
+			}
+			for (const hint of [
+				"readOnlyHint",
+				"openWorldHint",
+				"destructiveHint",
+			] as const) {
+				if (typeof annotations[hint] !== "boolean") {
+					failures.push(
+						`${tool.name}: annotations.${hint} must be boolean, got ${String(annotations[hint])}`,
+					);
+				}
+			}
+		}
+		expect(
+			failures,
+			`Tools missing required boolean annotations:\n  ${failures.join("\n  ")}`,
+		).toEqual([]);
 	});
 });
