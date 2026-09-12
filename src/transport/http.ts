@@ -318,6 +318,24 @@ export function createMcpHttpServer(
       return;
     }
 
+    // OpenAI Apps domain verification. OpenAI fetches this path on the
+    // connector origin and requires the exact challenge token as text/plain.
+    // Override with OPENAI_APPS_CHALLENGE_TOKEN if the challenge is reissued;
+    // the fallback keeps production verified without a deploy-time env change.
+    // Like glama.json, this must stay public and unauthenticated.
+    if (url.pathname === "/.well-known/openai-apps-challenge") {
+      const token =
+        process.env.OPENAI_APPS_CHALLENGE_TOKEN?.trim() ||
+        "H9qNBStmwZaT71t8vFZWoF1aZusN5IxQDNOLfAk8VlM";
+      res.writeHead(200, {
+        ...CORS_HEADERS,
+        "Content-Type": "text/plain; charset=utf-8",
+        "Cache-Control": "public, max-age=3600",
+      });
+      res.end(token);
+      return;
+    }
+
     if (url.pathname === "/health") {
       const uptimeMs = Date.now() - startedAt;
       res.writeHead(200, { ...CORS_HEADERS, "Content-Type": "application/json" });

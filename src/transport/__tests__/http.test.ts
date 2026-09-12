@@ -145,6 +145,20 @@ describe("createMcpHttpServer path routing", () => {
     const body = (await r.json()) as { description: string };
     expect(body.description.length).toBeLessThanOrEqual(100);
   });
+
+  it("serves the OpenAI Apps challenge token at /.well-known/openai-apps-challenge", async () => {
+    // OpenAI verifies domain control by fetching this path and matching the
+    // exact body. It must stay public and text/plain — a JSON 404 or auth gate
+    // silently fails verification with no error in our logs.
+    const r = await fetch(`${baseUrl}/.well-known/openai-apps-challenge`);
+    expect(r.status).toBe(200);
+    expect(r.headers.get("content-type")).toContain("text/plain");
+    const body = await r.text();
+    expect(body).toBe(
+      process.env.OPENAI_APPS_CHALLENGE_TOKEN?.trim() ||
+        "H9qNBStmwZaT71t8vFZWoF1aZusN5IxQDNOLfAk8VlM",
+    );
+  });
 });
 
 describe("OAuth protected-resource metadata", () => {
