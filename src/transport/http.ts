@@ -405,8 +405,8 @@ export function createMcpHttpServer(
         const session = sessions.get(sessionId);
         if (session && session.path === thisPath) {
           registry.touch(sessionId);
-          const apiKeyId = session.apiKeyId ?? "unknown";
-          const orgId = session.orgId ?? "unknown";
+          let apiKeyId = session.apiKeyId ?? "unknown";
+          let orgId = session.orgId ?? "unknown";
 
           // An anonymous session may look, not touch. Refuse anything outside
           // the introspection allowlist with the same 401 + WWW-Authenticate a
@@ -416,12 +416,41 @@ export function createMcpHttpServer(
           if (session.anonymous) {
             const method = (body as { method?: unknown } | null)?.method;
             if (typeof method !== "string" || !ANONYMOUS_METHODS.has(method)) {
+              // Some clients initialize anonymously to discover tools, then
+              // send credentials on the first executable request. Re-check
+              // auth here so the session can be upgraded instead of getting
+              // permanently stuck in introspection-only mode.
+              if (options?.authenticate) {
+                try {
+                  const upgradedContext = await options.authenticate(req, thisPath);
+                  if (!upgradedContext.anonymous) {
+                    session.apiKeyId = upgradedContext.apiKeyId;
+                    session.orgId = upgradedContext.orgId;
+                    session.anonymous = false;
+                    registry.rebind(sessionId, upgradedContext.apiKeyId, upgradedContext.orgId);
+                    apiKeyId = upgradedContext.apiKeyId;
+                    orgId = upgradedContext.orgId;
+                  }
+                } catch (err) {
+                  const authErr = err as McpAuthError;
+                  metrics.authFailure();
+                  const status = authErr.status || 401;
+                  if (status === 401 && options.oauth) {
+                    res.setHeader("WWW-Authenticate", `Bearer resource_metadata="${options.oauth.mcpBaseUrl}/.well-known/oauth-protected-resource"`);
+                  }
+                  jsonError(res, status, authErr.message || "Authentication failed");
+                  return;
+                }
+              }
+
+              if (session.anonymous) {
               metrics.authFailure();
               if (options?.oauth) {
                 res.setHeader("WWW-Authenticate", `Bearer resource_metadata="${options.oauth.mcpBaseUrl}/.well-known/oauth-protected-resource"`);
               }
               jsonError(res, 401, "Authentication required for this method. Anonymous sessions may only introspect.");
               return;
+              }
             }
           }
 
