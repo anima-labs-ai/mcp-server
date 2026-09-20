@@ -444,12 +444,12 @@ export function createMcpHttpServer(
               }
 
               if (session.anonymous) {
-              metrics.authFailure();
-              if (options?.oauth) {
-                res.setHeader("WWW-Authenticate", `Bearer resource_metadata="${options.oauth.mcpBaseUrl}/.well-known/oauth-protected-resource"`);
-              }
-              jsonError(res, 401, "Authentication required for this method. Anonymous sessions may only introspect.");
-              return;
+                metrics.authFailure();
+                if (options?.oauth) {
+                  res.setHeader("WWW-Authenticate", `Bearer resource_metadata="${options.oauth.mcpBaseUrl}/.well-known/oauth-protected-resource"`);
+                }
+                jsonError(res, 401, "Authentication required for this method. Anonymous sessions may only introspect.");
+                return;
               }
             }
           }
