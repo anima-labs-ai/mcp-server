@@ -1,6 +1,6 @@
 // mcp-server/src/auth.ts
 import type { IncomingMessage } from "node:http";
-import { ApiClient } from "./shared/index.js";
+import { ApiClient, ApiError } from "./shared/index.js";
 import { parseBearerToken } from "./transport/http.js";
 import type { McpAuthContext, McpAuthError } from "./transport/http.js";
 
@@ -22,6 +22,72 @@ const KNOWN_PREFIXES = ["ak_", "mk_", "sk_live_", "sk_test_", "oat_", "stk_"];
 // Bound at 256 so we don't pay an API round-trip just to learn that a
 // multi-MB Bearer string is bogus. This is the only fast-fail check.
 const MAX_TOKEN_LENGTH = 256;
+const AUTH_FAILURE_STATUSES = new Set([401, 403]);
+const INVALID_CREDENTIALS_MESSAGE = "Invalid or expired credentials";
+
+type OrgRecord = { id: string };
+type OrgListResponse = OrgRecord[] | { items?: OrgRecord[] };
+
+function getOrgIdFromOrgRecord(payload: unknown): string | undefined {
+  if (!payload || typeof payload !== "object") return undefined;
+  const candidate = (payload as { id?: unknown }).id;
+  return typeof candidate === "string" && candidate.length > 0 ? candidate : undefined;
+}
+
+function getOrgIdFromOrgList(payload: unknown): string | undefined {
+  if (Array.isArray(payload)) {
+    return getOrgIdFromOrgRecord(payload[0]);
+  }
+  if (!payload || typeof payload !== "object") return undefined;
+  const items = (payload as { items?: unknown }).items;
+  return Array.isArray(items) ? getOrgIdFromOrgRecord(items[0]) : undefined;
+}
+
+function isAuthFailure(error: unknown): boolean {
+  return (
+    error instanceof ApiError &&
+    AUTH_FAILURE_STATUSES.has(error.status)
+  );
+}
+
+function formatProbeError(error: unknown): string {
+  if (error instanceof ApiError) return `status=${error.status}`;
+  if (error instanceof Error) return error.message;
+  return "unknown-error";
+}
+
+async function resolveOrgId(client: ApiClient, allowFailOpen: boolean): Promise<string> {
+  const authFailures: unknown[] = [];
+  const probes: Array<{
+    path: string;
+    extractOrgId: (payload: unknown) => string | undefined;
+  }> = [
+    { path: "/v1/orgs/me", extractOrgId: getOrgIdFromOrgRecord },
+    { path: "/v1/orgs", extractOrgId: getOrgIdFromOrgList },
+  ];
+
+  for (const probe of probes) {
+    try {
+      const payload = await client.get<unknown>(probe.path);
+      return probe.extractOrgId(payload) ?? "default";
+    } catch (error) {
+      if (isAuthFailure(error)) {
+        authFailures.push(error);
+        continue;
+      }
+      console.warn(
+        `[mcp-auth] probe ${probe.path} failed (${formatProbeError(error)}); treating credentials as still valid`,
+      );
+    }
+  }
+
+  if (authFailures.length > 0 || !allowFailOpen) {
+    const err: McpAuthError = { status: 401, message: INVALID_CREDENTIALS_MESSAGE };
+    throw err;
+  }
+
+  return "default";
+}
 
 export function makeAuthenticator(apiUrl: string): (req: IncomingMessage) => Promise<McpAuthContext> {
   return async function authenticate(req): Promise<McpAuthContext> {
@@ -46,9 +112,12 @@ export function makeAuthenticator(apiUrl: string): (req: IncomingMessage) => Pro
       const err: McpAuthError = { status: 401, message: "Token exceeds maximum length" };
       throw err;
     }
-    if (!KNOWN_PREFIXES.some((p) => token.startsWith(p))) {
-      // Unknown prefix — let the API decide, but log so we notice when a
-      // new token type ships and this list needs updating.
+    const hasKnownPrefix = KNOWN_PREFIXES.some((p) => token.startsWith(p));
+    if (!hasKnownPrefix) {
+      // Unknown prefix — still pass through to the API, but do not fail-open
+      // on transport blips because we have no confidence this is a real token
+      // family. This keeps arbitrary bearer strings from authenticating during
+      // transient upstream incidents.
       const head = token.slice(0, Math.min(token.indexOf("_") + 1, 8)) || token.slice(0, 4);
       console.warn(`[mcp-auth] unknown token prefix "${head}" — passing through to API`);
     }
@@ -65,14 +134,10 @@ export function makeAuthenticator(apiUrl: string): (req: IncomingMessage) => Pro
     // don't pre-empt; if the API rejects with 403 the caller gets the real
     // permission error instead of a misleading "ANIMA_MASTER_KEY required".
     const client = new ApiClient({ baseUrl: apiUrl, apiKey: token, masterKey: token });
-    let orgId = "default";
-    try {
-      const orgs = await client.get<Array<{ id: string }>>("/v1/orgs");
-      if (Array.isArray(orgs) && orgs[0]?.id) orgId = orgs[0].id;
-    } catch {
-      const err: McpAuthError = { status: 401, message: "Invalid or expired credentials" };
-      throw err;
-    }
+    // Known token families (ak_/mk_/oat_/...) are allowed to fail open when
+    // auth probes hit non-auth upstream errors; unknown prefixes must still
+    // prove validity with at least one successful probe.
+    const orgId = await resolveOrgId(client, hasKnownPrefix);
     return { apiKeyId: token, orgId, client };
   };
 }

@@ -1,0 +1,99 @@
+name: Deploy MCP Server
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Optional image tag. Defaults to the commit SHA."
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  GCP_PROJECT_ID: anima-labs
+  GCP_REGION: us-central1
+  ARTIFACT_REPO: anima
+  SERVICE_NAME: mcp-server
+
+jobs:
+  deploy:
+    name: Deploy to Cloud Run
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate required secrets
+        env:
+          WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          SERVICE_ACCOUNT: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+        run: |
+          set -euo pipefail
+          missing=0
+          if [ -z "${WORKLOAD_IDENTITY_PROVIDER}" ]; then
+            echo "Missing secret: GCP_WORKLOAD_IDENTITY_PROVIDER"
+            missing=1
+          fi
+          if [ -z "${SERVICE_ACCOUNT}" ]; then
+            echo "Missing secret: GCP_SERVICE_ACCOUNT_EMAIL"
+            missing=1
+          fi
+          if [ "$missing" -ne 0 ]; then
+            echo "Configure required secrets, then re-run this workflow."
+            exit 1
+          fi
+
+      - name: Authenticate to Google Cloud (OIDC)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+
+      - name: Set up gcloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker "${GCP_REGION}-docker.pkg.dev" --quiet
+
+      - name: Build and push image
+        id: image
+        run: |
+          set -euo pipefail
+          TAG="${{ github.event.inputs.image_tag }}"
+          if [ -z "${TAG}" ]; then
+            TAG="${GITHUB_SHA}"
+          fi
+          IMAGE="${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${ARTIFACT_REPO}/${SERVICE_NAME}:${TAG}"
+          echo "image=${IMAGE}" >> "${GITHUB_OUTPUT}"
+          docker build --platform=linux/amd64 -t "${IMAGE}" -f Dockerfile .
+          docker push "${IMAGE}"
+
+      - name: Deploy Cloud Run service
+        run: |
+          set -euo pipefail
+          gcloud run deploy "${SERVICE_NAME}" \
+            --image="${{ steps.image.outputs.image }}" \
+            --region="${GCP_REGION}" \
+            --project="${GCP_PROJECT_ID}" \
+            --platform=managed \
+            --min-instances=1 \
+            --max-instances=10 \
+            --memory=512Mi \
+            --cpu=1 \
+            --port=8080 \
+            --concurrency=80 \
+            --allow-unauthenticated \
+            --set-env-vars=NODE_ENV=production \
+            --set-secrets=ANIMA_API_URL=API_URL:latest
+
+      - name: Verify health and report startedAt
+        run: |
+          set -euo pipefail
+          SERVICE_URL="$(gcloud run services describe "${SERVICE_NAME}" --region="${GCP_REGION}" --format='value(status.url)')"
+          echo "Deployed URL: ${SERVICE_URL}"
+          HEALTH_JSON="$(curl -fsSL "${SERVICE_URL}/health")"
+          echo "${HEALTH_JSON}"
