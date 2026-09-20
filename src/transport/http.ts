@@ -57,29 +57,18 @@ export interface McpAuthContext {
   orgId: string;
   client: ApiClient;
   /**
-   * True when the caller supplied no credentials at all. Such a session may
-   * introspect — initialize, list tools — and nothing else. See
-   * ANONYMOUS_METHODS.
+   * True when the caller supplied no credentials at all. Transport policy
+   * decides whether anonymous discovery is allowed (non-OAuth mode only).
    */
   anonymous?: boolean;
 }
 
 /**
- * JSON-RPC methods a credential-less session may call.
+ * JSON-RPC methods a credential-less session may call in non-OAuth mode.
  *
- * Tool *discovery* is public API-surface documentation — the same list is in
- * our published skills, our docs and the MCP registry manifest — so requiring
- * a token to read it bought nothing and cost us real distribution: directory
- * crawlers could not introspect the server, so glama.ai recorded no tool
- * schema and marked the listing unhealthy, which in turn gates the
- * awesome-mcp-servers entry.
- *
- * Tool *execution* is a different matter and stays authenticated. This is an
- * allowlist rather than a denylist so a method added upstream is refused by
- * default rather than silently reachable.
- *
- * `notifications/initialized` is included because the client sends it to
- * complete the handshake; refusing it would break the very flow this enables.
+ * OAuth-protected deployments challenge before MCP discovery so clients (such
+ * as Cursor) bind a Bearer token to the HTTP session early. API-key-only /
+ * local deployments can still expose anonymous discovery.
  */
 const ANONYMOUS_METHODS = new Set([
   "initialize",
@@ -90,6 +79,11 @@ const ANONYMOUS_METHODS = new Set([
   "resources/list",
   "resources/templates/list",
 ]);
+
+function setOauthChallengeHeader(res: ServerResponse, oauth: OAuthDiscovery | undefined): void {
+  if (!oauth) return;
+  res.setHeader("WWW-Authenticate", `Bearer resource_metadata="${oauth.mcpBaseUrl}/.well-known/oauth-protected-resource"`);
+}
 
 export interface McpAuthError {
   status: number;
@@ -414,8 +408,12 @@ export function createMcpHttpServer(
           // that wanted to call a tool still learns exactly where to
           // authenticate.
           if (session.anonymous) {
+            const oauthEnabled = Boolean(options?.oauth);
             const method = (body as { method?: unknown } | null)?.method;
-            if (typeof method !== "string" || !ANONYMOUS_METHODS.has(method)) {
+            const methodAllowedWithoutAuth =
+              !oauthEnabled && typeof method === "string" && ANONYMOUS_METHODS.has(method);
+
+            if (!methodAllowedWithoutAuth) {
               // Some clients initialize anonymously to discover tools, then
               // send credentials on the first executable request. Re-check
               // auth here so the session can be upgraded instead of getting
@@ -436,9 +434,7 @@ export function createMcpHttpServer(
                   const authErr = err as McpAuthError;
                   metrics.authFailure();
                   const status = authErr.status || 401;
-                  if (status === 401 && options.oauth) {
-                    res.setHeader("WWW-Authenticate", `Bearer resource_metadata="${options.oauth.mcpBaseUrl}/.well-known/oauth-protected-resource"`);
-                  }
+                  if (status === 401) setOauthChallengeHeader(res, options?.oauth);
                   jsonError(res, status, authErr.message || "Authentication failed");
                   return;
                 }
@@ -446,9 +442,7 @@ export function createMcpHttpServer(
 
               if (session.anonymous) {
                 metrics.authFailure();
-                if (options?.oauth) {
-                  res.setHeader("WWW-Authenticate", `Bearer resource_metadata="${options.oauth.mcpBaseUrl}/.well-known/oauth-protected-resource"`);
-                }
+                setOauthChallengeHeader(res, options?.oauth);
                 jsonError(res, 401, "Authentication required for this method. Anonymous sessions may only introspect.");
                 return;
               }
@@ -505,9 +499,7 @@ export function createMcpHttpServer(
           const authErr = err as McpAuthError;
           metrics.authFailure();
           const status = authErr.status || 401;
-          if (status === 401 && options.oauth) {
-            res.setHeader("WWW-Authenticate", `Bearer resource_metadata="${options.oauth.mcpBaseUrl}/.well-known/oauth-protected-resource"`);
-          }
+          if (status === 401) setOauthChallengeHeader(res, options?.oauth);
           jsonError(res, status, authErr.message || "Authentication failed");
           return;
         }
