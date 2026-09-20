@@ -422,8 +422,9 @@ export function createMcpHttpServer(
               // permanently stuck in introspection-only mode.
               if (options?.authenticate) {
                 try {
-                  const upgradedContext = await options.authenticate(req, thisPath);
-                  if (!upgradedContext.anonymous) {
+                  const maybeUpgradedContext = await options.authenticate(req, thisPath);
+                  if (maybeUpgradedContext && !maybeUpgradedContext.anonymous) {
+                    const upgradedContext = maybeUpgradedContext;
                     session.apiKeyId = upgradedContext.apiKeyId;
                     session.orgId = upgradedContext.orgId;
                     session.anonymous = false;
