@@ -37,6 +37,7 @@ const DEFAULT_MAX_ANONYMOUS_SESSIONS = 250;
 
 export interface SessionRegistry {
 	register(sessionId: string, apiKeyId: string, orgId: string): SessionMetadata;
+	rebind(sessionId: string, apiKeyId: string, orgId: string): void;
 	touch(sessionId: string): void;
 	remove(sessionId: string): void;
 	get(sessionId: string): SessionMetadata | undefined;
@@ -93,6 +94,14 @@ export function createSessionRegistry(options?: SessionRegistryOptions): Session
 		sessions.set(sessionId, meta);
 		reconnectIndex.set(reconnectToken, sessionId);
 		return meta;
+	}
+
+	function rebind(sessionId: string, apiKeyId: string, orgId: string): void {
+		const meta = sessions.get(sessionId);
+		if (!meta) return;
+		meta.apiKeyId = apiKeyId;
+		meta.orgId = orgId;
+		meta.lastActivityAt = Date.now();
 	}
 
 	function touch(sessionId: string): void {
@@ -194,6 +203,7 @@ export function createSessionRegistry(options?: SessionRegistryOptions): Session
 
 	return {
 		register,
+		rebind,
 		touch,
 		remove,
 		get,
