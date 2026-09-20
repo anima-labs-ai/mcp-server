@@ -232,10 +232,6 @@ describe("anonymous session auth upgrade", () => {
       { "/mcp": (_ctx) => buildEmptyServer("mcp") },
       {
         port: 0,
-        oauth: {
-          mcpBaseUrl: "https://mcp.example.test",
-          authServerUrl: "https://connect.example.test",
-        },
         authenticate: async (req) => {
           const auth = req.headers.authorization;
           if (auth === "Bearer good-token") {
@@ -295,6 +291,28 @@ describe("anonymous session auth upgrade", () => {
     expect(handle.registry.countByOrg("anonymous")).toBe(0);
   });
 
+  it("keeps tools/list public when oauth is not configured", async () => {
+    const init = await fetch(`${baseUrl}/mcp`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "probe", version: "0" } } }),
+    });
+    expect(init.status).toBe(200);
+    const sid = init.headers.get("mcp-session-id");
+    expect(sid).toBeTruthy();
+
+    const list = await fetch(`${baseUrl}/mcp`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json, text/event-stream",
+        "mcp-session-id": sid as string,
+      },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list" }),
+    });
+    expect(list.status).toBe(200);
+  });
+
   it("returns invalid credentials when an anonymous-session upgrade token is bad", async () => {
     const init = await fetch(`${baseUrl}/mcp`, {
       method: "POST",
@@ -319,6 +337,112 @@ describe("anonymous session auth upgrade", () => {
     expect(call.status).toBe(401);
     const payload = await call.json() as { error: string };
     expect(payload.error).toContain("Invalid or expired credentials");
+  });
+});
+
+describe("oauth authentication requirements", () => {
+  let handle: HttpTransportServer;
+  let baseUrl: string;
+
+  beforeAll(async () => {
+    handle = createMcpHttpServer(
+      { "/mcp": (_ctx) => buildEmptyServer("mcp") },
+      {
+        port: 0,
+        oauth: {
+          mcpBaseUrl: "https://mcp.example.test",
+          authServerUrl: "https://connect.example.test",
+        },
+        authenticate: async (req) => {
+          const auth = req.headers.authorization;
+          if (auth === "Bearer good-token") {
+            return {
+              apiKeyId: "good-token",
+              orgId: "test-org",
+              client: {} as ApiClient,
+            };
+          }
+          if (auth) {
+            throw { status: 401, message: "Invalid or expired credentials" };
+          }
+          return {
+            apiKeyId: "anonymous",
+            orgId: "anonymous",
+            client: {} as ApiClient,
+            anonymous: true,
+          };
+        },
+      },
+    );
+    await new Promise<void>((res) => handle.httpServer.listen(0, () => res()));
+    const addr = handle.httpServer.address();
+    if (!addr || typeof addr === "string") throw new Error("no addr");
+    baseUrl = `http://127.0.0.1:${addr.port}`;
+  });
+
+  afterAll(async () => {
+    await handle.close();
+  });
+
+  it("401s tools/list without credentials and includes an OAuth challenge", async () => {
+    const init = await fetch(`${baseUrl}/mcp`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "probe", version: "0" } } }),
+    });
+    expect(init.status).toBe(200);
+    const sid = init.headers.get("mcp-session-id");
+    expect(sid).toBeTruthy();
+
+    const list = await fetch(`${baseUrl}/mcp`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json, text/event-stream",
+        "mcp-session-id": sid as string,
+      },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list" }),
+    });
+
+    expect(list.status).toBe(401);
+    expect(list.headers.get("www-authenticate")).toContain("resource_metadata");
+  });
+
+  it("allows tools/list and tools/call after authenticated initialize", async () => {
+    const init = await fetch(`${baseUrl}/mcp`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json, text/event-stream",
+        Authorization: "Bearer good-token",
+      },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "probe", version: "0" } } }),
+    });
+    expect(init.status).toBe(200);
+    const sid = init.headers.get("mcp-session-id");
+    expect(sid).toBeTruthy();
+
+    const list = await fetch(`${baseUrl}/mcp`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json, text/event-stream",
+        "mcp-session-id": sid as string,
+      },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list" }),
+    });
+    expect(list.status).toBe(200);
+
+    const call = await fetch(`${baseUrl}/mcp`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json, text/event-stream",
+        "mcp-session-id": sid as string,
+      },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "missing_tool", arguments: {} } }),
+    });
+    expect(call.status).not.toBe(401);
   });
 });
 

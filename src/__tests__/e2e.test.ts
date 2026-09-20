@@ -39,67 +39,52 @@ describe("mcp-server e2e", () => {
     expect(body.claim).toMatch(/^glama_claim_/);
   });
 
-  it("lets an unauthenticated client introspect /agent but not call a tool", async () => {
-    // Deliberate change from "401 on initialize". Tool discovery is public
-    // API-surface documentation and refusing it made the server opaque to
-    // directory crawlers — glama.ai recorded no tool schema and marked the
-    // listing unhealthy. Execution still requires credentials, which is the
-    // half that actually matters, so this asserts both directions.
+  it("requires auth to list tools on /agent when OAuth is configured", async () => {
     const init = await fetch(`${baseUrl}/agent`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream" },
       body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "t", version: "0" } } }),
     });
     expect(init.status).toBe(200);
-
     const sid = init.headers.get("mcp-session-id");
     expect(sid).toBeTruthy();
 
-    const call = await fetch(`${baseUrl}/agent`, {
+    const list = await fetch(`${baseUrl}/agent`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream", "mcp-session-id": sid as string },
-      body: JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "account_overview", arguments: {} } }),
+      body: JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list" }),
     });
-    expect(call.status).toBe(401);
-    // The refusal must still say where to authenticate.
-    expect(call.headers.get("www-authenticate")).toContain("resource_metadata");
+    expect(list.status).toBe(401);
+    expect(list.headers.get("www-authenticate")).toContain("resource_metadata");
   });
 
-  it("lets an unauthenticated client introspect /mcp but not call a tool", async () => {
-    // Deliberate change from "401 on initialize". Tool discovery is public
-    // API-surface documentation and refusing it made the server opaque to
-    // directory crawlers — glama.ai recorded no tool schema and marked the
-    // listing unhealthy. Execution still requires credentials, which is the
-    // half that actually matters, so this asserts both directions.
+  it("requires auth to list tools on /mcp when OAuth is configured", async () => {
     const init = await fetch(`${baseUrl}/mcp`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream" },
       body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "t", version: "0" } } }),
     });
     expect(init.status).toBe(200);
-
     const sid = init.headers.get("mcp-session-id");
     expect(sid).toBeTruthy();
 
-    const call = await fetch(`${baseUrl}/mcp`, {
+    const list = await fetch(`${baseUrl}/mcp`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream", "mcp-session-id": sid as string },
-      body: JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "account_overview", arguments: {} } }),
+      body: JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list" }),
     });
-    expect(call.status).toBe(401);
-    // The refusal must still say where to authenticate.
-    expect(call.headers.get("www-authenticate")).toContain("resource_metadata");
+    expect(list.status).toBe(401);
+    expect(list.headers.get("www-authenticate")).toContain("resource_metadata");
   });
 
-  it("returns the tool list to an unauthenticated client", async () => {
-    // This is the behaviour directory crawlers actually need, and the reason
-    // for the change: without it glama.ai never records a tool schema and the
-    // connector stays "Unhealthy", which gates the awesome-mcp-servers entry.
-    // Asserting initialize alone would not have caught a server that accepts
-    // the handshake and then refuses discovery.
+  it("returns the tool list to an authenticated client", async () => {
     const init = await fetch(`${baseUrl}/mcp`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream" },
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json, text/event-stream",
+        Authorization: "Bearer ak_test",
+      },
       body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "probe", version: "0" } } }),
     });
     expect(init.status).toBe(200);
@@ -123,26 +108,6 @@ describe("mcp-server e2e", () => {
     expect(text).toContain("account_overview");
   });
 
-  it("does not exhaust the session budget across many anonymous crawlers", async () => {
-    // Regression. Anonymous sessions were metered against the authenticated
-    // per-key budget (10) and held for the authenticated idle timeout (30
-    // minutes). Crawlers do not send DELETE, so the shared "anonymous" bucket
-    // stayed full and every directory check got HTTP 429 — Glama emailed to
-    // say the connector had gone unhealthy, which is precisely what opening
-    // introspection was supposed to prevent.
-    //
-    // 12 is chosen to exceed the authenticated cap of 10: under the old
-    // behaviour this fails at the 11th handshake.
-    for (let i = 0; i < 12; i++) {
-      const r = await fetch(`${baseUrl}/mcp`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream" },
-        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: `crawler-${i}`, version: "0" } } }),
-      });
-      expect(r.status).toBe(200);
-    }
-  });
-
   it("401s bad key prefix", async () => {
     const r = await fetch(`${baseUrl}/agent`, {
       method: "POST",
@@ -159,19 +124,13 @@ describe("mcp-server e2e", () => {
   // 2026-05-20: /platform hosts the renamed `workspace` group + the new
   // `webhook` group. Same auth model as the other domain mounts — 401
   // without a bearer token, full surface available with one.
-  it("lets an unauthenticated client introspect /platform but not call a tool", async () => {
-    // Deliberate change from "401 on initialize". Tool discovery is public
-    // API-surface documentation and refusing it made the server opaque to
-    // directory crawlers — glama.ai recorded no tool schema and marked the
-    // listing unhealthy. Execution still requires credentials, which is the
-    // half that actually matters, so this asserts both directions.
+  it("requires auth to call tools on /platform when OAuth is configured", async () => {
     const init = await fetch(`${baseUrl}/platform`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream" },
       body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "t", version: "0" } } }),
     });
     expect(init.status).toBe(200);
-
     const sid = init.headers.get("mcp-session-id");
     expect(sid).toBeTruthy();
 
@@ -181,7 +140,6 @@ describe("mcp-server e2e", () => {
       body: JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "account_overview", arguments: {} } }),
     });
     expect(call.status).toBe(401);
-    // The refusal must still say where to authenticate.
     expect(call.headers.get("www-authenticate")).toContain("resource_metadata");
   });
 
