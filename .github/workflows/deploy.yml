@@ -27,17 +27,17 @@ jobs:
 
       - name: Validate required secrets
         env:
-          WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          SERVICE_ACCOUNT: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+          WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.WIF_PROVIDER }}
+          SERVICE_ACCOUNT: ${{ secrets.WIF_SERVICE_ACCOUNT }}
         run: |
           set -euo pipefail
           missing=0
           if [ -z "${WORKLOAD_IDENTITY_PROVIDER}" ]; then
-            echo "Missing secret: GCP_WORKLOAD_IDENTITY_PROVIDER"
+            echo "Missing secret: WIF_PROVIDER"
             missing=1
           fi
           if [ -z "${SERVICE_ACCOUNT}" ]; then
-            echo "Missing secret: GCP_SERVICE_ACCOUNT_EMAIL"
+            echo "Missing secret: WIF_SERVICE_ACCOUNT"
             missing=1
           fi
           if [ "$missing" -ne 0 ]; then
@@ -48,8 +48,8 @@ jobs:
       - name: Authenticate to Google Cloud (OIDC)
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
 
       - name: Set up gcloud SDK
         uses: google-github-actions/setup-gcloud@v2
