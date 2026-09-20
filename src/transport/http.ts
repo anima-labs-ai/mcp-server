@@ -505,6 +505,19 @@ export function createMcpHttpServer(
         }
       }
 
+      const oauthEnabled = Boolean(options?.oauth);
+      if (oauthEnabled && authContext?.anonymous) {
+        // In OAuth mode, allowing anonymous initialize creates a sticky
+        // unauthenticated session id that some clients keep reusing for tool
+        // calls even after a separate OAuth-authenticated probe succeeds.
+        // Challenge here so clients always bind credentials before any MCP
+        // session exists.
+        metrics.authFailure();
+        setOauthChallengeHeader(res, options?.oauth);
+        jsonError(res, 401, "Authentication required");
+        return;
+      }
+
       const apiKeyId = authContext?.apiKeyId ?? "anonymous";
       const orgId = authContext?.orgId ?? "anonymous";
 
