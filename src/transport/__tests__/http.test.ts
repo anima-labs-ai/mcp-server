@@ -384,28 +384,49 @@ describe("oauth authentication requirements", () => {
     await handle.close();
   });
 
-  it("401s tools/list without credentials and includes an OAuth challenge", async () => {
+  it("401s initialize without credentials and includes an OAuth challenge", async () => {
     const init = await fetch(`${baseUrl}/mcp`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream" },
       body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "probe", version: "0" } } }),
     });
-    expect(init.status).toBe(200);
-    const sid = init.headers.get("mcp-session-id");
+
+    expect(init.status).toBe(401);
+    expect(init.headers.get("www-authenticate")).toContain("resource_metadata");
+  });
+
+  it("prevents sticky anonymous sessions by requiring auth before session creation", async () => {
+    const anonymousInit = await fetch(`${baseUrl}/mcp`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "probe", version: "0" } } }),
+    });
+    expect(anonymousInit.status).toBe(401);
+    expect(anonymousInit.headers.get("mcp-session-id")).toBeNull();
+
+    const authenticatedInit = await fetch(`${baseUrl}/mcp`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json, text/event-stream",
+        Authorization: "Bearer good-token",
+      },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 2, method: "initialize", params: { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "probe", version: "0" } } }),
+    });
+    expect(authenticatedInit.status).toBe(200);
+    const sid = authenticatedInit.headers.get("mcp-session-id");
     expect(sid).toBeTruthy();
 
-    const list = await fetch(`${baseUrl}/mcp`, {
+    const call = await fetch(`${baseUrl}/mcp`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Accept: "application/json, text/event-stream",
         "mcp-session-id": sid as string,
       },
-      body: JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list" }),
+      body: JSON.stringify({ jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "missing_tool", arguments: {} } }),
     });
-
-    expect(list.status).toBe(401);
-    expect(list.headers.get("www-authenticate")).toContain("resource_metadata");
+    expect(call.status).not.toBe(401);
   });
 
   it("allows tools/list and tools/call after authenticated initialize", async () => {

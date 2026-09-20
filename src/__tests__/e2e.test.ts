@@ -39,42 +39,24 @@ describe("mcp-server e2e", () => {
     expect(body.claim).toMatch(/^glama_claim_/);
   });
 
-  it("requires auth to list tools on /agent when OAuth is configured", async () => {
+  it("requires auth to initialize on /agent when OAuth is configured", async () => {
     const init = await fetch(`${baseUrl}/agent`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream" },
       body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "t", version: "0" } } }),
     });
-    expect(init.status).toBe(200);
-    const sid = init.headers.get("mcp-session-id");
-    expect(sid).toBeTruthy();
-
-    const list = await fetch(`${baseUrl}/agent`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream", "mcp-session-id": sid as string },
-      body: JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list" }),
-    });
-    expect(list.status).toBe(401);
-    expect(list.headers.get("www-authenticate")).toContain("resource_metadata");
+    expect(init.status).toBe(401);
+    expect(init.headers.get("www-authenticate")).toContain("resource_metadata");
   });
 
-  it("requires auth to list tools on /mcp when OAuth is configured", async () => {
+  it("requires auth to initialize on /mcp when OAuth is configured", async () => {
     const init = await fetch(`${baseUrl}/mcp`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream" },
       body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "t", version: "0" } } }),
     });
-    expect(init.status).toBe(200);
-    const sid = init.headers.get("mcp-session-id");
-    expect(sid).toBeTruthy();
-
-    const list = await fetch(`${baseUrl}/mcp`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream", "mcp-session-id": sid as string },
-      body: JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list" }),
-    });
-    expect(list.status).toBe(401);
-    expect(list.headers.get("www-authenticate")).toContain("resource_metadata");
+    expect(init.status).toBe(401);
+    expect(init.headers.get("www-authenticate")).toContain("resource_metadata");
   });
 
   it("returns the tool list to an authenticated client", async () => {
@@ -124,23 +106,14 @@ describe("mcp-server e2e", () => {
   // 2026-05-20: /platform hosts the renamed `workspace` group + the new
   // `webhook` group. Same auth model as the other domain mounts — 401
   // without a bearer token, full surface available with one.
-  it("requires auth to call tools on /platform when OAuth is configured", async () => {
+  it("requires auth to initialize on /platform when OAuth is configured", async () => {
     const init = await fetch(`${baseUrl}/platform`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream" },
       body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "t", version: "0" } } }),
     });
-    expect(init.status).toBe(200);
-    const sid = init.headers.get("mcp-session-id");
-    expect(sid).toBeTruthy();
-
-    const call = await fetch(`${baseUrl}/platform`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream", "mcp-session-id": sid as string },
-      body: JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "account_overview", arguments: {} } }),
-    });
-    expect(call.status).toBe(401);
-    expect(call.headers.get("www-authenticate")).toContain("resource_metadata");
+    expect(init.status).toBe(401);
+    expect(init.headers.get("www-authenticate")).toContain("resource_metadata");
   });
 
   it("rejects non-MCP requests on /platform", async () => {
