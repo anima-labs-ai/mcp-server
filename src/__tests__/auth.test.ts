@@ -60,6 +60,12 @@ function makeRequest(token?: string): IncomingMessage {
 	} as IncomingMessage;
 }
 
+function makeRawAuthRequest(authorization: string): IncomingMessage {
+	return {
+		headers: { authorization },
+	} as IncomingMessage;
+}
+
 describe("makeAuthenticator", () => {
 	const authenticate = makeAuthenticator(`http://localhost:${server.port}`);
 
@@ -100,5 +106,16 @@ describe("makeAuthenticator", () => {
 		);
 		expect(orgMeCalls).toBe(1);
 		expect(orgListCalls).toBe(1);
+	});
+
+	test("rejects malformed Authorization headers before probing the API", async () => {
+		await expect(authenticate(makeRawAuthRequest("Token oat_missing_bearer_prefix"))).rejects.toEqual(
+			expect.objectContaining({
+				status: 401,
+				message: "Malformed Authorization header. Expected 'Bearer <token>'.",
+			}),
+		);
+		expect(orgMeCalls).toBe(0);
+		expect(orgListCalls).toBe(0);
 	});
 });

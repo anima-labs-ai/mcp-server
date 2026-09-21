@@ -35,8 +35,8 @@ export class ApiError extends Error {
 
 export class ApiClient {
 	private readonly baseUrl: string;
-	private readonly apiKey: string;
-	private readonly masterKey?: string;
+	private apiKey: string;
+	private masterKey?: string;
 	private readonly timeoutMs: number;
 
 	constructor(config: ApiClientConfig) {
@@ -189,6 +189,19 @@ export class ApiClient {
 	 */
 	getAuth(): { token: string; baseUrl: string } {
 		return { token: this.apiKey, baseUrl: this.baseUrl };
+	}
+
+	/**
+	 * Rotate credentials for an existing client instance.
+	 *
+	 * MCP sessions keep one ApiClient object in memory for every registered tool
+	 * handler. When a session is re-authenticated (e.g. OAuth refresh / token
+	 * hand-off), mutating that shared instance is what makes subsequent tool
+	 * calls use the new bearer token without forcing a reconnect.
+	 */
+	setCredentials(apiKey: string, masterKey?: string): void {
+		this.apiKey = apiKey;
+		this.masterKey = masterKey;
 	}
 }
 

@@ -79,6 +79,15 @@ describe("ApiClient", () => {
 		expect(result.auth).toBe("Bearer my-secret-key");
 	});
 
+	test("setCredentials rotates auth used by future requests", async () => {
+		const client = new ApiClient({ baseUrl, apiKey: "old-token", masterKey: "old-master" });
+		client.setCredentials("new-token", "new-master");
+		const normal = await client.get<{ auth: string }>("/test/auth");
+		expect(normal.auth).toBe("Bearer new-token");
+		const master = await client.get<{ auth: string }>("/test/auth", { useMasterKey: true });
+		expect(master.auth).toBe("Bearer new-master");
+	});
+
 	test("uses master key when requested", async () => {
 		const client = new ApiClient({ baseUrl, apiKey: "normal", masterKey: "master" });
 		const result = await client.get<{ auth: string }>("/test/auth", { useMasterKey: true });

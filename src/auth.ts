@@ -91,7 +91,15 @@ async function resolveOrgId(client: ApiClient, allowFailOpen: boolean): Promise<
 
 export function makeAuthenticator(apiUrl: string): (req: IncomingMessage) => Promise<McpAuthContext> {
   return async function authenticate(req): Promise<McpAuthContext> {
+    const rawAuthorization = req.headers.authorization;
     const token = parseBearerToken(req);
+    if (rawAuthorization && !token) {
+      const err: McpAuthError = {
+        status: 401,
+        message: "Malformed Authorization header. Expected 'Bearer <token>'.",
+      };
+      throw err;
+    }
     if (!token) {
       // No credentials: hand back an anonymous context rather than refusing.
       // The transport confines such a session to introspection (see
