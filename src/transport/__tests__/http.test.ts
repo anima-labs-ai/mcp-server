@@ -1,10 +1,13 @@
 import { describe, it, expect, beforeAll, afterAll } from "bun:test";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { createMcpHttpServer, type HttpTransportServer } from "../http.ts";
-import { DEFAULT_OAUTH_SCOPES, type ApiClient } from "../../shared/index.js";
+import { ApiClient, DEFAULT_OAUTH_SCOPES } from "../../shared/index.js";
 
 const buildEmptyServer = (name: string) =>
   new McpServer({ name, version: "0.0.0" }, { capabilities: { tools: {} } });
+
+const makeStubClient = (token = "test") =>
+  new ApiClient({ baseUrl: "http://127.0.0.1:1", apiKey: token, masterKey: token });
 
 describe("createMcpHttpServer path routing", () => {
   let handle: HttpTransportServer;
@@ -21,7 +24,7 @@ describe("createMcpHttpServer path routing", () => {
         authenticate: async () => ({
           apiKeyId: "test",
           orgId: "test-org",
-          client: {} as ApiClient,
+          client: makeStubClient("test"),
         }),
       },
     );
@@ -178,7 +181,7 @@ describe("OAuth protected-resource metadata", () => {
         authenticate: async () => ({
           apiKeyId: "test",
           orgId: "test-org",
-          client: {} as ApiClient,
+          client: makeStubClient("test"),
         }),
       },
     );
@@ -238,7 +241,7 @@ describe("anonymous session auth upgrade", () => {
             return {
               apiKeyId: "good-token",
               orgId: "test-org",
-              client: {} as ApiClient,
+              client: makeStubClient("good-token"),
             };
           }
           if (auth) {
@@ -247,7 +250,7 @@ describe("anonymous session auth upgrade", () => {
           return {
             apiKeyId: "anonymous",
             orgId: "anonymous",
-            client: {} as ApiClient,
+            client: makeStubClient(""),
             anonymous: true,
           };
         },
@@ -289,6 +292,8 @@ describe("anonymous session auth upgrade", () => {
     expect(call.status).not.toBe(401);
     expect(handle.registry.countByOrg("test-org")).toBe(1);
     expect(handle.registry.countByOrg("anonymous")).toBe(0);
+    const meta = handle.sessions.get(sid as string);
+    expect(meta?.client.getAuth().token).toBe("good-token");
   });
 
   it("keeps tools/list public when oauth is not configured", async () => {
@@ -359,7 +364,7 @@ describe("oauth authentication requirements", () => {
             return {
               apiKeyId: "good-token",
               orgId: "test-org",
-              client: {} as ApiClient,
+              client: makeStubClient("good-token"),
             };
           }
           if (auth) {
@@ -368,7 +373,7 @@ describe("oauth authentication requirements", () => {
           return {
             apiKeyId: "anonymous",
             orgId: "anonymous",
-            client: {} as ApiClient,
+            client: makeStubClient(""),
             anonymous: true,
           };
         },
@@ -429,6 +434,17 @@ describe("oauth authentication requirements", () => {
     expect(call.status).not.toBe(401);
   });
 
+  it("challenges non-initialize requests that arrive before an authenticated session exists", async () => {
+    const directToolCall = await fetch(`${baseUrl}/mcp`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 9, method: "tools/list" }),
+    });
+
+    expect(directToolCall.status).toBe(401);
+    expect(directToolCall.headers.get("www-authenticate")).toContain("resource_metadata");
+  });
+
   it("allows tools/list and tools/call after authenticated initialize", async () => {
     const init = await fetch(`${baseUrl}/mcp`, {
       method: "POST",
@@ -464,6 +480,90 @@ describe("oauth authentication requirements", () => {
       body: JSON.stringify({ jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "missing_tool", arguments: {} } }),
     });
     expect(call.status).not.toBe(401);
+  });
+});
+
+describe("session bearer rotation", () => {
+  let handle: HttpTransportServer;
+  let baseUrl: string;
+
+  beforeAll(async () => {
+    handle = createMcpHttpServer(
+      { "/mcp": (_ctx) => buildEmptyServer("mcp") },
+      {
+        port: 0,
+        authenticate: async (req) => {
+          const auth = req.headers.authorization;
+          if (auth === "Bearer token-one") {
+            return {
+              apiKeyId: "token-one",
+              orgId: "org-one",
+              client: makeStubClient("token-one"),
+            };
+          }
+          if (auth === "Bearer token-two") {
+            return {
+              apiKeyId: "token-two",
+              orgId: "org-two",
+              client: makeStubClient("token-two"),
+            };
+          }
+          if (auth) {
+            throw { status: 401, message: "Invalid or expired credentials" };
+          }
+          return {
+            apiKeyId: "anonymous",
+            orgId: "anonymous",
+            client: makeStubClient(""),
+            anonymous: true,
+          };
+        },
+      },
+    );
+    await new Promise<void>((res) => handle.httpServer.listen(0, () => res()));
+    const addr = handle.httpServer.address();
+    if (!addr || typeof addr === "string") throw new Error("no addr");
+    baseUrl = `http://127.0.0.1:${addr.port}`;
+  });
+
+  afterAll(async () => {
+    await handle.close();
+  });
+
+  it("rebinds session metadata and client credentials when bearer token changes", async () => {
+    const init = await fetch(`${baseUrl}/mcp`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json, text/event-stream",
+        Authorization: "Bearer token-one",
+      },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "probe", version: "0" } } }),
+    });
+    expect(init.status).toBe(200);
+    const sid = init.headers.get("mcp-session-id");
+    expect(sid).toBeTruthy();
+
+    const before = handle.sessions.get(sid as string);
+    expect(before?.apiKeyId).toBe("token-one");
+    expect(before?.client.getAuth().token).toBe("token-one");
+
+    const rotated = await fetch(`${baseUrl}/mcp`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json, text/event-stream",
+        "mcp-session-id": sid as string,
+        Authorization: "Bearer token-two",
+      },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list" }),
+    });
+
+    expect(rotated.status).toBe(200);
+    const after = handle.sessions.get(sid as string);
+    expect(after?.apiKeyId).toBe("token-two");
+    expect(after?.orgId).toBe("org-two");
+    expect(after?.client.getAuth().token).toBe("token-two");
   });
 });
 

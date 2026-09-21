@@ -3,7 +3,7 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type { ApiClient } from "../shared/index.js";
 import { createSessionRegistry, type SessionRegistry, type SessionRegistryOptions } from "../shared/session-registry.js";
 import { createMcpRateLimiter, type McpRateLimiter, type McpRateLimiterOptions } from "../shared/rate-limiter.js";
@@ -36,15 +36,81 @@ export function readBody(req: IncomingMessage): Promise<string> {
 }
 
 export function parseBearerToken(req: IncomingMessage): string | undefined {
-  const header = req.headers.authorization;
-  if (!header) return undefined;
-  const match = header.match(/^Bearer\s+(\S+)$/i);
+  const header = req.headers.authorization as string | string[] | undefined;
+  const normalized = Array.isArray(header) ? header[0] : header;
+  if (!normalized) return undefined;
+  const match = normalized.trim().match(/^Bearer\s+(\S+)$/i);
   return match?.[1];
+}
+
+const KNOWN_TOKEN_PREFIXES = ["oat_", "ak_", "mk_", "sk_live_", "sk_test_", "stk_"];
+
+function hasAuthorizationHeader(req: IncomingMessage): boolean {
+  const header = req.headers.authorization as string | string[] | undefined;
+  if (Array.isArray(header)) {
+    const first = header[0];
+    return typeof first === "string" && first.trim().length > 0;
+  }
+  return typeof header === "string" && header.trim().length > 0;
+}
+
+function getTokenPrefix(token: string | undefined): string {
+  if (!token) return "anonymous";
+  const known = KNOWN_TOKEN_PREFIXES.find((prefix) => token.startsWith(prefix));
+  if (known) return known;
+  const underscoreIndex = token.indexOf("_");
+  if (underscoreIndex > 0 && underscoreIndex <= 10) {
+    return `${token.slice(0, underscoreIndex + 1)}(unknown)`;
+  }
+  return "unknown";
+}
+
+function getRpcMethod(body: unknown): string {
+  const method = (body as { method?: unknown } | null)?.method;
+  return typeof method === "string" ? method : "unknown";
+}
+
+function hashSessionId(sessionId: string | undefined): string {
+  if (!sessionId) return "none";
+  return createHash("sha256").update(sessionId).digest("hex").slice(0, 12);
+}
+
+function logAuthFailure(
+  req: IncomingMessage,
+  details: {
+    path: string;
+    reason: string;
+    status: number;
+    rpcMethod: string;
+    sessionId?: string;
+    sessionAnonymous?: boolean;
+  },
+): void {
+  const token = parseBearerToken(req);
+  const userAgent = req.headers["user-agent"];
+  const xRequestId = req.headers["x-request-id"];
+  const trace = req.headers["x-cloud-trace-context"];
+  const payload = {
+    event: "auth_denied",
+    path: details.path,
+    reason: details.reason,
+    status: details.status,
+    rpcMethod: details.rpcMethod,
+    sessionHash: hashSessionId(details.sessionId),
+    sessionAnonymous: details.sessionAnonymous ?? false,
+    hasAuthorization: hasAuthorizationHeader(req),
+    tokenPrefix: getTokenPrefix(token),
+    userAgent: Array.isArray(userAgent) ? userAgent[0] : (userAgent ?? "unknown"),
+    requestId: Array.isArray(xRequestId) ? xRequestId[0] : (xRequestId ?? "none"),
+    traceContext: Array.isArray(trace) ? trace[0] : (trace ?? "none"),
+  };
+  console.warn(`[mcp-auth] ${JSON.stringify(payload)}`);
 }
 
 interface McpSession {
   server: McpServer;
   transport: StreamableHTTPServerTransport;
+  client: ApiClient;
   path: string;
   apiKeyId?: string;
   orgId?: string;
@@ -401,6 +467,55 @@ export function createMcpHttpServer(
           registry.touch(sessionId);
           let apiKeyId = session.apiKeyId ?? "unknown";
           let orgId = session.orgId ?? "unknown";
+          const oauthEnabled = Boolean(options?.oauth);
+          const rpcMethod = getRpcMethod(body);
+          const token = parseBearerToken(req);
+          const malformedAuthorization = hasAuthorizationHeader(req) && !token;
+
+          if (malformedAuthorization) {
+            metrics.authFailure();
+            setOauthChallengeHeader(res, options?.oauth);
+            logAuthFailure(req, {
+              path: thisPath,
+              reason: "malformed_authorization_header",
+              status: 401,
+              rpcMethod,
+              sessionId,
+              sessionAnonymous: session.anonymous === true,
+            });
+            jsonError(res, 401, "Malformed Authorization header. Expected 'Bearer <token>'.");
+            return;
+          }
+
+          if (options?.authenticate && token && token !== session.apiKeyId) {
+            try {
+              const refreshedContext = await options.authenticate(req, thisPath);
+              if (refreshedContext && !refreshedContext.anonymous) {
+                session.client.setCredentials(refreshedContext.apiKeyId, refreshedContext.apiKeyId);
+                session.apiKeyId = refreshedContext.apiKeyId;
+                session.orgId = refreshedContext.orgId;
+                session.anonymous = false;
+                registry.rebind(sessionId, refreshedContext.apiKeyId, refreshedContext.orgId);
+                apiKeyId = refreshedContext.apiKeyId;
+                orgId = refreshedContext.orgId;
+              }
+            } catch (err) {
+              const authErr = err as McpAuthError;
+              metrics.authFailure();
+              const status = authErr.status || 401;
+              if (status === 401) setOauthChallengeHeader(res, options?.oauth);
+              logAuthFailure(req, {
+                path: thisPath,
+                reason: "session_reauth_failed",
+                status,
+                rpcMethod,
+                sessionId,
+                sessionAnonymous: session.anonymous === true,
+              });
+              jsonError(res, status, authErr.message || "Authentication failed");
+              return;
+            }
+          }
 
           // An anonymous session may look, not touch. Refuse anything outside
           // the introspection allowlist with the same 401 + WWW-Authenticate a
@@ -408,10 +523,8 @@ export function createMcpHttpServer(
           // that wanted to call a tool still learns exactly where to
           // authenticate.
           if (session.anonymous) {
-            const oauthEnabled = Boolean(options?.oauth);
-            const method = (body as { method?: unknown } | null)?.method;
             const methodAllowedWithoutAuth =
-              !oauthEnabled && typeof method === "string" && ANONYMOUS_METHODS.has(method);
+              !oauthEnabled && ANONYMOUS_METHODS.has(rpcMethod);
 
             if (!methodAllowedWithoutAuth) {
               // Some clients initialize anonymously to discover tools, then
@@ -423,6 +536,7 @@ export function createMcpHttpServer(
                   const maybeUpgradedContext = await options.authenticate(req, thisPath);
                   if (maybeUpgradedContext && !maybeUpgradedContext.anonymous) {
                     const upgradedContext = maybeUpgradedContext;
+                    session.client.setCredentials(upgradedContext.apiKeyId, upgradedContext.apiKeyId);
                     session.apiKeyId = upgradedContext.apiKeyId;
                     session.orgId = upgradedContext.orgId;
                     session.anonymous = false;
@@ -435,6 +549,14 @@ export function createMcpHttpServer(
                   metrics.authFailure();
                   const status = authErr.status || 401;
                   if (status === 401) setOauthChallengeHeader(res, options?.oauth);
+                  logAuthFailure(req, {
+                    path: thisPath,
+                    reason: "anonymous_session_upgrade_failed",
+                    status,
+                    rpcMethod,
+                    sessionId,
+                    sessionAnonymous: true,
+                  });
                   jsonError(res, status, authErr.message || "Authentication failed");
                   return;
                 }
@@ -443,6 +565,14 @@ export function createMcpHttpServer(
               if (session.anonymous) {
                 metrics.authFailure();
                 setOauthChallengeHeader(res, options?.oauth);
+                logAuthFailure(req, {
+                  path: thisPath,
+                  reason: "anonymous_session_forbidden_method",
+                  status: 401,
+                  rpcMethod,
+                  sessionId,
+                  sessionAnonymous: true,
+                });
                 jsonError(res, 401, "Authentication required for this method. Anonymous sessions may only introspect.");
                 return;
               }
@@ -487,6 +617,18 @@ export function createMcpHttpServer(
       }
 
       if (!isInitializeRequest(body)) {
+        if (options?.oauth) {
+          metrics.authFailure();
+          setOauthChallengeHeader(res, options?.oauth);
+          logAuthFailure(req, {
+            path: thisPath,
+            reason: "non_initialize_request_without_session",
+            status: 401,
+            rpcMethod: getRpcMethod(body),
+          });
+          jsonError(res, 401, "Authentication required");
+          return;
+        }
         jsonError(res, 400, "First request must be an MCP initialize request");
         return;
       }
@@ -500,6 +642,12 @@ export function createMcpHttpServer(
           metrics.authFailure();
           const status = authErr.status || 401;
           if (status === 401) setOauthChallengeHeader(res, options?.oauth);
+          logAuthFailure(req, {
+            path: thisPath,
+            reason: "initialize_auth_failed",
+            status,
+            rpcMethod: getRpcMethod(body),
+          });
           jsonError(res, status, authErr.message || "Authentication failed");
           return;
         }
@@ -514,6 +662,13 @@ export function createMcpHttpServer(
         // session exists.
         metrics.authFailure();
         setOauthChallengeHeader(res, options?.oauth);
+        logAuthFailure(req, {
+          path: thisPath,
+          reason: "oauth_requires_authenticated_initialize",
+          status: 401,
+          rpcMethod: getRpcMethod(body),
+          sessionAnonymous: true,
+        });
         jsonError(res, 401, "Authentication required");
         return;
       }
@@ -542,7 +697,7 @@ export function createMcpHttpServer(
       const transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: () => randomUUID(),
         onsessioninitialized: (sid: string) => {
-          sessions.set(sid, { server: mcpServer, transport, path: thisPath, apiKeyId, orgId, anonymous: authContext.anonymous === true });
+          sessions.set(sid, { server: mcpServer, transport, client: authContext.client, path: thisPath, apiKeyId, orgId, anonymous: authContext.anonymous === true });
           registry.register(sid, apiKeyId, orgId);
           metrics.sessionCreated();
         },
