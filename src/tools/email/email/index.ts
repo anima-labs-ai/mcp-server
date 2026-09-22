@@ -74,17 +74,6 @@ function extractHeaderId(original: UnknownRecord): string | undefined {
 	return undefined;
 }
 
-function extractReferences(original: UnknownRecord): string[] {
-	const refs = extractStringArray(original.references);
-	const inReplyTo = original.inReplyTo;
-	if (typeof inReplyTo === "string") refs.push(inReplyTo);
-
-	const headerId = extractHeaderId(original);
-	if (headerId) refs.push(headerId);
-
-	return dedupeStrings(refs);
-}
-
 function stringifyValue(value: unknown): string {
 	if (typeof value === "string") return value;
 	if (value === null || value === undefined) return "";
@@ -162,7 +151,9 @@ const emailSendSchema = z.object({
 	references: z
 		.array(z.string())
 		.optional()
-		.describe("Optional list of message IDs to include in the References header."),
+		.describe(
+			"Optional References chain, oldest first: RFC 5322 Message-IDs (an email's `externalId`), not Anima message ids. Omit it on a reply: the chain is derived from `inReplyTo`.",
+		),
 	headers: z
 		.record(z.string())
 		.optional()
@@ -610,7 +601,12 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 				typeof original.subject === "string" ? original.subject : "No subject";
 			const subject = ensureReplySubject(subjectRaw);
 
-			const references = extractReferences(original);
+			// Threading is the API's job: given `inReplyTo`, POST /v1/email/send
+			// resolves the parent and derives In-Reply-To and References from what
+			// it stored (RFC 5322 section 3.6.4). This tool used to build the
+			// chain itself from the GET payload above, which has no `messageId`
+			// or top-level `references`, so on 2026-09-22 the parent's Anima id
+			// went out as `References: <cuid>`.
 			const inReplyTo = extractHeaderId(original);
 
 			const payload: {
@@ -621,7 +617,6 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 				bodyHtml?: string;
 				cc?: string[];
 				inReplyTo?: string;
-				references?: string[];
 				attachments?: unknown;
 			} = {
 				agentId: args.agentId,
@@ -632,7 +627,6 @@ export function registerEmailTools(options: ToolRegistrationOptions): void {
 
 			if (args.html) payload.bodyHtml = args.html;
 			if (inReplyTo) payload.inReplyTo = inReplyTo;
-			if (references.length > 0) payload.references = references;
 			if (args.attachments && args.attachments.length > 0) {
 				payload.attachments = args.attachments;
 			}

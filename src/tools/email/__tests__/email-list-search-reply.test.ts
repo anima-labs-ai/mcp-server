@@ -227,6 +227,50 @@ describe("email_reply (C7): agent-scoped keys can reply", () => {
 	});
 });
 
+describe("email_reply: threading is left to the API", () => {
+	// The shape GET /v1/email/{id} really returns (the API's mapMessageToOutput):
+	// the RFC Message-ID is `externalId`, the stored chain is
+	// `metadata.references`, and there is no `messageId` or top-level
+	// `references`. This one was itself a reply, so it has an In-Reply-To.
+	const API_EMAIL = {
+		id: "cmparent0000000000000000a",
+		agentId: "clxagent00000000000000000",
+		direction: "INBOUND",
+		fromAddress: "human@example.com",
+		toAddress: "agent@agents.useanima.sh",
+		subject: "Re: pricing",
+		threadId: "cmroot000000000000000000a",
+		inReplyTo: "earlier-1@mail.example.com",
+		externalId: "CAF-parent-1@mail.example.com",
+		metadata: {
+			references: ["root-1@agents.useanima.sh", "earlier-1@mail.example.com"],
+			inReplyTo: "earlier-1@mail.example.com",
+		},
+	};
+
+	test("sends inReplyTo and no References chain of its own", async () => {
+		// 2026-09-22: this tool built `references` from the payload above,
+		// reading `messageId`, which does not exist, so it fell back to the Anima
+		// id, and the reply went out as `References: <cmparent...>`. The API
+		// derives References from `inReplyTo` itself (the parent's stored chain
+		// plus its Message-ID, RFC 5322 section 3.6.4), from data this payload
+		// does not even carry at the top level. Any chain built here is worse.
+		const { handlers, calls } = buildHarness({ getResponses: [API_EMAIL] });
+		const result = await handlers.get("email_reply")?.({
+			agentId: "clxagent00000000000000000",
+			originalId: API_EMAIL.id,
+			text: "Unlimited inboxes and a dedicated number.",
+		});
+
+		expect(isError(result)).toBe(false);
+		const body = calls[1]?.body as Record<string, unknown>;
+		expect(calls[1]).toMatchObject({ method: "POST", path: "/v1/email/send" });
+		// The Anima id resolves the parent server-side; it never reaches a header.
+		expect(body.inReplyTo).toBe(API_EMAIL.id);
+		expect("references" in body).toBe(false);
+	});
+});
+
 describe("email_send (C7): contract headers exposed", () => {
 	test("custom headers pass through to POST /v1/email/send verbatim", async () => {
 		const { handlers, calls } = buildHarness();
